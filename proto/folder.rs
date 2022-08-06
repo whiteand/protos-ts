@@ -6,7 +6,17 @@ use std::{
 #[derive(Debug)]
 pub(crate) struct ProtoFolder {
     pub files: Vec<PathBuf>,
-    pub path: PathBuf,
+    path: PathBuf,
+}
+
+impl std::fmt::Display for ProtoFolder {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "{}", self.path.display())?;
+        for file in self.files.iter() {
+            writeln!(f, "- {}", file.display())?;
+        }
+        Ok(())
+    }
 }
 
 /// Recursively goes through the folder and collects all .proto files
