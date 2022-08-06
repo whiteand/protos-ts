@@ -132,7 +132,12 @@ pub(super) fn read_lexems<'file_path>(
             located_lexems.push(located_lexem);
             continue;
         }
-        todo!("Handle char:\n{:?}\n", located_char)
+        return Err(ProtoError::UnknownCharacter {
+            file_path: position.file_path.to_string(),
+            line: position.line,
+            column: position.column,
+            char: char,
+        });
     }
 
     Ok(located_lexems)
