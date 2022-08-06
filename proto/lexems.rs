@@ -1,4 +1,4 @@
-use std::{fmt::Display, thread::current};
+use std::fmt::Display;
 
 use super::error::ProtoError;
 

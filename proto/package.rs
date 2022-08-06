@@ -16,22 +16,29 @@ pub(crate) fn read_packages(files: &[PathBuf]) -> Result<Vec<Package>, ProtoErro
 }
 
 fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {
-    let mut content = String::new();
+    let content = read_file_content(file_path)?;
 
-    // read file content
-    let mut file = std::fs::File::open(file_path).map_err(ProtoError::CannotOpenFile)?;
-
-    file.read_to_string(&mut content)
-        .map_err(ProtoError::CannotReadFile)?;
-
-    let cur_dir = std::env::current_dir().unwrap();
-    let relative_file_path = relative_file_path(&cur_dir, file_path);
+    let relative_file_path = get_relative_path(file_path);
 
     let lexems = lexems::read_lexems(&*relative_file_path, content.as_str())?;
     for lexem in lexems {
         println!("{:?}", lexem.lexem);
     }
     todo!("Add parsing of lexems into syntax tree")
+}
+
+fn get_relative_path(file_path: &PathBuf) -> String {
+    let cur_dir = std::env::current_dir().unwrap();
+    let relative_file_path = relative_file_path(&cur_dir, file_path);
+    relative_file_path
+}
+
+fn read_file_content(file_path: &PathBuf) -> Result<String, ProtoError> {
+    let mut content = String::new();
+    let mut file = std::fs::File::open(file_path).map_err(ProtoError::CannotOpenFile)?;
+    file.read_to_string(&mut content)
+        .map_err(ProtoError::CannotReadFile)?;
+    Ok(content)
 }
 
 fn relative_file_path(cur_dir: &PathBuf, file_path: &PathBuf) -> String {
