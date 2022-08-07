@@ -114,7 +114,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         ));
                     }
                     _ => {
-                        print_state(stack, tasks, task);
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
                         return Err(syntax_error(
                             format!("Unexpected lexem {:?}", lexem),
                             located_lexem,
@@ -383,7 +383,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                             }
                             (a, b) => {
                                 println!("Invalid stack items for enum declaration finishing: {:?} and {:?}", a, b);
-                                print_state(stack, tasks, task);
+                                print_state(stack, tasks, task, &located_lexems[ind..]);
                                 todo!("Cannot handle separator {:?}", separator);
                             }
                         }
@@ -394,7 +394,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     _ => {
-                        print_state(stack, tasks, task);
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot handle separator {:?}", separator);
                     }
                 }
@@ -432,7 +432,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     _ => {
-                        print_state(stack, tasks, task);
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot parse enum entry")
                     }
                 }
@@ -502,7 +502,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     _ => {
-                        print_state(stack, tasks, task);
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot handle separator {:?}", separator);
                     }
                 }
@@ -518,7 +518,11 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     Lexem::Id(id) if id == "oneof" => {
-                        print_state(stack, tasks, task);
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
+                        todo!("Cannot handle start message entry {:?}", start)
+                    }
+                    Lexem::Id(id) if id == "enum" => {
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot handle start message entry {:?}", start)
                     }
                     Lexem::Id(_) => {
@@ -526,7 +530,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     _ => {
-                        print_state(stack, tasks, task);
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot handle start message entry {:?}", start)
                     }
                 }
@@ -594,7 +598,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     _ => {
-                        print_state(stack, tasks, task);
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot handle repeated field type")
                     }
                 }
@@ -659,7 +663,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
             }
 
             _ => {
-                print_state(stack, tasks, task);
+                print_state(stack, tasks, task, &located_lexems[ind..]);
                 todo!("Cannot solve task")
             }
         }
@@ -690,7 +694,12 @@ fn print_stack(stack: &[StackItem]) {
     );
 }
 
-fn print_state(mut stack: Vec<StackItem>, tasks: Vec<Task>, task: Task) {
+fn print_state(
+    mut stack: Vec<StackItem>,
+    tasks: Vec<Task>,
+    task: Task,
+    located_lexems: &[LocatedLexem],
+) {
     if stack.len() > 0 {
         println!("Stack:");
         while let Some(item) = stack.pop() {
@@ -711,6 +720,30 @@ fn print_state(mut stack: Vec<StackItem>, tasks: Vec<Task>, task: Task) {
     } else {
         println!("Tasks: empty");
     }
+
+    if located_lexems.is_empty() {
+        return;
+    }
+    println!("Next lexems:");
+    for i in 0..located_lexems.len().min(10) {
+        if i > 0 {
+            let prev = &located_lexems[i - 1].lexem;
+            match prev {
+                Lexem::CloseCurly | Lexem::SemiColon | Lexem::OpenCurly => {
+                    print!("\n")
+                }
+
+                _ => match &located_lexems[i].lexem {
+                    Lexem::SemiColon => {}
+                    _ => {
+                        print!(" ")
+                    }
+                },
+            }
+        }
+        print!("{}", located_lexems[i].lexem);
+    }
+    println!("\n")
 }
 
 fn assert_enough_length<M>(
