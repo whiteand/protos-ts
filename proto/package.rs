@@ -1,10 +1,31 @@
-use super::error::ProtoError;
-use super::lexems;
-
+use super::{error::ProtoError, lexems, syntax};
 use std::{io::Read, path::PathBuf};
 
 #[derive(Debug)]
-pub(crate) struct Package {}
+pub(crate) enum ProtoVersion {
+    Proto2,
+    Proto3,
+}
+
+#[derive(Debug)]
+pub(crate) enum Statement {}
+
+pub(crate) struct Package {
+    pub(crate) version: ProtoVersion,
+    pub(crate) statements: Vec<Statement>,
+}
+
+impl std::fmt::Debug for Package {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "version: {:?}", self.version)?;
+        writeln!(f, "statements:")?;
+        for stmt in self.statements.iter() {
+            writeln!(f, "  {:?}", stmt)?;
+        }
+        Ok(())
+    }
+}
+
 
 pub(crate) fn read_packages(files: &[PathBuf]) -> Result<Vec<Package>, ProtoError> {
     let mut packages: Vec<Package> = Vec::new();
@@ -21,9 +42,8 @@ fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {
     let relative_file_path = get_relative_path(file_path);
 
     let lexems = lexems::read_lexems(&*relative_file_path, content.as_str())?;
-    for lexem in lexems {
-        println!("{:?}", lexem.lexem);
-    }
+    let package = syntax::parse_package(&lexems);
+    println!("{:?}", package);
     todo!("Add parsing of lexems into syntax tree")
 }
 

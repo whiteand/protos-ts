@@ -4,6 +4,8 @@ use std::{
     io,
 };
 
+use super::lexems;
+
 #[derive(Debug)]
 pub(crate) enum ProtoError {
     CannotOpenFile(io::Error),
@@ -13,6 +15,12 @@ pub(crate) enum ProtoError {
         line: usize,
         column: usize,
         char: char,
+    },
+    SyntaxError {
+        file_path: String,
+        line: usize,
+        column: usize,
+        message: String,
     },
 }
 
@@ -39,3 +47,15 @@ impl Display for ProtoError {
 }
 
 impl Error for ProtoError {}
+
+pub(super) fn syntax_error<T: Into<String>>(
+    message: T,
+    lexem: &lexems::LocatedLexem,
+) -> ProtoError {
+    ProtoError::SyntaxError {
+        file_path: lexem.range.start.file_path.to_string(),
+        line: lexem.range.start.line,
+        column: lexem.range.start.column,
+        message: message.into(),
+    }
+}

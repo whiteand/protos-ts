@@ -4,21 +4,22 @@ use super::error::ProtoError;
 
 #[derive(Debug, Clone)]
 pub(super) enum Lexem {
-    Id(Box<str>),
+    Id(String),
     Equal,
-    StringLiteral(Box<str>),
+    StringLiteral(String),
     SemiColon,
     Dot,
     OpenCurly,
     CloseCurly,
     OpenBracket,
     CloseBracket,
+    EOF,
 }
 
 pub(super) struct Position<'file_path> {
-    file_path: &'file_path str,
-    line: usize,
-    column: usize,
+    pub(super) file_path: &'file_path str,
+    pub(super) line: usize,
+    pub(super) column: usize,
 }
 
 impl Clone for Position<'_> {
@@ -52,8 +53,8 @@ impl std::fmt::Debug for LocatedChar<'_> {
 
 #[derive(Debug)]
 pub(super) struct SourceRange<'file_path> {
-    start: Position<'file_path>,
-    end: Position<'file_path>,
+    pub(super) start: Position<'file_path>,
+    pub(super) end: Position<'file_path>,
 }
 
 impl Display for SourceRange<'_> {
@@ -139,6 +140,14 @@ pub(super) fn read_lexems<'file_path>(
             char: char,
         });
     }
+    let last_char_position = located_chars[located_chars.len() - 1].position;
+    located_lexems.push(LocatedLexem {
+        lexem: Lexem::EOF,
+        range: SourceRange {
+            start: last_char_position,
+            end: last_char_position,
+        },
+    });
 
     Ok(located_lexems)
 }
@@ -165,7 +174,7 @@ fn try_read_id<'file_path>(
     if identifier.len() <= 0 {
         unreachable!()
     }
-    let lexem = Lexem::Id(identifier.into_boxed_str());
+    let lexem = Lexem::Id(identifier);
     let range = SourceRange { start, end };
     let located_lexem: LocatedLexem<'file_path> = LocatedLexem { lexem, range };
     Ok(located_lexem)
@@ -178,6 +187,7 @@ fn try_read_string_literal<'file_path>(
     let mut last_char = located_chars[*located_char_index].char;
     let start = located_chars[*located_char_index].position;
     let mut end = start;
+    *located_char_index += 1;
     loop {
         if *located_char_index >= located_chars.len() {
             break;
@@ -193,7 +203,7 @@ fn try_read_string_literal<'file_path>(
         string_literal.push(char);
         last_char = char;
     }
-    let lexem = Lexem::StringLiteral(string_literal.into_boxed_str());
+    let lexem = Lexem::StringLiteral(string_literal);
     let range = SourceRange { start, end };
     let located_lexem: LocatedLexem<'file_path> = LocatedLexem { lexem, range };
     Ok(located_lexem)
