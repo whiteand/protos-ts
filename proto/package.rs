@@ -96,8 +96,8 @@ impl std::fmt::Display for FieldDeclaration {
 
 #[derive(Debug, Clone)]
 pub(crate) struct OneOfDeclaration {
-    name: String,
-    options: Vec<FieldDeclaration>,
+    pub name: String,
+    pub options: Vec<FieldDeclaration>,
 }
 
 impl std::fmt::Display for OneOfDeclaration {

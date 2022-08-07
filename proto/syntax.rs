@@ -5,7 +5,7 @@ use super::{
     lexems::{Lexem, LocatedLexem},
     package::{
         Declaration, EnumDeclaration, EnumEntry, FieldType, MessageDeclaration, MessageEntry,
-        Package,
+        OneOfDeclaration, Package,
     },
 };
 
@@ -45,6 +45,9 @@ enum Task {
     WrapFieldType,
     /// [FieldType, FieldType] => Map<FieldType, FieldType>
     WrapMapType,
+    /// Input: Vec<MessageEntries> String
+    /// Output: OneOfDeclaration
+    PushOneOf,
     /// Parses identifier and places it into stack
     ParseId,
 }
@@ -62,6 +65,7 @@ enum StackItem {
     Message(MessageDeclaration),
     OptionalAttributes(Option<Vec<(String, String)>>),
     Enum(EnumDeclaration),
+    OneOf(OneOfDeclaration),
 }
 
 pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, ProtoError> {
@@ -120,6 +124,10 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                             format!("Unexpected identifier: {}", id),
                             located_lexem,
                         ));
+                    }
+                    Lexem::SemiColon => {
+                        ind+=1;
+                        continue;
                     }
                     _ => {
                         print_state(stack, tasks, task, &located_lexems[ind..]);
@@ -271,9 +279,9 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         println!("invalid item = {:?}", invalid_item);
                         println!("value = {:?}", value);
                         println!("location = {:?}", located_lexems[ind].range.start);
-                        print_state(stack, tasks, task, &located_lexems[ind-1..]);
+                        print_state(stack, tasks, task, &located_lexems[ind - 1..]);
                         unreachable!();
-                    },
+                    }
                 };
                 let optional_list_item = stack.pop().unwrap();
                 let mut optional_list = match optional_list_item {
@@ -467,6 +475,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
             }
             ParseMessageStatement => {
                 tasks.push(PushMessageStatement);
+                tasks.push(ExpectLexem(Lexem::CloseCurly));
                 tasks.push(ParseMessageEntries);
                 tasks.push(Push(StackItem::MessageEntriesList(Vec::new())));
                 tasks.push(ExpectLexem(Lexem::OpenCurly));
@@ -500,6 +509,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         MessageEntry::Message(message_declaration)
                     }
                     Some(StackItem::Enum(enum_declaration)) => MessageEntry::Enum(enum_declaration),
+                    Some(StackItem::OneOf(decl)) => MessageEntry::OneOf(decl),
                     _ => unreachable!(),
                 };
                 stack.push(StackItem::MessageEntry(entry));
@@ -528,7 +538,6 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     Lexem::CloseCurly => {
-                        ind += 1;
                         continue;
                     }
                     _ => {
@@ -554,8 +563,16 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     Lexem::Id(id) if id == "oneof" => {
-                        print_state(stack, tasks, task, &located_lexems[ind..]);
-                        todo!("Cannot handle start message entry {:?}", start)
+                        tasks.push(PushMessageEntry);
+                        tasks.push(WrapMessageEntry);
+                        tasks.push(PushOneOf);
+                        tasks.push(ExpectLexem(Lexem::CloseCurly));
+                        tasks.push(ParseMessageEntries);
+                        tasks.push(ExpectLexem(Lexem::OpenCurly));
+                        tasks.push(Push(StackItem::MessageEntriesList(Vec::new())));
+                        tasks.push(ParseId);
+                        tasks.push(ExpectLexem(Lexem::Id("oneof".into())));
+                        continue;
                     }
                     Lexem::Id(id) if id == "enum" => {
                         print_state(stack, tasks, task, &located_lexems[ind..]);
@@ -570,6 +587,37 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         todo!("Cannot handle start message entry {:?}", start)
                     }
                 }
+            }
+            PushOneOf => {
+                let message_entries = match stack.pop() {
+                    Some(StackItem::MessageEntriesList(entries)) => entries,
+                    _ => unreachable!(),
+                };
+                let one_of_name = match stack.pop() {
+                    Some(StackItem::String(name)) => name,
+                    _ => unreachable!(),
+                };
+                if message_entries.iter().any(|entry| match entry {
+                    MessageEntry::Field(_) => false,
+                    _ => true,
+                }) {
+                    return Err(syntax_error(
+                        "oneof can contain only field declarations",
+                        &located_lexems[ind],
+                    ));
+                }
+                let one_of_declaration = OneOfDeclaration {
+                    name: one_of_name,
+                    options: message_entries
+                        .iter()
+                        .filter_map(|entry| match entry {
+                            MessageEntry::Field(field_decl) => Some(field_decl.to_owned()),
+                            _ => None,
+                        })
+                        .collect::<Vec<FieldDeclaration>>(),
+                };
+                stack.push(StackItem::OneOf(one_of_declaration));
+                continue;
             }
             ParseFieldType => {
                 let start_loc = &located_lexems[ind];
@@ -734,6 +782,7 @@ fn print_stack(stack: &[StackItem]) {
                 StackItem::Message(_) => "message",
                 StackItem::OptionalAttributes(_) => "attributes[]?",
                 StackItem::Enum(_) => "enum",
+                StackItem::OneOf(_) => "oneof",
             })
             .collect::<Vec<_>>()
             .join("\n")
@@ -748,9 +797,11 @@ fn print_state(
 ) {
     if stack.len() > 0 {
         println!("Stack:");
-        while let Some(item) = stack.pop() {
+        for item in stack.iter().rev() {
             println!("{:#?}", item);
         }
+        println!();
+        print_stack(&stack);
         println!();
     } else {
         println!("Stack: empty");
