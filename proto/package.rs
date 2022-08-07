@@ -1,9 +1,5 @@
 use super::{error::ProtoError, lexems, syntax};
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    io::Read,
-    path::PathBuf,
-};
+use std::{collections::HashMap, io::Read, path::PathBuf};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ProtoVersion {

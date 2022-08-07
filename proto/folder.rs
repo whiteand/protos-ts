@@ -20,9 +20,9 @@ impl std::fmt::Display for ProtoFolder {
 }
 
 /// Recursively goes through the folder and collects all .proto files
-pub(crate) fn read_proto_folder(folder_path: &Path) -> io::Result<ProtoFolder> {
-    let folder_path_buf = folder_path.into();
-    let mut folders: Vec<PathBuf> = vec![folder_path.into()];
+pub(crate) fn read_proto_folder(folder_path: Box<Path>) -> io::Result<ProtoFolder> {
+    let folder_path_buf: PathBuf = folder_path.into();
+    let mut folders: Vec<PathBuf> = vec![folder_path_buf.clone()];
     let mut all_proto_file_paths: Vec<PathBuf> = vec![];
     while let Some(folder) = folders.pop() {
         for entry in folder.read_dir()? {
