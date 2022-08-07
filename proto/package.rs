@@ -219,14 +219,17 @@ fn merge_packages(packages: Vec<Package>) -> HashMap<Vec<String>, Package> {
         }
     }
 
-    // Making sure that order of all things is unchanging
-    // Removing all duplicates of imports
-    for package in package_map.iter_mut().map(|(_, p)| p) {
+    for (_, package) in &mut package_map {
+        // We need to keep specific order
+        // it will make builds stable and more repeatable
         package.declarations.sort_by(|a, b| match (a, b) {
             (Declaration::Enum(a), Declaration::Enum(b)) => a.name.cmp(&b.name),
             (Declaration::Message(a), Declaration::Message(b)) => a.name.cmp(&b.name),
             _ => std::cmp::Ordering::Equal,
         });
+
+        // Removing duplicates of imports
+        // also sorting helps make builds more stable and repeatable.
         package.imports.sort_by(|a, b| a.cmp(&b));
         package.imports.dedup();
     }
