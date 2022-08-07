@@ -13,6 +13,7 @@ pub(crate) enum Statement {}
 pub(crate) struct Package {
     pub(crate) version: ProtoVersion,
     pub(crate) statements: Vec<Statement>,
+    pub(crate) imports: Vec<String>,
 }
 
 impl std::fmt::Debug for Package {
