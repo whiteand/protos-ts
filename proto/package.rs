@@ -14,6 +14,7 @@ pub(crate) struct Package {
     pub(crate) version: ProtoVersion,
     pub(crate) statements: Vec<Statement>,
     pub(crate) imports: Vec<String>,
+    pub(crate) path: Vec<String>,
 }
 
 impl std::fmt::Debug for Package {
@@ -43,7 +44,7 @@ fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {
     let relative_file_path = get_relative_path(file_path);
 
     let lexems = lexems::read_lexems(&*relative_file_path, content.as_str())?;
-    let package = syntax::parse_package(&lexems);
+    let package = syntax::parse_package(&lexems)?;
     println!("{:?}", package);
     todo!("Add parsing of lexems into syntax tree")
 }

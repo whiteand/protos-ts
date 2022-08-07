@@ -21,6 +21,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
         version: super::package::ProtoVersion::Proto2,
         statements: vec![],
         imports: vec![],
+        path: vec![],
     };
     while let Some(task) = tasks.pop() {
         println!("{:?}", task);
@@ -130,6 +131,60 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         ));
                     }
                 }
+            }
+            ParsePackageStatement => {
+                if ind + 2 >= located_lexems.len() {
+                    return Err(syntax_error(
+                        "Not enough lexems for package statement",
+                        &located_lexems[ind],
+                    ));
+                }
+                let package = &located_lexems[ind].lexem;
+                match package {
+                    Lexem::Id(id) if id == "package" => {}
+                    _ => {
+                        return Err(syntax_error(
+                            "Invalid package statement",
+                            &located_lexems[ind],
+                        ));
+                    }
+                }
+                ind += 1;
+                res.path = Vec::new();
+                'listLoop: loop {
+                    let id_loc_lexem = &located_lexems[ind];
+                    ind+=1;
+                    let id = &id_loc_lexem.lexem;
+                    match id {
+                        Lexem::Id(id) => {
+                            res.path.push(id.clone());
+                        },
+                        _ => {
+                            return Err(syntax_error(
+                                "Expected identifier",
+                                id_loc_lexem,
+                            ));
+                        }
+                    }
+                    let punct_loc_lexem = &located_lexems[ind];
+                    ind+=1;
+                    let punct = &punct_loc_lexem.lexem;
+                    match punct {
+                        Lexem::Dot => {
+                            continue 'listLoop;
+                        }
+                        Lexem::SemiColon => {
+                            break 'listLoop;
+                        }
+                        _ => {
+                            return Err(syntax_error(
+                                "Expected dot or semicolon",
+                                punct_loc_lexem,
+                            ));
+                        }
+                    }
+                }
+                continue;
             }
             _ => {
                 todo!("Cannot solve task {:?}", task)
