@@ -13,8 +13,11 @@ fn main() -> io::Result<()> {
         proto_folder_path,
         out_folder_path,
     } = get_proto_folder_path()?;
+
     let proto_folder = read_proto_folder(proto_folder_path)?;
+
     let packages = read_packages(&proto_folder.files)?;
+
     compile(&packages, out_folder_path)?;
 
     Ok(())
