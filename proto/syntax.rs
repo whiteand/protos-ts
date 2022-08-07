@@ -43,6 +43,8 @@ enum Task {
     PushMessageStatement,
     ParseIdPath,
     WrapFieldType,
+    /// [FieldType, FieldType] => Map<FieldType, FieldType>
+    WrapMapType,
     /// Parses identifier and places it into stack
     ParseId,
 }
@@ -135,6 +137,19 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                     _ => unreachable!(),
                 };
                 res.declarations.push(declaration);
+                continue;
+            }
+            WrapMapType => {
+                let value_type = match stack.pop() {
+                    Some(StackItem::FieldType(field_type)) => field_type,
+                    _ => unreachable!(),
+                };
+                let key_type = match stack.pop() {
+                    Some(StackItem::FieldType(field_type)) => field_type,
+                    _ => unreachable!(),
+                };
+                let map_type = FieldType::Map(Box::new(key_type), Box::new(value_type));
+                stack.push(StackItem::FieldType(map_type));
                 continue;
             }
             ParseSyntaxStatement => {
@@ -567,7 +582,14 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     if id == "map" {
-                        todo!("Implemented parsing of map types")
+                        tasks.push(WrapMapType);
+                        tasks.push(ExpectLexem(Lexem::Greater));
+                        tasks.push(ParseFieldType);
+                        tasks.push(ExpectLexem(Lexem::Comma));
+                        tasks.push(ParseFieldType);
+                        tasks.push(ExpectLexem(Lexem::Less));
+                        tasks.push(ExpectLexem(Lexem::Id("map".into())));
+                        continue;
                     }
                     tasks.push(WrapFieldType);
                     tasks.push(ParseIdPath);

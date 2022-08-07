@@ -51,6 +51,7 @@ impl std::fmt::Display for EnumDeclaration {
 pub(crate) enum FieldType {
     IdPath(Vec<String>),
     Repeated(Box<FieldType>),
+    Map(Box<FieldType>, Box<FieldType>),
 }
 
 impl std::fmt::Display for FieldType {
@@ -61,6 +62,9 @@ impl std::fmt::Display for FieldType {
             }
             FieldType::Repeated(field_type) => {
                 write!(f, "repeated {}", field_type)
+            }
+            FieldType::Map(key_type, value_type) => {
+                write!(f, "map<{}, {}>", key_type, value_type)
             }
         }
     }
