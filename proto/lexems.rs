@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use super::error::ProtoError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Lexem {
     Id(String),
     Equal,
@@ -16,12 +16,30 @@ pub(super) enum Lexem {
     CloseBracket,
     EOF,
 }
+impl Display for Lexem {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Lexem::Id(s) => write!(f, "{}", s),
+            Lexem::Equal => write!(f, "="),
+            Lexem::StringLiteral(s) => write!(f, "\"{}\"", s),
+            Lexem::SemiColon => write!(f, ";"),
+            Lexem::Dot => write!(f, "."),
+            Lexem::IntLiteral(i) => write!(f, "{}", i),
+            Lexem::OpenCurly => write!(f, "{{"),
+            Lexem::CloseCurly => write!(f, "}}"),
+            Lexem::OpenBracket => write!(f, "["),
+            Lexem::CloseBracket => write!(f, "]"),
+            Lexem::EOF => write!(f, "EOF"),
+        }
+    }
+}
 
 pub(super) struct Position<'file_path> {
     pub(super) file_path: &'file_path str,
     pub(super) line: usize,
     pub(super) column: usize,
 }
+
 
 impl Clone for Position<'_> {
     fn clone(&self) -> Self {

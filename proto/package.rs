@@ -1,16 +1,31 @@
 use super::{error::ProtoError, lexems, syntax};
 use std::{io::Read, path::PathBuf};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum ProtoVersion {
     Proto2,
     Proto3,
 }
 
-#[derive(Debug)]
+impl std::fmt::Display for ProtoVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ProtoVersion::Proto2 => write!(f, "proto2"),
+            ProtoVersion::Proto3 => write!(f, "proto3"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct EnumEntry {
     pub name: String,
     pub value: i64,
+}
+
+impl std::fmt::Display for EnumEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} = {}", self.name, self.value)
+    }
 }
 
 #[derive(Debug)]
@@ -18,12 +33,113 @@ pub(crate) struct EnumDeclaration {
     pub name: String,
     pub entries: Vec<EnumEntry>,
 }
+impl std::fmt::Display for EnumDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "enum {} {{\n", self.name)?;
+        for entry in &self.entries {
+            let entry_str = format!("{};", entry);
+            let lines = entry_str.lines();
+            for line in lines {
+                write!(f, "  {}\n", line)?;
+            }
+        }
+        write!(f, "}}\n")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum FieldType {
+    IdPath(Vec<String>),
+    Repeated(Box<FieldType>),
+}
+
+impl std::fmt::Display for FieldType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            FieldType::IdPath(path) => {
+                write!(f, "{}", path.join("."))
+            }
+            FieldType::Repeated(field_type) => {
+                write!(f, "repeated {}", field_type)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct FieldDeclaration {
+    pub name: String,
+    pub field_type: FieldType,
+    pub tag: i64,
+    pub attributes: Vec<(String, String)>,
+}
+impl std::fmt::Display for FieldDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} {} = {}", self.field_type, self.name, self.tag)?;
+        if !self.attributes.is_empty() {
+            write!(f, " [")?;
+            for (i, (name, value)) in self.attributes.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{} = \"{}\"", name, value)?;
+            }
+            write!(f, "]")?;
+        };
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum MessageEntry {
+    Field(FieldDeclaration),
+    Message(MessageDeclaration),
+}
+impl std::fmt::Display for MessageEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            MessageEntry::Field(field) => write!(f, "{};", field),
+            MessageEntry::Message(message) => write!(f, "\n{}", message),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct MessageDeclaration {
+    pub name: String,
+    pub entries: Vec<MessageEntry>,
+}
+
+impl std::fmt::Display for MessageDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "message {} {{\n", self.name)?;
+        for entry in &self.entries {
+            let entry_str = format!("{}", entry);
+            let lines = entry_str.lines();
+            for line in lines {
+                write!(f, "  {}\n", line)?;
+            }
+        }
+        write!(f, "}}\n")
+    }
+}
 
 #[derive(Debug)]
 pub(crate) enum Declaration {
     Enum(EnumDeclaration),
+    Message(MessageDeclaration),
 }
 
+impl std::fmt::Display for Declaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Declaration::Enum(e) => write!(f, "{}", e),
+            Declaration::Message(m) => write!(f, "{}", m),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct Package {
     pub version: ProtoVersion,
     pub declarations: Vec<Declaration>,
@@ -31,37 +147,26 @@ pub(crate) struct Package {
     pub path: Vec<String>,
 }
 
-impl std::fmt::Debug for Package {
+impl std::fmt::Display for Package {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "version: {:?}", self.version)?;
-        if self.path.len() > 0 {
-            write!(f, "path: ")?;
-            writeln!(f, "{}", self.path.join("."))?;
+        write!(f, "syntax = \"{}\";\n", self.version)?;
+
+        if !self.imports.is_empty() {
+            writeln!(f)?;
+            for imprt in &self.imports {
+                write!(f, "import \"{}\";\n", imprt)?;
+            }
         }
-        if self.imports.len() > 0 {
-            writeln!(f, "imports:")?;
-            writeln!(
-                f,
-                "{}",
-                self.imports
-                    .iter()
-                    .map(|imp| format!("  {}", imp))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )?;
+
+        if !self.path.is_empty() {
+            write!(f, "\npackage {};\n", self.path.join("."))?;
         }
-        if self.declarations.len() > 0 {
-            writeln!(f, "declarations:")?;
-            writeln!(
-                f,
-                "{}",
-                self.declarations
-                    .iter()
-                    .map(|decl| format!("  {:?}", decl))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )?;
+
+        for decl in &self.declarations {
+            writeln!(f)?;
+            writeln!(f, "{}", decl)?;
         }
+
         Ok(())
     }
 }
@@ -82,8 +187,7 @@ fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {
 
     let lexems = lexems::read_lexems(&*relative_file_path, content.as_str())?;
     let package = syntax::parse_package(&lexems)?;
-    println!("{:?}", package);
-    todo!("Add parsing of lexems into syntax tree")
+    Ok(package)
 }
 
 fn get_relative_path(file_path: &PathBuf) -> String {

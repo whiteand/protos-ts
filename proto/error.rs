@@ -91,6 +91,6 @@ pub(super) fn syntax_error<T: Into<String>>(
         file_path: lexem.range.start.file_path.to_string(),
         line: lexem.range.start.line,
         column: lexem.range.start.column,
-        message: message.into(),
+        message: format!("{}, but {} occurred", message.into(), lexem.lexem).into(),
     }
 }

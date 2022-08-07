@@ -7,7 +7,7 @@ fn main() -> io::Result<()> {
     let proto_folder = proto::folder::read_proto_folder(&*absolute_folder_path)?;
     let packages = proto::package::read_packages(&proto_folder.files)?;
     for package in packages {
-        println!("{:?}", package);
+        println!("{}", package);
     }
     Ok(())
 }
