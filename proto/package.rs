@@ -95,10 +95,27 @@ impl std::fmt::Display for FieldDeclaration {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct OneOfDeclaration {
+    name: String,
+    options: Vec<FieldDeclaration>,
+}
+
+impl std::fmt::Display for OneOfDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oneof {} {{\n", self.name)?;
+        for option in &self.options {
+            write!(f, "  {};\n", option)?;
+        }
+        write!(f, "}}\n")
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) enum MessageEntry {
     Field(FieldDeclaration),
     Message(MessageDeclaration),
     Enum(EnumDeclaration),
+    OneOf(OneOfDeclaration),
 }
 impl std::fmt::Display for MessageEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -106,6 +123,7 @@ impl std::fmt::Display for MessageEntry {
             MessageEntry::Field(field) => write!(f, "{};", field),
             MessageEntry::Message(message) => write!(f, "\n{}", message),
             MessageEntry::Enum(enum_decl) => write!(f, "\n{}", enum_decl),
+            MessageEntry::OneOf(one_of_decl) => write!(f, "\n{}", one_of_decl),
         }
     }
 }

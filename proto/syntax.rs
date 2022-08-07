@@ -789,7 +789,8 @@ fn print_state(
         }
         print!("{}", located_lexems[i].lexem);
     }
-    println!("\n")
+    println!("\n");
+    println!("source: {:?}\n", located_lexems[0].range.start);
 }
 
 fn assert_enough_length<M>(
