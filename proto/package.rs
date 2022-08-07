@@ -8,26 +8,63 @@ pub(crate) enum ProtoVersion {
 }
 
 #[derive(Debug)]
-pub(crate) enum Statement {}
+pub(crate) struct EnumEntry {
+    pub name: String,
+    pub value: i64,
+}
+
+#[derive(Debug)]
+pub(crate) struct EnumDeclaration {
+    pub name: String,
+    pub values: Vec<EnumEntry>,
+}
+
+#[derive(Debug)]
+pub(crate) enum Declaration {
+    Enum(EnumDeclaration),
+}
 
 pub(crate) struct Package {
-    pub(crate) version: ProtoVersion,
-    pub(crate) statements: Vec<Statement>,
-    pub(crate) imports: Vec<String>,
-    pub(crate) path: Vec<String>,
+    pub version: ProtoVersion,
+    pub declarations: Vec<Declaration>,
+    pub imports: Vec<String>,
+    pub path: Vec<String>,
 }
 
 impl std::fmt::Debug for Package {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "version: {:?}", self.version)?;
-        writeln!(f, "statements:")?;
-        for stmt in self.statements.iter() {
-            writeln!(f, "  {:?}", stmt)?;
+        if self.path.len() > 0 {
+            write!(f, "path: ")?;
+            writeln!(f, "{}", self.path.join("."))?;
+        }
+        if self.imports.len() > 0 {
+            writeln!(f, "imports:")?;
+            writeln!(
+                f,
+                "{}",
+                self.imports
+                    .iter()
+                    .map(|imp| format!("  {}", imp))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )?;
+        }
+        if self.declarations.len() > 0 {
+            writeln!(f, "declarations:")?;
+            writeln!(
+                f,
+                "{}",
+                self.declarations
+                    .iter()
+                    .map(|decl| format!("  {:?}", decl))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )?;
         }
         Ok(())
     }
 }
-
 
 pub(crate) fn read_packages(files: &[PathBuf]) -> Result<Vec<Package>, ProtoError> {
     let mut packages: Vec<Package> = Vec::new();

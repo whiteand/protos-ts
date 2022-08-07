@@ -19,12 +19,11 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
     let mut tasks: Vec<Task> = vec![ParseStatements];
     let mut res = Package {
         version: super::package::ProtoVersion::Proto2,
-        statements: vec![],
+        declarations: vec![],
         imports: vec![],
         path: vec![],
     };
     while let Some(task) = tasks.pop() {
-        println!("{:?}", task);
         match task {
             ParseStatements => {
                 let located_lexem = &located_lexems[ind];
@@ -56,6 +55,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     Lexem::Id(id) => {
+                        println!("{:?}", res);
                         return Err(syntax_error(
                             format!("Unexpected identifier: {}", id),
                             located_lexem,

@@ -1,5 +1,5 @@
 use std::{
-    error::Error,
+    error::{self, Error},
     fmt::{Display, Formatter},
     io,
 };
@@ -39,6 +39,16 @@ impl Display for ProtoError {
                 "Unknown character at {}:{}:{}: {}",
                 file_path, line, column, char
             ),
+            ProtoError::SyntaxError {
+                file_path,
+                line,
+                column,
+                message,
+            } => write!(
+                f,
+                "{}:{}:{}: SyntaxError: {}",
+                file_path, line, column, message
+            ),
             _ => {
                 todo!();
             }
@@ -46,7 +56,11 @@ impl Display for ProtoError {
     }
 }
 
-impl Error for ProtoError {}
+impl From<ProtoError> for std::io::Error {
+    fn from(err: ProtoError) -> std::io::Error {
+        std::io::Error::new(std::io::ErrorKind::Other, format!("{}", err))
+    }
+}
 
 pub(super) fn syntax_error<T: Into<String>>(
     message: T,
