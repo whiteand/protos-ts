@@ -4,7 +4,7 @@ use std::{
     io,
 };
 
-use super::lexems;
+use super::lexems::{self, Position};
 
 #[derive(Debug)]
 pub(crate) enum ProtoError {
@@ -15,6 +15,13 @@ pub(crate) enum ProtoError {
         line: usize,
         column: usize,
         char: char,
+    },
+    InvalidIntLiteral {
+        literal: String,
+        file_path: String,
+        line: usize,
+        start_column: usize,
+        end_column: usize,
     },
     SyntaxError {
         file_path: String,
@@ -49,6 +56,20 @@ impl Display for ProtoError {
                 "{}:{}:{}: SyntaxError: {}",
                 file_path, line, column, message
             ),
+            ProtoError::InvalidIntLiteral {
+                file_path,
+                literal,
+                end_column,
+                line,
+                start_column,
+            } => {
+                write!(f, "Invalid integer literal: \"{}\"", literal)?;
+                write!(
+                    f,
+                    " at {}:{}:{} to {}",
+                    file_path, line, start_column, end_column
+                )
+            }
             _ => {
                 todo!();
             }

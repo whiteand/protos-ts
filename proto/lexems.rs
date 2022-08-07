@@ -9,6 +9,7 @@ pub(super) enum Lexem {
     StringLiteral(String),
     SemiColon,
     Dot,
+    IntLiteral(i64),
     OpenCurly,
     CloseCurly,
     OpenBracket,
@@ -92,6 +93,11 @@ pub(super) fn read_lexems<'file_path>(
             current_char_index += 1;
             continue;
         }
+        if char::is_digit(char, 10) || char == '-' {
+            let located_int_lexem = try_read_int(&located_chars, &mut current_char_index)?;
+            located_lexems.push(located_int_lexem);
+            continue;
+        }
         if is_id_char(char) {
             let located_id_lexem = try_read_id(&located_chars, &mut current_char_index)?;
             located_lexems.push(located_id_lexem);
@@ -156,7 +162,7 @@ fn try_read_id<'file_path>(
     located_chars: &[LocatedChar<'file_path>],
     located_char_index: &mut usize,
 ) -> Result<LocatedLexem<'file_path>, ProtoError> {
-    let mut identifier = String::new();
+    let mut int_str = String::new();
     let start = located_chars[*located_char_index].position;
     let mut end = start;
     loop {
@@ -167,17 +173,67 @@ fn try_read_id<'file_path>(
         if !is_id_char(char) {
             break;
         }
-        end = position.clone();
+        end = position;
         *located_char_index += 1;
-        identifier.push(char);
+        int_str.push(char);
     }
-    if identifier.len() <= 0 {
+    if int_str.len() <= 0 {
         unreachable!()
     }
-    let lexem = Lexem::Id(identifier);
+    let lexem = Lexem::Id(int_str);
     let range = SourceRange { start, end };
     let located_lexem: LocatedLexem<'file_path> = LocatedLexem { lexem, range };
     Ok(located_lexem)
+}
+fn try_read_int<'file_path>(
+    located_chars: &[LocatedChar<'file_path>],
+    located_char_index: &mut usize,
+) -> Result<LocatedLexem<'file_path>, ProtoError> {
+    let mut digits = String::new();
+    let start = located_chars[*located_char_index].position;
+    let mut end = start;
+    let mut minus_found = false;
+    loop {
+        if *located_char_index >= located_chars.len() {
+            break;
+        }
+        let LocatedChar { char, position } = located_chars[*located_char_index];
+        if char::is_digit(char, 10) {
+            end = position;
+            *located_char_index += 1;
+            digits.push(char);
+            continue
+        }
+        if !minus_found && char == '-' {
+            end = position;
+            *located_char_index += 1;
+            digits.push(char);
+            minus_found = true;
+            continue
+        }
+        break;
+    }
+    if digits.len() <= 0 {
+        unreachable!()
+    }
+    let num = i64::from_str_radix(&digits, 10);
+    match num {
+        Ok(value) => {
+            let lexem = Lexem::IntLiteral(value);
+            let range = SourceRange { start, end };
+            let located_lexem: LocatedLexem<'file_path> = LocatedLexem { lexem, range };
+            Ok(located_lexem)
+        }
+        Err(_) => {
+            return Err(ProtoError::InvalidIntLiteral {
+                literal: digits,
+                file_path: start.file_path.to_string(),
+                line: start.line,
+                start_column: start.column,
+                end_column: end.column,
+            })
+        }
+    }
 }
 fn try_read_string_literal<'file_path>(
     located_chars: &[LocatedChar<'file_path>],

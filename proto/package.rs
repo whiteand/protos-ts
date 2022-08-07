@@ -16,7 +16,7 @@ pub(crate) struct EnumEntry {
 #[derive(Debug)]
 pub(crate) struct EnumDeclaration {
     pub name: String,
-    pub values: Vec<EnumEntry>,
+    pub entries: Vec<EnumEntry>,
 }
 
 #[derive(Debug)]
