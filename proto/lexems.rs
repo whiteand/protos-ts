@@ -40,7 +40,6 @@ pub(super) struct Position<'file_path> {
     pub(super) column: usize,
 }
 
-
 impl Clone for Position<'_> {
     fn clone(&self) -> Self {
         Position {
@@ -126,18 +125,13 @@ pub(super) fn read_lexems<'file_path>(
             located_lexems.push(string_lexem);
             continue;
         }
-        current_char_index += 1;
-        if char == '=' {
-            located_lexems.push(LocatedLexem {
-                lexem: Lexem::Equal,
-                range: SourceRange {
-                    start: position,
-                    end: position,
-                },
-            });
+        if char == '/' {
+            try_read_comment(&located_chars, &mut current_char_index)?;
             continue;
         }
+        current_char_index += 1;
         let single_char_lexem = match char {
+            '=' => Some(Lexem::Equal),
             ';' => Some(Lexem::SemiColon),
             '.' => Some(Lexem::Dot),
             '{' => Some(Lexem::OpenCurly),
@@ -220,14 +214,14 @@ fn try_read_int<'file_path>(
             end = position;
             *located_char_index += 1;
             digits.push(char);
-            continue
+            continue;
         }
         if !minus_found && char == '-' {
             end = position;
             *located_char_index += 1;
             digits.push(char);
             minus_found = true;
-            continue
+            continue;
         }
         break;
     }
@@ -252,6 +246,26 @@ fn try_read_int<'file_path>(
             })
         }
     }
+}
+
+fn try_read_comment<'file_path>(
+    located_chars: &[LocatedChar<'file_path>],
+    located_char_index: &mut usize,
+) -> Result<(), ProtoError> {
+    while let Some(located_char) = located_chars.get(*located_char_index) {
+        if located_char.char == '/' {
+            *located_char_index += 1;
+            continue;
+        }
+        break;
+    }
+    while let Some(located_char) = located_chars.get(*located_char_index) {
+        if located_char.char == '\n' {
+            break;
+        }
+        *located_char_index += 1
+    }
+    Ok(())
 }
 fn try_read_string_literal<'file_path>(
     located_chars: &[LocatedChar<'file_path>],
