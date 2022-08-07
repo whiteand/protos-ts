@@ -12,8 +12,11 @@ pub(super) enum Lexem {
     IntLiteral(i64),
     OpenCurly,
     CloseCurly,
+    Comma,
     OpenBracket,
     CloseBracket,
+    Less,
+    Greater,
     EOF,
 }
 impl Display for Lexem {
@@ -26,9 +29,12 @@ impl Display for Lexem {
             Lexem::Dot => write!(f, "."),
             Lexem::IntLiteral(i) => write!(f, "{}", i),
             Lexem::OpenCurly => write!(f, "{{"),
+            Lexem::Comma => write!(f, ","),
             Lexem::CloseCurly => write!(f, "}}"),
             Lexem::OpenBracket => write!(f, "["),
             Lexem::CloseBracket => write!(f, "]"),
+            Lexem::Less => write!(f, "<"),
+            Lexem::Greater => write!(f, ">"),
             Lexem::EOF => write!(f, "EOF"),
         }
     }
@@ -132,6 +138,9 @@ pub(super) fn read_lexems<'file_path>(
         current_char_index += 1;
         let single_char_lexem = match char {
             '=' => Some(Lexem::Equal),
+            '<' => Some(Lexem::Less),
+            ',' => Some(Lexem::Comma),
+            '>' => Some(Lexem::Greater),
             ';' => Some(Lexem::SemiColon),
             '.' => Some(Lexem::Dot),
             '{' => Some(Lexem::OpenCurly),

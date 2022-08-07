@@ -28,7 +28,7 @@ impl std::fmt::Display for EnumEntry {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct EnumDeclaration {
     pub name: String,
     pub entries: Vec<EnumEntry>,
@@ -94,12 +94,14 @@ impl std::fmt::Display for FieldDeclaration {
 pub(crate) enum MessageEntry {
     Field(FieldDeclaration),
     Message(MessageDeclaration),
+    Enum(EnumDeclaration),
 }
 impl std::fmt::Display for MessageEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             MessageEntry::Field(field) => write!(f, "{};", field),
             MessageEntry::Message(message) => write!(f, "\n{}", message),
+            MessageEntry::Enum(enum_decl) => write!(f, "\n{}", enum_decl),
         }
     }
 }

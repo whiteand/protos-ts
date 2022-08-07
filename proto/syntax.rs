@@ -16,7 +16,8 @@ enum Task {
     ParseSyntaxStatement,
     ParseImportStatement,
     ParsePackageStatement,
-    ParseEnumStatement,
+    /// Parses enum declaration and pushes to stack
+    ParseEnumDeclaration,
     ParseEnumEntries,
     ParseEnumEntry,
     WrapRepeated,
@@ -25,7 +26,9 @@ enum Task {
     ExpectLexem(Lexem),
     Push(StackItem),
     ParseFieldAttributes,
-    AppendMessageToPackage,
+    /// Takes declaration from the stack
+    /// And pushes it to the package declarations
+    AppendDeclarationToPackage,
     ParseFieldAttribute,
     PushFieldDeclaration,
     PushFieldAttribute,
@@ -35,12 +38,13 @@ enum Task {
     ParseInt64,
     ParseFieldType,
     ParseStringLiteral,
-    WrapSubmessageEntry,
+    WrapMessageEntry,
     PushMessageEntry,
     PushMessageStatement,
     ParseIdPath,
     WrapFieldType,
-    ParseId, // Places Id into stack as String(id)
+    /// Parses identifier and places it into stack
+    ParseId,
 }
 use Task::*;
 
@@ -55,6 +59,7 @@ enum StackItem {
     Int64(i64),
     Message(MessageDeclaration),
     OptionalAttributes(Option<Vec<(String, String)>>),
+    Enum(EnumDeclaration),
 }
 
 pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, ProtoError> {
@@ -91,7 +96,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     Lexem::Id(id) if id == "message" => {
-                        tasks.push(AppendMessageToPackage);
+                        tasks.push(AppendDeclarationToPackage);
                         tasks.push(ParseMessageStatement);
                         continue;
                     }
@@ -104,7 +109,8 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         continue;
                     }
                     Lexem::Id(id) if id == "enum" => {
-                        tasks.push(ParseEnumStatement);
+                        tasks.push(AppendDeclarationToPackage);
+                        tasks.push(ParseEnumDeclaration);
                         continue;
                     }
                     Lexem::Id(id) => {
@@ -122,12 +128,13 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                     }
                 }
             }
-            AppendMessageToPackage => {
-                let message = match stack.pop() {
-                    Some(StackItem::Message(message)) => message,
+            AppendDeclarationToPackage => {
+                let declaration = match stack.pop() {
+                    Some(StackItem::Message(message)) => Declaration::Message(message),
+                    Some(StackItem::Enum(enum_decl)) => Declaration::Enum(enum_decl),
                     _ => unreachable!(),
                 };
-                res.declarations.push(Declaration::Message(message));
+                res.declarations.push(declaration);
                 continue;
             }
             ParseSyntaxStatement => {
@@ -245,7 +252,13 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                 };
                 let key = match stack.pop() {
                     Some(StackItem::String(s)) => s,
-                    _ => unreachable!(),
+                    invalid_item => {
+                        println!("invalid item = {:?}", invalid_item);
+                        println!("value = {:?}", value);
+                        println!("location = {:?}", located_lexems[ind].range.start);
+                        print_state(stack, tasks, task, &located_lexems[ind-1..]);
+                        unreachable!();
+                    },
                 };
                 let optional_list_item = stack.pop().unwrap();
                 let mut optional_list = match optional_list_item {
@@ -336,7 +349,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                 }
                 continue;
             }
-            ParseEnumStatement => {
+            ParseEnumDeclaration => {
                 assert_enough_length(
                     located_lexems,
                     ind,
@@ -379,7 +392,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                                     name: name,
                                     entries: entries,
                                 };
-                                res.declarations.push(Declaration::Enum(enum_declaration));
+                                stack.push(StackItem::Enum(enum_declaration));
                             }
                             (a, b) => {
                                 println!("Invalid stack items for enum declaration finishing: {:?} and {:?}", a, b);
@@ -466,12 +479,14 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                 stack.push(StackItem::Message(message_declaration));
                 continue;
             }
-            WrapSubmessageEntry => {
-                let message = match stack.pop() {
-                    Some(StackItem::Message(message_declaration)) => message_declaration,
+            WrapMessageEntry => {
+                let entry = match stack.pop() {
+                    Some(StackItem::Message(message_declaration)) => {
+                        MessageEntry::Message(message_declaration)
+                    }
+                    Some(StackItem::Enum(enum_declaration)) => MessageEntry::Enum(enum_declaration),
                     _ => unreachable!(),
                 };
-                let entry = MessageEntry::Message(message);
                 stack.push(StackItem::MessageEntry(entry));
                 continue;
             }
@@ -513,8 +528,14 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                 match start {
                     Lexem::Id(id) if id == "message" => {
                         tasks.push(PushMessageEntry);
-                        tasks.push(WrapSubmessageEntry);
+                        tasks.push(WrapMessageEntry);
                         tasks.push(ParseMessageStatement);
+                        continue;
+                    }
+                    Lexem::Id(id) if id == "enum" => {
+                        tasks.push(PushMessageEntry);
+                        tasks.push(WrapMessageEntry);
+                        tasks.push(ParseEnumDeclaration);
                         continue;
                     }
                     Lexem::Id(id) if id == "oneof" => {
@@ -544,6 +565,9 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         tasks.push(ParseFieldType);
                         ind += 1;
                         continue;
+                    }
+                    if id == "map" {
+                        todo!("Implemented parsing of map types")
                     }
                     tasks.push(WrapFieldType);
                     tasks.push(ParseIdPath);
@@ -661,7 +685,6 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                     }
                 }
             }
-
             _ => {
                 print_state(stack, tasks, task, &located_lexems[ind..]);
                 todo!("Cannot solve task")
@@ -688,6 +711,7 @@ fn print_stack(stack: &[StackItem]) {
                 StackItem::Int64(_) => "i64",
                 StackItem::Message(_) => "message",
                 StackItem::OptionalAttributes(_) => "attributes[]?",
+                StackItem::Enum(_) => "enum",
             })
             .collect::<Vec<_>>()
             .join("\n")
