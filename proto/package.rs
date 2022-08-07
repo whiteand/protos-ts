@@ -1,5 +1,7 @@
 use super::{error::ProtoError, lexems, syntax};
+use lexems::read_lexems;
 use std::{collections::HashMap, io::Read, path::PathBuf};
+use syntax::parse_package;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ProtoVersion {
@@ -198,7 +200,7 @@ impl std::fmt::Display for Package {
 pub(crate) fn read_packages(
     files: &[PathBuf],
 ) -> Result<HashMap<Vec<String>, Package>, ProtoError> {
-    let mut packages: Vec<Package> = files
+    let packages: Vec<Package> = files
         .iter()
         .map(read_package)
         .collect::<Result<Vec<Package>, ProtoError>>()?;
@@ -218,6 +220,9 @@ fn merge_packages(packages: Vec<Package>) -> HashMap<Vec<String>, Package> {
             package_map.insert(key, package);
         }
     }
+
+    // Making sure that order of all things is unchanging
+    // Removing all duplicates of imports
     for package in package_map.iter_mut().map(|(_, p)| p) {
         package.declarations.sort_by(|a, b| match (a, b) {
             (Declaration::Enum(a), Declaration::Enum(b)) => a.name.cmp(&b.name),
@@ -247,9 +252,9 @@ fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {
 
     let relative_file_path = get_relative_path(file_path);
 
-    let lexems = lexems::read_lexems(&*relative_file_path, content.as_str())?;
-    let package = syntax::parse_package(&lexems)?;
-    Ok(package)
+    let lexems = read_lexems(&*relative_file_path, content.as_str())?;
+
+    parse_package(&lexems)
 }
 
 fn get_relative_path(file_path: &PathBuf) -> String {
@@ -261,8 +266,10 @@ fn get_relative_path(file_path: &PathBuf) -> String {
 fn read_file_content(file_path: &PathBuf) -> Result<String, ProtoError> {
     let mut content = String::new();
     let mut file = std::fs::File::open(file_path).map_err(ProtoError::CannotOpenFile)?;
+
     file.read_to_string(&mut content)
         .map_err(ProtoError::CannotReadFile)?;
+
     Ok(content)
 }
 
