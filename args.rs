@@ -1,4 +1,5 @@
 use path_clean::clean;
+use std::env::args;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -37,28 +38,29 @@ enum ParseState {
 }
 impl Default for ParseState {
     fn default() -> Self {
-        ParseState::ProtoFolderPath
+        ProtoFolderPath
     }
 }
+use ParseState::*;
 
 /// It takes first argument as the relative or absolute path
 /// to the folder containing the proto files.
 /// It returns absolute path to the folder.
 pub(crate) fn get_proto_folder_path() -> io::Result<CliArguments> {
-    let mut res: CliArguments = Default::default();
-    let args: Vec<String> = std::env::args().collect();
-    let mut state: ParseState = Default::default();
-    for arg in args {
+    let mut res = CliArguments::default();
+    let mut state = ParseState::default();
+    for arg in args() {
         if arg == "--out" {
             state = ParseState::OutFolderPath;
             continue;
         }
         match state {
-            ParseState::ProtoFolderPath => {
+            ProtoFolderPath => {
                 res.proto_folder_path = PathBuf::from(clean(&arg)).into_boxed_path();
             }
-            ParseState::OutFolderPath => {
+            OutFolderPath => {
                 res.out_folder_path = PathBuf::from(clean(&arg)).into_boxed_path();
+                state = ParseState::default();
             }
         }
     }
