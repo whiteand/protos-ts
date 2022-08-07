@@ -11,9 +11,10 @@ pub(crate) enum ProtoVersion {
 
 impl std::fmt::Display for ProtoVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use ProtoVersion::*;
         match self {
-            ProtoVersion::Proto2 => write!(f, "proto2"),
-            ProtoVersion::Proto3 => write!(f, "proto3"),
+            Proto2 => write!(f, "proto2"),
+            Proto3 => write!(f, "proto3"),
         }
     }
 }
@@ -58,16 +59,11 @@ pub(crate) enum FieldType {
 
 impl std::fmt::Display for FieldType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use FieldType::*;
         match self {
-            FieldType::IdPath(path) => {
-                write!(f, "{}", path.join("."))
-            }
-            FieldType::Repeated(field_type) => {
-                write!(f, "repeated {}", field_type)
-            }
-            FieldType::Map(key_type, value_type) => {
-                write!(f, "map<{}, {}>", key_type, value_type)
-            }
+            IdPath(path) => write!(f, "{}", path.join(".")),
+            Repeated(field_type) => write!(f, "repeated {}", field_type),
+            Map(key_type, value_type) => write!(f, "map<{}, {}>", key_type, value_type),
         }
     }
 }
@@ -121,11 +117,12 @@ pub(crate) enum MessageEntry {
 }
 impl std::fmt::Display for MessageEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use MessageEntry::*;
         match self {
-            MessageEntry::Field(field) => write!(f, "{};", field),
-            MessageEntry::Message(message) => write!(f, "\n{}", message),
-            MessageEntry::Enum(enum_decl) => write!(f, "\n{}", enum_decl),
-            MessageEntry::OneOf(one_of_decl) => write!(f, "\n{}", one_of_decl),
+            Field(field) => write!(f, "{};", field),
+            Message(message) => write!(f, "\n{}", message),
+            Enum(enum_decl) => write!(f, "\n{}", enum_decl),
+            OneOf(one_of_decl) => write!(f, "\n{}", one_of_decl),
         }
     }
 }
@@ -158,9 +155,10 @@ pub(crate) enum Declaration {
 
 impl std::fmt::Display for Declaration {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use Declaration::*;
         match self {
-            Declaration::Enum(e) => write!(f, "{}", e),
-            Declaration::Message(m) => write!(f, "{}", m),
+            Enum(e) => write!(f, "{}", e),
+            Message(m) => write!(f, "{}", m),
         }
     }
 }
