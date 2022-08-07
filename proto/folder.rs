@@ -1,7 +1,4 @@
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::{io, path::PathBuf};
 
 #[derive(Debug)]
 pub(crate) struct ProtoFolder {
@@ -20,10 +17,11 @@ impl std::fmt::Display for ProtoFolder {
 }
 
 /// Recursively goes through the folder and collects all .proto files
-pub(crate) fn read_proto_folder(folder_path: Box<Path>) -> io::Result<ProtoFolder> {
-    let folder_path_buf: PathBuf = folder_path.into();
-    let mut folders: Vec<PathBuf> = vec![folder_path_buf.clone()];
-    let mut all_proto_file_paths: Vec<PathBuf> = vec![];
+pub(crate) fn read_proto_folder(folder_path: PathBuf) -> io::Result<ProtoFolder> {
+    let mut folders = vec![folder_path.clone()];
+
+    let mut all_proto_file_paths: Vec<PathBuf> = Vec::new();
+
     while let Some(folder) = folders.pop() {
         for entry in folder.read_dir()? {
             let entry = entry?;
@@ -35,8 +33,9 @@ pub(crate) fn read_proto_folder(folder_path: Box<Path>) -> io::Result<ProtoFolde
             }
         }
     }
+
     Ok(ProtoFolder {
         files: all_proto_file_paths,
-        path: folder_path_buf,
+        path: folder_path,
     })
 }

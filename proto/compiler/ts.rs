@@ -1,11 +1,11 @@
 use super::super::error::ProtoError;
 use super::super::package::Package;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::PathBuf;
 
 pub(crate) fn compile(
     packages: &HashMap<Vec<String>, Package>,
-    out_folder_path: Box<Path>,
+    out_folder_path: PathBuf,
 ) -> Result<(), ProtoError> {
     println!(
         "{}",

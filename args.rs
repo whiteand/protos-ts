@@ -1,23 +1,18 @@
 use path_clean::clean;
 use std::env::args;
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::{io, path::PathBuf};
 
 #[derive(Debug)]
 pub(super) struct CliArguments {
-    pub proto_folder_path: Box<Path>,
-    pub out_folder_path: Box<Path>,
+    pub proto_folder_path: PathBuf,
+    pub out_folder_path: PathBuf,
 }
 
 impl Default for CliArguments {
     fn default() -> Self {
-        let proto_folder_path = PathBuf::from(".");
-        let out_folder_path = PathBuf::from("./out");
         Self {
-            proto_folder_path: proto_folder_path.into_boxed_path(),
-            out_folder_path: out_folder_path.into_boxed_path(),
+            proto_folder_path: PathBuf::from("."),
+            out_folder_path: PathBuf::from("./out"),
         }
     }
 }
@@ -56,10 +51,10 @@ pub(crate) fn get_proto_folder_path() -> io::Result<CliArguments> {
         }
         match state {
             ProtoFolderPath => {
-                res.proto_folder_path = PathBuf::from(clean(&arg)).into_boxed_path();
+                res.proto_folder_path = PathBuf::from(clean(&arg));
             }
             OutFolderPath => {
-                res.out_folder_path = PathBuf::from(clean(&arg)).into_boxed_path();
+                res.out_folder_path = PathBuf::from(clean(&arg));
                 state = ParseState::default();
             }
         }

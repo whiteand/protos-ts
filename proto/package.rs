@@ -198,11 +198,11 @@ impl std::fmt::Display for Package {
 pub(crate) fn read_packages(
     files: &[PathBuf],
 ) -> Result<HashMap<Vec<String>, Package>, ProtoError> {
-    let mut packages: Vec<Package> = Vec::new();
-    for file in files {
-        let package = read_package(file)?;
-        packages.push(package)
-    }
+    let mut packages: Vec<Package> = files
+        .iter()
+        .map(read_package)
+        .collect::<Result<Vec<Package>, ProtoError>>()?;
+
     Ok(merge_packages(packages))
 }
 
