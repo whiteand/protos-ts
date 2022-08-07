@@ -1,5 +1,9 @@
 use super::{error::ProtoError, lexems, syntax};
-use std::{io::Read, path::PathBuf};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    io::Read,
+    path::PathBuf,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ProtoVersion {
@@ -195,13 +199,51 @@ impl std::fmt::Display for Package {
     }
 }
 
-pub(crate) fn read_packages(files: &[PathBuf]) -> Result<Vec<Package>, ProtoError> {
+pub(crate) fn read_packages(
+    files: &[PathBuf],
+) -> Result<HashMap<Vec<String>, Package>, ProtoError> {
     let mut packages: Vec<Package> = Vec::new();
     for file in files {
         let package = read_package(file)?;
         packages.push(package)
     }
-    Ok(packages)
+    Ok(merge_packages(packages))
+}
+
+fn merge_packages(packages: Vec<Package>) -> HashMap<Vec<String>, Package> {
+    let mut package_map: HashMap<Vec<String>, Package> = Default::default();
+    for package in packages {
+        let key = package.path.clone();
+        if package_map.contains_key(&key) {
+            let prev = package_map.remove(&key).unwrap();
+            let n = merge_package(prev, package);
+            package_map.insert(key, n);
+        } else {
+            package_map.insert(key, package);
+        }
+    }
+    for package in package_map.iter_mut().map(|(_, p)| p) {
+        package.declarations.sort_by(|a, b| match (a, b) {
+            (Declaration::Enum(a), Declaration::Enum(b)) => a.name.cmp(&b.name),
+            (Declaration::Message(a), Declaration::Message(b)) => a.name.cmp(&b.name),
+            _ => std::cmp::Ordering::Equal,
+        });
+        package.imports.sort_by(|a, b| a.cmp(&b));
+        package.imports.dedup();
+    }
+
+    package_map
+}
+
+fn merge_package(mut prev: Package, package: Package) -> Package {
+    let Package {
+        declarations,
+        imports,
+        ..
+    } = package;
+    prev.declarations.extend(declarations);
+    prev.imports.extend(imports);
+    prev
 }
 
 fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {

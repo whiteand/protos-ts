@@ -1,10 +1,9 @@
 use std::{
-    error::{self, Error},
     fmt::{Display, Formatter},
     io,
 };
 
-use super::lexems::{self, Position};
+use super::lexems::{self};
 
 #[derive(Debug)]
 pub(crate) enum ProtoError {
@@ -69,9 +68,6 @@ impl Display for ProtoError {
                     " at {}:{}:{} to {}",
                     file_path, line, start_column, end_column
                 )
-            }
-            _ => {
-                todo!();
             }
         }
     }

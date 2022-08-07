@@ -132,7 +132,23 @@ pub(super) fn read_lexems<'file_path>(
             continue;
         }
         if char == '/' {
-            try_read_comment(&located_chars, &mut current_char_index)?;
+            match located_chars.get(current_char_index + 1) {
+                Some(LocatedChar { char: '/', .. }) => {
+                    try_read_single_line_comment(&located_chars, &mut current_char_index)?;
+                }
+                Some(LocatedChar { char: '*', .. }) => {
+                    current_char_index += 2;
+                    try_read_multiline_comment(&located_chars, &mut current_char_index)?;
+                }
+                _ => {
+                    return Err(ProtoError::UnknownCharacter {
+                        file_path: position.file_path.to_string(),
+                        line: position.line,
+                        column: position.column,
+                        char: char,
+                    })
+                }
+            }
             continue;
         }
         current_char_index += 1;
@@ -257,7 +273,7 @@ fn try_read_int<'file_path>(
     }
 }
 
-fn try_read_comment<'file_path>(
+fn try_read_single_line_comment<'file_path>(
     located_chars: &[LocatedChar<'file_path>],
     located_char_index: &mut usize,
 ) -> Result<(), ProtoError> {
@@ -273,6 +289,29 @@ fn try_read_comment<'file_path>(
             break;
         }
         *located_char_index += 1
+    }
+    Ok(())
+}
+fn try_read_multiline_comment<'file_path>(
+    located_chars: &[LocatedChar<'file_path>],
+    located_char_index: &mut usize,
+) -> Result<(), ProtoError> {
+    let mut last_char: Option<&LocatedChar> = None;
+    let mut current_char = located_chars.get(*located_char_index);
+    loop {
+        match (last_char, current_char) {
+            (Some(last_char), Some(current_char))
+                if last_char.char == '*' && current_char.char == '/' =>
+            {
+                *located_char_index += 1;
+                break;
+            }
+            _ => {
+                last_char = current_char;
+                *located_char_index += 1;
+                current_char = located_chars.get(*located_char_index);
+            }
+        }
     }
     Ok(())
 }

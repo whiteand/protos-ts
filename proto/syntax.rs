@@ -755,10 +755,6 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                     }
                 }
             }
-            _ => {
-                print_state(stack, tasks, task, &located_lexems[ind..]);
-                todo!("Cannot solve task")
-            }
         }
     }
     Ok(res)
@@ -790,7 +786,7 @@ fn print_stack(stack: &[StackItem]) {
 }
 
 fn print_state(
-    mut stack: Vec<StackItem>,
+    stack: Vec<StackItem>,
     tasks: Vec<Task>,
     task: Task,
     located_lexems: &[LocatedLexem],
