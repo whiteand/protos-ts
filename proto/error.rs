@@ -28,6 +28,7 @@ pub(crate) enum ProtoError {
         column: usize,
         message: String,
     },
+    UnsupportedProtoVersion(Vec<String>, ProtoVersion),
 }
 
 impl Display for ProtoError {
