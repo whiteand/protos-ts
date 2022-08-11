@@ -3,7 +3,7 @@ use lexems::read_lexems;
 use std::{collections::HashMap, io::Read, path::PathBuf};
 use syntax::parse_package;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProtoVersion {
     Proto2,
     Proto3,

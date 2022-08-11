@@ -13,7 +13,10 @@ pub(crate) fn compile_package(
     packages: &HashMap<Vec<String>, Package>,
 ) -> Result<(), ProtoError> {
     if package.version != ProtoVersion::Proto3 {
-        return Err(ProtoError::UnsupportedProtoVersion(package.version));
+        return Err(ProtoError::UnsupportedProtoVersion(
+            package_path.clone(),
+            package.version,
+        ));
     }
     println!("{}:\n---------\n{}", package_path.join("."), package);
     todo!("Finish compilcation of the package")

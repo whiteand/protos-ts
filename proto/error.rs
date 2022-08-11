@@ -3,7 +3,10 @@ use std::{
     io,
 };
 
-use super::lexems::{self};
+use super::{
+    lexems::{self},
+    package::ProtoVersion,
+};
 
 #[derive(Debug)]
 pub(crate) enum ProtoError {
@@ -33,10 +36,11 @@ pub(crate) enum ProtoError {
 
 impl Display for ProtoError {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        use ProtoError::*;
         match self {
-            ProtoError::CannotOpenFile(err) => write!(f, "Cannot open file: {}", err),
-            ProtoError::CannotReadFile(err) => write!(f, "Cannot read file: {}", err),
-            ProtoError::UnknownCharacter {
+            CannotOpenFile(err) => write!(f, "Cannot open file: {}", err),
+            CannotReadFile(err) => write!(f, "Cannot read file: {}", err),
+            UnknownCharacter {
                 file_path,
                 line,
                 column,
@@ -46,7 +50,7 @@ impl Display for ProtoError {
                 "Unknown character at {}:{}:{}: {}",
                 file_path, line, column, char
             ),
-            ProtoError::SyntaxError {
+            SyntaxError {
                 file_path,
                 line,
                 column,
@@ -56,7 +60,7 @@ impl Display for ProtoError {
                 "{}:{}:{}: SyntaxError: {}",
                 file_path, line, column, message
             ),
-            ProtoError::InvalidIntLiteral {
+            InvalidIntLiteral {
                 file_path,
                 literal,
                 end_column,
@@ -69,6 +73,13 @@ impl Display for ProtoError {
                     " at {}:{}:{} to {}",
                     file_path, line, start_column, end_column
                 )
+            },
+            UnsupportedProtoVersion(package_path, version) => {
+                write!(f, "Unsupported proto version: {}", version)?;
+                if !package_path.is_empty() {
+                    write!(f, " in package {}", package_path.join("."))?;
+                }
+                Ok(())
             }
         }
     }
