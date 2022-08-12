@@ -126,7 +126,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         ));
                     }
                     Lexem::SemiColon => {
-                        ind+=1;
+                        ind += 1;
                         continue;
                     }
                     _ => {
@@ -208,7 +208,8 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         if id == "import" =>
                     {
                         ind += 3;
-                        res.imports.push(s.clone());
+                        let imports_components: Vec<String> = parse_import_string(s);
+                        res.imports.push(imports_components);
                         continue;
                     }
                     _ => {
@@ -758,6 +759,47 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
         }
     }
     Ok(res)
+}
+
+fn parse_import_string(s: &str) -> Vec<String> {
+    let has_proto = s.ends_with(".proto");
+    let mut res = Vec::new();
+    let n = if has_proto {
+        s.len() - ".proto".len()
+    } else {
+        s.len()
+    };
+    let chrs = s.chars().take(n);
+    for chr in chrs {
+        if chr == '/' {
+            let path = String::new();
+            res.push(path);
+            continue;
+        }
+        if res.len() <= 0 {
+            res.push(String::new());
+        }
+        let last = res.last_mut().unwrap();
+        last.push(chr);
+    }
+    res
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn it_works() {
+        let input = "google/protobuf/timestamp.proto".to_string();
+        let res = super::parse_import_string(&input);
+        assert_eq!(
+            res,
+            vec![
+                "google".to_string(),
+                "protobuf".to_string(),
+                "timestamp".to_string()
+            ]
+        );
+    }
 }
 
 fn print_stack(stack: &[StackItem]) {

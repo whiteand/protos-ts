@@ -167,7 +167,7 @@ impl std::fmt::Display for Declaration {
 pub(crate) struct Package {
     pub version: ProtoVersion,
     pub declarations: Vec<Declaration>,
-    pub imports: Vec<String>,
+    pub imports: Vec<Vec<String>>,
     pub path: Vec<String>,
 }
 
@@ -178,7 +178,7 @@ impl std::fmt::Display for Package {
         if !self.imports.is_empty() {
             writeln!(f)?;
             for imprt in &self.imports {
-                write!(f, "import \"{}\";\n", imprt)?;
+                write!(f, "import \"{}\";\n", imprt.join("."))?;
             }
         }
 
