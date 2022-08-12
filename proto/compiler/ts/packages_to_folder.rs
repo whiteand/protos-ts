@@ -2,6 +2,7 @@ use super::super::super::error::ProtoError;
 use super::super::super::package::Package;
 use super::compile_package::compile_package;
 use super::{ast, compile_package};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -19,7 +20,7 @@ pub(crate) fn packages_to_folder(
         name: folder_name.to_string(),
         entries: Vec::new(),
     };
-    for (package_path, package) in packages.iter() {
+    for (package_path, package) in packages {
         compile_package(&mut res, &package_path, package, packages)?;
     }
 
