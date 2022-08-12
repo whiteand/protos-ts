@@ -5,6 +5,6 @@ pub(crate) fn commit_folder(
     folder: &super::ast::Folder,
     out_folder_path: &PathBuf,
 ) -> Result<(), ProtoError> {
-    println!("{}", folder.display_tree());
+    // println!("{}", folder.display_tree());
     todo!()
 }

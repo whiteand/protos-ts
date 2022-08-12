@@ -1,8 +1,7 @@
 use super::super::super::error::ProtoError;
 use super::super::super::package::Package;
+use super::ast;
 use super::compile_package::compile_package;
-use super::{ast, compile_package};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

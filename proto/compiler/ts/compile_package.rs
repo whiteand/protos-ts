@@ -1,15 +1,11 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::ops::IndexMut;
-
-use crate::proto::package::{self, ProtoVersion};
-
 use super::super::super::error::ProtoError;
 use super::super::super::package::Package;
-use super::ast::{Folder, FolderEntry};
+use super::ast::Folder;
+use crate::proto::package::ProtoVersion;
+use std::collections::HashMap;
 
 pub(crate) fn compile_package(
-    mut root: &mut Folder,
+    root: &mut Folder,
     package_path: &Vec<String>,
     package: &Package,
     packages: &HashMap<Vec<String>, Package>,
@@ -21,5 +17,6 @@ pub(crate) fn compile_package(
         ));
     }
     root.insert_folder_by_path(package_path);
+
     Ok(())
 }

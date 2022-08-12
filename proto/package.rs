@@ -1,6 +1,6 @@
 use super::{error::ProtoError, lexems, syntax};
 use lexems::read_lexems;
-use std::{collections::HashMap, io::Read, path::PathBuf};
+use std::{collections::HashMap, fmt::Display, io::Read, path::PathBuf};
 use syntax::parse_package;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -164,21 +164,61 @@ impl std::fmt::Display for Declaration {
 }
 
 #[derive(Debug)]
+pub(crate) struct ImportPath {
+    pub file_name: String,
+    pub packages: Vec<String>,
+}
+
+impl Display for ImportPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.packages.join("/"), self.file_name)
+    }
+}
+
+impl PartialEq for ImportPath {
+    fn eq(&self, other: &Self) -> bool {
+        self.file_name == other.file_name && self.packages == other.packages
+    }
+}
+impl Eq for ImportPath {}
+
+impl PartialOrd for ImportPath {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        return Some(self.cmp(other));
+    }
+}
+
+impl Ord for ImportPath {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let packages_cmp = self.packages.cmp(&other.packages);
+        match packages_cmp {
+            std::cmp::Ordering::Equal => {}
+            res => return res,
+        };
+        return self.file_name.cmp(&other.file_name);
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct Package {
     pub version: ProtoVersion,
     pub declarations: Vec<Declaration>,
-    pub imports: Vec<Vec<String>>,
+    pub imports: Vec<ImportPath>,
     pub path: Vec<String>,
+    pub file_names: Vec<String>,
 }
 
 impl std::fmt::Display for Package {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "syntax = \"{}\";\n", self.version)?;
 
-        if !self.imports.is_empty() {
+        let ref imports = self.imports;
+        if !imports.is_empty() {
             writeln!(f)?;
-            for imprt in &self.imports {
-                write!(f, "import \"{}\";\n", imprt.join("."))?;
+            for imprt in imports {
+                let ref packages = imprt.packages;
+                let ref file_name = imprt.file_name;
+                write!(f, "import \"{}/{}\";\n", packages.join("/"), file_name)?;
             }
         }
 
@@ -193,6 +233,12 @@ impl std::fmt::Display for Package {
 
         Ok(())
     }
+}
+
+#[derive(Debug)]
+pub(crate) enum ResolvedImport {
+    Local(Vec<String>),
+    GoogleProtobuf(String),
 }
 
 pub(crate) fn read_packages(
@@ -241,10 +287,12 @@ fn merge_package(mut prev: Package, package: Package) -> Package {
     let Package {
         declarations,
         imports,
+        file_names,
         ..
     } = package;
     prev.declarations.extend(declarations);
     prev.imports.extend(imports);
+    prev.file_names.extend(file_names);
     prev
 }
 
@@ -255,7 +303,18 @@ fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {
 
     let lexems = read_lexems(&*relative_file_path, content.as_str())?;
 
-    parse_package(&lexems)
+    let mut res = parse_package(&lexems);
+
+    let file_name = file_path.file_name().unwrap().to_str().unwrap().to_string();
+
+    match &mut res {
+        Ok(package) => {
+            package.file_names.push(file_name);
+        }
+        _ => {}
+    }
+
+    res
 }
 
 fn get_relative_path(file_path: &PathBuf) -> String {

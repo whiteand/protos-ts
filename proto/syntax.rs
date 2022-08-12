@@ -4,8 +4,8 @@ use super::{
     error::{syntax_error, ProtoError},
     lexems::{Lexem, LocatedLexem},
     package::{
-        Declaration, EnumDeclaration, EnumEntry, FieldType, MessageDeclaration, MessageEntry,
-        OneOfDeclaration, Package,
+        Declaration, EnumDeclaration, EnumEntry, FieldType, ImportPath, MessageDeclaration,
+        MessageEntry, OneOfDeclaration, Package,
     },
 };
 
@@ -76,6 +76,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
         declarations: vec![],
         imports: vec![],
         path: vec![],
+        file_names: Vec::new(),
     };
     let mut stack: Vec<StackItem> = Vec::new();
     while let Some(task) = tasks.pop() {
@@ -208,7 +209,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
                         if id == "import" =>
                     {
                         ind += 3;
-                        let imports_components: Vec<String> = parse_import_string(s);
+                        let imports_components: ImportPath = parse_import_path(s);
                         res.imports.push(imports_components);
                         continue;
                     }
@@ -761,28 +762,18 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
     Ok(res)
 }
 
-fn parse_import_string(s: &str) -> Vec<String> {
-    let has_proto = s.ends_with(".proto");
-    let mut res = Vec::new();
-    let n = if has_proto {
-        s.len() - ".proto".len()
-    } else {
-        s.len()
+fn parse_import_path(s: &str) -> ImportPath {
+    let parts = s.split("/").collect::<Vec<&str>>();
+    let packages = parts
+        .iter()
+        .take(parts.len() - 1)
+        .map(|s| s.to_string())
+        .collect();
+    let file_name = parts.last().unwrap().to_string();
+    return ImportPath {
+        packages,
+        file_name,
     };
-    let chrs = s.chars().take(n);
-    for chr in chrs {
-        if chr == '/' {
-            let path = String::new();
-            res.push(path);
-            continue;
-        }
-        if res.len() <= 0 {
-            res.push(String::new());
-        }
-        let last = res.last_mut().unwrap();
-        last.push(chr);
-    }
-    res
 }
 
 #[cfg(test)]
@@ -790,14 +781,13 @@ mod test {
     #[test]
     fn it_works() {
         let input = "google/protobuf/timestamp.proto".to_string();
-        let res = super::parse_import_string(&input);
+        let res = super::parse_import_path(&input);
         assert_eq!(
             res,
-            vec![
-                "google".to_string(),
-                "protobuf".to_string(),
-                "timestamp".to_string()
-            ]
+            super::ImportPath {
+                packages: vec!["google".to_string(), "protobuf".to_string()],
+                file_name: "timestamp.proto".to_string()
+            }
         );
     }
 }
