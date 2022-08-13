@@ -12,7 +12,7 @@ Types are introduced as external `index.d.ts` file.
 
 What are the results of it? It is not easily tree-shakable.
 
-Most commonly the case that some messages in your project are "encode" only and some of the are "decode" only. But since they are highly coupled - you must load both encoding and decoding functions. This tool for each message creates separated folder with each necessary function placed in it's own place.
+Usually the case is that some messages in your project are "encode" only and some of the are "decode" only. But since they are highly coupled - you must load both encoding and decoding functions. This tool for each message creates separated folder with each necessary function placed in it's own place.
 
 ## Usage
 
