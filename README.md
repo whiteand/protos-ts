@@ -14,6 +14,8 @@ What are the results of it? It is not easily tree-shakable.
 
 Usually the case is that some messages in your project are "encode" only and some of the are "decode" only. But since they are highly coupled - you must load both encoding and decoding functions. This tool for each message creates separated folder with each necessary function placed in it's own place.
 
+Also `protobufjs` uses JS to read, parse and compile `.proto` schemas to javascript. This tool is written in Rust. So as a result it will be much faster than protobufjs.
+
 ## Usage
 
 ```
