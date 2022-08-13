@@ -1,5 +1,3 @@
-use super::super::super::package_tree::PackageTree;
-
 #[derive(Debug)]
 pub(crate) struct SourceFile {
     pub statements: Vec<Statement>,
@@ -10,15 +8,36 @@ pub(crate) struct StringLiteral {
     pub text: String,
 }
 
+impl StringLiteral {
+    pub fn new(text: String) -> Self {
+        Self { text }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Identifier {
     pub text: String,
+}
+
+impl Identifier {
+    pub fn new(text: String) -> Self {
+        Self { text }
+    }
 }
 
 #[derive(Debug)]
 pub(crate) struct ImportSpecifier {
     pub name: Identifier,
     pub property_name: Option<Identifier>,
+}
+
+impl ImportSpecifier {
+    pub fn new(name: Identifier, property_name: Option<Identifier>) -> Self {
+        Self {
+            name,
+            property_name,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -55,10 +74,27 @@ pub(crate) struct File {
     pub ast: Box<SourceFile>,
 }
 
+impl File {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            ast: Box::new(SourceFile {
+                statements: Vec::new(),
+            }),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum FolderEntry {
     File(Box<File>),
     Folder(Box<Folder>),
+}
+
+impl From<File> for FolderEntry {
+    fn from(file: File) -> Self {
+        Self::File(Box::new(file))
+    }
 }
 
 impl FolderEntry {
