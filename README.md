@@ -31,14 +31,15 @@ out
 
 ## Roadmap
 
-| Development Task        | Progress      |
-| :---------------------- | :------------ |
-| Lexical Analyzer        | **Done**      |
-| Syntactical Analyzer    | **Done**      |
-| Proto Package -> TS Ast | *In Progress* |
-| TS Ast -> String        | Blocked       |
-| decode                  | Blocked       |
-| encode                  | Blocked       |
-| Tests                   | Blocked       |
+| Development Task               | Progress      |
+| :----------------------------- | :------------ |
+| Lexical Analyzer               | **Done**      |
+| Syntactical Analyzer           | **Done**      |
+| Proto Packages -> Package Tree | **Done**      |
+| Package Tree -> TS Ast         | *In Progress* |
+| TS Ast -> String               | Blocked       |
+| decode                         | Blocked       |
+| encode                         | Blocked       |
+| Tests                          | Blocked       |
 
 
