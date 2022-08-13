@@ -89,10 +89,10 @@ impl PackageTree {
             child.fmt_level(f, level + 1)?;
         }
         for file in self.files.iter() {
-            for _ in 0..(level + 1) {
+            for _ in 0..level {
                 write!(f, "  ")?;
             }
-            writeln!(f, "{}", file.name)?;
+            writeln!(f, "- {}", file.name)?;
         }
         Ok(())
     }
