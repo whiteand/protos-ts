@@ -1,6 +1,11 @@
-use super::{error::ProtoError, lexems, syntax};
+use super::{
+    error::ProtoError,
+    lexems,
+    package_tree::{self, PackageTree},
+    syntax,
+};
 use lexems::read_lexems;
-use std::{collections::HashMap, fmt::Display, io::Read, path::PathBuf};
+use std::{fmt::Display, io::Read, path::PathBuf};
 use syntax::parse_package;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,15 +205,21 @@ impl Ord for ImportPath {
 }
 
 #[derive(Debug)]
-pub(crate) struct Package {
+pub(crate) struct ProtoFile {
     pub version: ProtoVersion,
     pub declarations: Vec<Declaration>,
     pub imports: Vec<ImportPath>,
     pub path: Vec<String>,
-    pub file_names: Vec<String>,
+    pub name: String,
 }
 
-impl std::fmt::Display for Package {
+impl ProtoFile {
+    pub fn full_path(&self) -> String {
+        return format!("{}/{}", self.path.join("/"), self.name);
+    }
+}
+
+impl std::fmt::Display for ProtoFile {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "syntax = \"{}\";\n", self.version)?;
 
@@ -241,80 +252,35 @@ pub(crate) enum ResolvedImport {
     GoogleProtobuf(String),
 }
 
-pub(crate) fn read_packages(
-    files: &[PathBuf],
-) -> Result<HashMap<Vec<String>, Package>, ProtoError> {
-    let packages: Vec<Package> = files
-        .iter()
-        .map(read_package)
-        .collect::<Result<Vec<Package>, ProtoError>>()?;
-
-    Ok(merge_packages(packages))
-}
-
-fn merge_packages(packages: Vec<Package>) -> HashMap<Vec<String>, Package> {
-    let mut package_map: HashMap<Vec<String>, Package> = Default::default();
-    for package in packages {
-        let key = package.path.clone();
-        if package_map.contains_key(&key) {
-            let prev = package_map.remove(&key).unwrap();
-            let n = merge_package(prev, package);
-            package_map.insert(key, n);
-        } else {
-            package_map.insert(key, package);
-        }
+pub(crate) fn read_package_tree(files: &[PathBuf]) -> Result<PackageTree, ProtoError> {
+    let mut packages: Vec<ProtoFile> = Vec::new();
+    for file in files {
+        let proto_file = read_proto_file(file)?;
+        packages.push(proto_file);
     }
-
-    for (_, package) in &mut package_map {
-        // We need to keep specific order
-        // it will make builds stable and more repeatable
-        package.declarations.sort_by(|a, b| match (a, b) {
-            (Declaration::Enum(a), Declaration::Enum(b)) => a.name.cmp(&b.name),
-            (Declaration::Message(a), Declaration::Message(b)) => a.name.cmp(&b.name),
-            _ => std::cmp::Ordering::Equal,
-        });
-
-        // Removing duplicates of imports
-        // also sorting helps make builds more stable and repeatable.
-        package.imports.sort_by(|a, b| a.cmp(&b));
-        package.imports.dedup();
-    }
-
-    package_map
+    packages.try_into()
 }
 
-fn merge_package(mut prev: Package, package: Package) -> Package {
-    let Package {
-        declarations,
-        imports,
-        file_names,
-        ..
-    } = package;
-    prev.declarations.extend(declarations);
-    prev.imports.extend(imports);
-    prev.file_names.extend(file_names);
-    prev
-}
-
-fn read_package(file_path: &PathBuf) -> Result<Package, ProtoError> {
+fn read_proto_file(file_path: &PathBuf) -> Result<ProtoFile, ProtoError> {
     let content = read_file_content(file_path)?;
 
     let relative_file_path = get_relative_path(file_path);
 
     let lexems = read_lexems(&*relative_file_path, content.as_str())?;
 
-    let mut res = parse_package(&lexems);
-
     let file_name = file_path.file_name().unwrap().to_str().unwrap().to_string();
 
-    match &mut res {
-        Ok(package) => {
-            package.file_names.push(file_name);
-        }
-        _ => {}
-    }
+    let mut res = ProtoFile {
+        version: super::package::ProtoVersion::Proto2,
+        declarations: vec![],
+        imports: vec![],
+        path: vec![],
+        name: file_name,
+    };
 
-    res
+    parse_package(&lexems, &mut res)?;
+
+    Ok(res)
 }
 
 fn get_relative_path(file_path: &PathBuf) -> String {

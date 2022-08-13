@@ -5,7 +5,7 @@ use super::{
     lexems::{Lexem, LocatedLexem},
     package::{
         Declaration, EnumDeclaration, EnumEntry, FieldType, ImportPath, MessageDeclaration,
-        MessageEntry, OneOfDeclaration, Package,
+        MessageEntry, OneOfDeclaration, ProtoFile,
     },
 };
 
@@ -68,16 +68,12 @@ enum StackItem {
     OneOf(OneOfDeclaration),
 }
 
-pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, ProtoError> {
+pub(super) fn parse_package(
+    located_lexems: &[LocatedLexem],
+    res: &mut ProtoFile,
+) -> Result<(), ProtoError> {
     let mut ind = 0;
     let mut tasks: Vec<Task> = vec![ParseStatements];
-    let mut res = Package {
-        version: super::package::ProtoVersion::Proto2,
-        declarations: vec![],
-        imports: vec![],
-        path: vec![],
-        file_names: Vec::new(),
-    };
     let mut stack: Vec<StackItem> = Vec::new();
     while let Some(task) = tasks.pop() {
         match task {
@@ -759,7 +755,7 @@ pub(super) fn parse_package(located_lexems: &[LocatedLexem]) -> Result<Package, 
             }
         }
     }
-    Ok(res)
+    Ok(())
 }
 
 fn parse_import_path(s: &str) -> ImportPath {

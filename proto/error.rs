@@ -32,6 +32,10 @@ pub(crate) enum ProtoError {
         message: String,
     },
     UnsupportedProtoVersion(Vec<String>, ProtoVersion),
+    ConflictingFiles {
+        first_path: String,
+        second_path: String,
+    },
 }
 
 impl Display for ProtoError {
@@ -73,13 +77,23 @@ impl Display for ProtoError {
                     " at {}:{}:{} to {}",
                     file_path, line, start_column, end_column
                 )
-            },
+            }
             UnsupportedProtoVersion(package_path, version) => {
                 write!(f, "Unsupported proto version: {}", version)?;
                 if !package_path.is_empty() {
                     write!(f, " in package {}", package_path.join("."))?;
                 }
                 Ok(())
+            }
+            ConflictingFiles {
+                first_path,
+                second_path,
+            } => {
+                write!(
+                    f,
+                    "Cannot merge two files:\n{}\nand\n{}",
+                    first_path, second_path
+                )
             }
         }
     }

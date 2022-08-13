@@ -1,18 +1,30 @@
 mod ast;
 mod commit_folder;
-mod packages_to_folder;
 mod compile_package;
+mod packages_to_folder;
+
+use crate::proto::package_tree::PackageTree;
 
 use super::super::error::ProtoError;
-use super::super::package::Package;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub(crate) fn compile(
-    packages: &HashMap<Vec<String>, Package>,
+    package_tree: &PackageTree,
     out_folder_path: PathBuf,
 ) -> Result<(), ProtoError> {
-    let folder = packages_to_folder::packages_to_folder(packages, &out_folder_path)?;
+    println!("{}", package_tree);
+    let folder_name = out_folder_path
+        .file_name()
+        .map(|s| s.to_string_lossy())
+        .unwrap()
+        .to_string();
+
+    let mut folder = ast::Folder {
+        name: folder_name.to_string(),
+        entries: Vec::new(),
+    };
+
+    packages_to_folder::package_tree_to_folder(package_tree, &mut folder)?;
 
     commit_folder::commit_folder(&folder, &out_folder_path)?;
 

@@ -5,7 +5,7 @@ use args::get_proto_folder_path;
 use args::CliArguments;
 use proto::compiler::ts::compile;
 use proto::folder::read_proto_folder;
-use proto::package::read_packages;
+use proto::package::read_package_tree;
 use std::io;
 
 fn main() -> io::Result<()> {
@@ -16,9 +16,9 @@ fn main() -> io::Result<()> {
 
     let proto_folder = read_proto_folder(proto_folder_path)?;
 
-    let packages = read_packages(&proto_folder.files)?;
+    let package_tree = read_package_tree(&proto_folder.files)?;
 
-    compile(&packages, out_folder_path)?;
+    compile(&package_tree, out_folder_path)?;
 
     Ok(())
 }
