@@ -1,6 +1,18 @@
 # protobufts
 
-Is an executable that takes folder with .proto files in it and creates Typescript module (with nested submodules).
+This a CLI tool for transforming of .proto files into typescript modules.
+
+## Rationale
+
+`protobufjs` is currently used as a main compiler. But there is several problems with this tool.
+
+It produces single large javascript file.
+It does not have typings by default.
+Types are introduced as external `index.d.ts` file.
+
+What are the results of it? It is not easily tree-shakable.
+
+Most commonly the case that some messages in your project are "encode" only and some of the are "decode" only. But since they are highly coupled - you must load both encoding and decoding functions. This tool for each message creates separated folder with each necessary function placed in it's own place.
 
 ## Usage
 
@@ -22,9 +34,15 @@ proto
 
 ```
 out
-  | Action.ts
+  | Action
+    | MyMessages
+      | decode.ts
+      | encode.ts
   | Commons
     | Enums.ts
+      | MyEnum
+        | decode.ts
+        | encode.ts
     | Types.ts
     | index.ts
 ```
