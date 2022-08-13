@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use super::super::super::package_tree::PackageTree;
 
 #[derive(Debug)]
@@ -100,7 +98,7 @@ impl Folder {
         let mut cur = self;
         for folder in package_path {
             let index = cur.insert_folder(folder.clone());
-            let entry = cur.entries[index].as_folder_mut().unwrap();;
+            let entry = cur.entries[index].as_folder_mut().unwrap();
             cur = entry;
         }
     }
@@ -134,4 +132,3 @@ impl From<Folder> for FolderEntry {
         Self::Folder(Box::new(folder))
     }
 }
-
