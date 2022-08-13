@@ -4,7 +4,7 @@ This a CLI tool for transforming of .proto files into typescript modules.
 
 ## Rationale
 
-`protobufjs` is currently used as a main compiler. But there is several problems with this tool.
+`protobufjs` is currently used as a main compiler. But there are several problems with this tool.
 
 It produces single large javascript file.
 It does not have typings by default.
