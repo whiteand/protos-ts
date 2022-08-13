@@ -1,9 +1,4 @@
-use super::{
-    error::ProtoError,
-    lexems,
-    package_tree::{PackageTree},
-    syntax,
-};
+use super::{error::ProtoError, lexems, package_tree::PackageTree, syntax};
 use lexems::read_lexems;
 use std::{fmt::Display, io::Read, path::PathBuf};
 use syntax::parse_package;

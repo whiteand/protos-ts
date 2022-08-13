@@ -1,25 +1,5 @@
-use std::fmt::Display;
-
 use super::{error::ProtoError, package::ProtoFile};
 
-/// Example
-/// File: GDX/Roles/nullableTypes.proto
-/// Will have such structure
-/// {
-///   name: "GDX",
-///   files: [],
-///   children: [
-///     {
-///       name: "Roles",
-///       files: [
-///         ProtoFile {
-///           name: "nullableTypes.proto"
-///         }
-///       ],
-///       children: []
-///     }
-///   ]
-/// }
 pub(crate) struct PackageTree {
     pub children: Vec<PackageTree>,
     pub files: Vec<ProtoFile>,
