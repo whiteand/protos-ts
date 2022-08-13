@@ -1,4 +1,4 @@
-# protobufts
+# protobufts [WIP]
 
 This a CLI tool for transforming of .proto files into typescript modules.
 
