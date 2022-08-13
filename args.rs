@@ -59,7 +59,6 @@ pub(crate) fn get_proto_folder_path() -> io::Result<CliArguments> {
             }
         }
     }
-    println!("{:?}", res);
 
     Ok(res)
 }

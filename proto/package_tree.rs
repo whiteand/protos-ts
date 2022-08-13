@@ -127,13 +127,13 @@ impl From<ProtoFile> for PackageTree {
             };
         }
         let mut res = PackageTree {
-            name: String::new(),
+            name: f.path[0].clone(),
             ..PackageTree::default()
         };
 
         let mut cur = &mut res;
 
-        for parent in f.path.iter() {
+        for parent in f.path.iter().skip(1) {
             let child_index = cur.create_child(&parent);
             cur = &mut cur.children[child_index];
         }

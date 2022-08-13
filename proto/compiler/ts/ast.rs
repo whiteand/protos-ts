@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 
+use super::super::super::package_tree::PackageTree;
+
 #[derive(Debug)]
 pub(crate) struct SourceFile {
     pub statements: Vec<Statement>,
@@ -132,3 +134,4 @@ impl From<Folder> for FolderEntry {
         Self::Folder(Box::new(folder))
     }
 }
+

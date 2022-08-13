@@ -11,7 +11,7 @@ use super::{
 #[derive(Debug)]
 pub(crate) enum ProtoError {
     CannotOpenFile(io::Error),
-    CannotReadFile(io::Error),
+    IOError(io::Error),
     UnknownCharacter {
         file_path: String,
         line: usize,
@@ -43,7 +43,7 @@ impl Display for ProtoError {
         use ProtoError::*;
         match self {
             CannotOpenFile(err) => write!(f, "Cannot open file: {}", err),
-            CannotReadFile(err) => write!(f, "Cannot read file: {}", err),
+            IOError(err) => write!(f, "IO Error: {}", err),
             UnknownCharacter {
                 file_path,
                 line,

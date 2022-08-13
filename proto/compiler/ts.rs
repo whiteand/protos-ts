@@ -1,32 +1,17 @@
 mod ast;
 mod commit_folder;
-mod compile_package;
-mod packages_to_folder;
-
+mod package_tree_to_folder;
+mod file_name_to_folder_name;
+mod file_to_folder;
 use crate::proto::package_tree::PackageTree;
+use crate::proto::error::ProtoError;
 
-use super::super::error::ProtoError;
-use std::path::PathBuf;
+use self::ast::Folder;
 
-pub(crate) fn compile(
-    package_tree: &PackageTree,
-    out_folder_path: PathBuf,
-) -> Result<(), ProtoError> {
-    println!("{}", package_tree);
-    let folder_name = out_folder_path
-        .file_name()
-        .map(|s| s.to_string_lossy())
-        .unwrap()
-        .to_string();
+pub(crate) fn compile(package_tree: &PackageTree) -> Result<(), ProtoError> {
+    let folder: Folder = package_tree.into();
 
-    let mut folder = ast::Folder {
-        name: folder_name.to_string(),
-        entries: Vec::new(),
-    };
-
-    packages_to_folder::package_tree_to_folder(package_tree, &mut folder)?;
-
-    commit_folder::commit_folder(&folder, &out_folder_path)?;
+    commit_folder::commit_folder(&folder)?;
 
     Ok(())
 }

@@ -1,7 +1,7 @@
 use super::{
     error::ProtoError,
     lexems,
-    package_tree::{self, PackageTree},
+    package_tree::{PackageTree},
     syntax,
 };
 use lexems::read_lexems;
@@ -294,7 +294,7 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, ProtoError> {
     let mut file = std::fs::File::open(file_path).map_err(ProtoError::CannotOpenFile)?;
 
     file.read_to_string(&mut content)
-        .map_err(ProtoError::CannotReadFile)?;
+        .map_err(ProtoError::IOError)?;
 
     Ok(content)
 }
