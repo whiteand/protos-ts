@@ -236,6 +236,9 @@ impl From<&InterfaceDeclaration> for String {
                 InterfaceMember::PropertySignature(prop) => {
                     res.push_str("  ");
                     res.push_str(prop.name.text.clone().as_str());
+                    if prop.optional {
+                        res.push_str("?");
+                    }
                     res.push_str(": ");
                     let type_str: String = (&prop.propertyType).into();
                     res.push_str(type_str.as_str());
@@ -258,27 +261,15 @@ mod test_interface_declaration {
             modifiers: vec![Modifier::Export],
             name: "MyInterface".into(),
             members: vec![
-                PropertySignature {
-                    name: "A".into(),
-                    propertyType: Type::Boolean,
-                }
-                .into(),
-                PropertySignature {
-                    name: "B".into(),
-                    propertyType: Type::Number,
-                }
-                .into(),
-                PropertySignature {
-                    name: "C".into(),
-                    propertyType: Type::String,
-                }
-                .into(),
+                PropertySignature::new("A".into(), Type::Boolean).into(),
+                PropertySignature::new_optional("B".into(), Type::Number).into(),
+                PropertySignature::new("C".into(), Type::String).into(),
             ],
         };
         let rendered: String = (&decl).into();
         assert_eq!(
             rendered,
-            "export interface MyInterface {\n  A: boolean\n  B: number\n  C: string\n}"
+            "export interface MyInterface {\n  A: boolean\n  B?: number\n  C: string\n}"
                 .to_string()
         );
     }
@@ -299,10 +290,20 @@ impl From<&Statement> for String {
 impl From<&File> for String {
     fn from(file: &File) -> Self {
         let mut res = String::new();
+        let mut last_statement: Option<&Statement> = None;
         for statement in &file.ast.statements {
+            // Addition of vertical space between declarations
+            match (statement, last_statement) {
+                (_, None) => {}
+                (Statement::EnumDeclaration(_), _) => res.push_str("\n"),
+                (Statement::InterfaceDeclaration(_), _) => res.push_str("\n"),
+                (Statement::ImportDeclaration(_), Some(Statement::ImportDeclaration(_))) => {}
+                (Statement::ImportDeclaration(_), _) => res.push_str("\n"),
+            }
             let statement_string: String = statement.into();
             res.push_str(&statement_string);
             res.push('\n');
+            last_statement = Some(statement)
         }
         res
     }

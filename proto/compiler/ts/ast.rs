@@ -209,6 +209,22 @@ impl Type {
 pub(crate) struct PropertySignature {
     pub name: Identifier,
     pub propertyType: Type,
+    pub optional: bool,
+}
+
+impl PropertySignature {
+    pub fn new(name: String, propertyType: Type) -> Self {
+        Self {
+            name: name.into(),
+            propertyType,
+            optional: false,
+        }
+    }
+    pub fn new_optional(name: String, propertyType: Type) -> Self {
+        let mut res = Self::new(name, propertyType);
+        res.optional = true;
+        return res;
+    }
 }
 
 #[derive(Debug)]
@@ -229,6 +245,21 @@ pub(crate) struct InterfaceDeclaration {
     pub members: Vec<InterfaceMember>,
 }
 
+impl InterfaceDeclaration {
+    pub fn new(name: String) -> Self {
+        Self {
+            modifiers: vec![],
+            name: name.into(),
+            members: Vec::new(),
+        }
+    }
+    pub fn new_exported(name: String) -> Self {
+        let mut r = Self::new(name);
+        r.modifiers.push(Modifier::Export);
+        r
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum Statement {
     ImportDeclaration(Box<ImportDeclaration>),
@@ -244,6 +275,11 @@ impl From<EnumDeclaration> for Statement {
 impl From<ImportDeclaration> for Statement {
     fn from(import_declaration: ImportDeclaration) -> Self {
         Statement::ImportDeclaration(Box::new(import_declaration))
+    }
+}
+impl From<InterfaceDeclaration> for Statement {
+    fn from(interface_declaration: InterfaceDeclaration) -> Self {
+        Statement::InterfaceDeclaration(Box::new(interface_declaration))
     }
 }
 

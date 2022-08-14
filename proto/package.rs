@@ -75,6 +75,18 @@ pub(crate) struct FieldDeclaration {
     pub tag: i64,
     pub attributes: Vec<(String, String)>,
 }
+
+impl FieldDeclaration {
+    pub fn json_name(&self) -> String {
+        for (key, value) in &self.attributes {
+            if key == "json_name" {
+                return value.clone();
+            }
+        }
+        self.name.clone()
+    }
+}
+
 impl std::fmt::Display for FieldDeclaration {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} {} = {}", self.field_type, self.name, self.tag)?;

@@ -58,7 +58,10 @@ fn insert_message_types(
     message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    let file = super::ast::File::new("types".into());
+    let mut file = super::ast::File::new("types".into());
+
+    insert_encoded_input_interface(&mut file, message_context, message_declaration)?;
+    insert_decode_result_interface(&mut file, message_context, message_declaration)?;
 
     message_folder.entries.push(file.into());
 
@@ -67,6 +70,55 @@ fn insert_message_types(
         "{}: insert_message_types, not implemented",
         message_declaration.name
     );
+    Ok(())
+}
+
+fn message_name_to_encode_type_name(message_name: &str) -> String {
+    format!("{}EncodeInput", message_name)
+}
+
+fn insert_encoded_input_interface(
+    types_file: &mut super::ast::File,
+    message_context: &MessageContext,
+    message_declaration: &MessageDeclaration,
+) -> Result<(), ProtoError> {
+    let mut interface = InterfaceDeclaration::new_exported(message_name_to_encode_type_name(
+        &message_declaration.name,
+    ));
+    for entry in &message_declaration.entries {
+        use crate::proto::package::MessageEntry::*;
+        match entry {
+            Field(f) => interface
+                .members
+                .push(PropertySignature::new_optional(f.json_name(), Type::Null).into()),
+            Message(_) => {}
+            Enum(_) => {}
+            OneOf(_) => todo!("Not implemented handling of OneOf Field"),
+        }
+    }
+
+    types_file.ast.statements.push(interface.into());
+    Ok(())
+}
+fn insert_decode_result_interface(
+    types_file: &mut super::ast::File,
+    message_context: &MessageContext,
+    message_declaration: &MessageDeclaration,
+) -> Result<(), ProtoError> {
+    let mut interface = InterfaceDeclaration::new_exported(message_declaration.name.clone().into());
+    for entry in &message_declaration.entries {
+        use crate::proto::package::MessageEntry::*;
+        match entry {
+            Field(f) => interface
+                .members
+                .push(PropertySignature::new(f.json_name(), Type::Null).into()),
+            Message(_) => {}
+            Enum(_) => {}
+            OneOf(_) => todo!("Not implemented handling of OneOf Field"),
+        }
+    }
+
+    types_file.ast.statements.push(interface.into());
     Ok(())
 }
 fn insert_encode(
