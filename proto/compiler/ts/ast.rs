@@ -151,15 +151,89 @@ pub(crate) struct EnumDeclaration {
 }
 
 #[derive(Debug)]
-pub(crate) enum Node {
-    SourceFile(Box<SourceFile>),
-    ImportDeclaration(Box<ImportDeclaration>),
+pub(crate) struct UnionType {
+    pub types: Vec<Type>,
+}
+
+impl From<Vec<Type>> for UnionType {
+    fn from(types: Vec<Type>) -> Self {
+        Self { types }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum Type {
+    Number,
+    Null,
+    Undefined,
+    Boolean,
+    String,
+    UnionType(UnionType),
+    ArrayType(Box<Type>),
+    TypeReference(Identifier),
+}
+
+impl Type {
+    pub fn requires_wrap_for_nesting(&self) -> bool {
+        match self {
+            Type::ArrayType(_) => true,
+            Type::UnionType(_) => true,
+            Type::Number => false,
+            Type::Null => false,
+            Type::Undefined => false,
+            Type::Boolean => false,
+            Type::String => false,
+            Type::TypeReference(_) => false,
+        }
+    }
+}
+
+impl From<Identifier> for Type {
+    fn from(identifier: Identifier) -> Self {
+        Self::TypeReference(identifier)
+    }
+}
+impl From<UnionType> for Type {
+    fn from(union_type: UnionType) -> Self {
+        Self::UnionType(union_type)
+    }
+}
+
+impl Type {
+    pub fn array(t: Type) -> Type {
+        Type::ArrayType(Box::new(t))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct PropertySignature {
+    pub name: Identifier,
+    pub propertyType: Type,
+}
+
+#[derive(Debug)]
+pub(crate) enum InterfaceMember {
+    PropertySignature(PropertySignature),
+}
+
+impl From<PropertySignature> for InterfaceMember {
+    fn from(property_signature: PropertySignature) -> Self {
+        Self::PropertySignature(property_signature)
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct InterfaceDeclaration {
+    pub modifiers: Vec<Modifier>,
+    pub name: Identifier,
+    pub members: Vec<InterfaceMember>,
 }
 
 #[derive(Debug)]
 pub(crate) enum Statement {
     ImportDeclaration(Box<ImportDeclaration>),
     EnumDeclaration(Box<EnumDeclaration>),
+    InterfaceDeclaration(Box<InterfaceDeclaration>),
 }
 
 impl From<EnumDeclaration> for Statement {

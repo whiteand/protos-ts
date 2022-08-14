@@ -118,7 +118,169 @@ mod test_enum_declaration {
             ],
         };
         let rendered: String = (&decl).into();
-        assert_eq!(rendered, "export enum MyEnum {\n  A = \"A\",\n  B,\n  C = 1,\n}".to_string());
+        assert_eq!(
+            rendered,
+            "export enum MyEnum {\n  A = \"A\",\n  B,\n  C = 1,\n}".to_string()
+        );
+    }
+}
+
+impl From<&Type> for String {
+    fn from(type_: &Type) -> Self {
+        match type_ {
+            Type::Boolean => "boolean".into(),
+            Type::Number => "number".into(),
+            Type::String => "string".into(),
+            Type::Null => "null".into(),
+            Type::Undefined => "undefined".into(),
+            Type::UnionType(UnionType { types }) => {
+                let type_str: Vec<String> = types
+                    .iter()
+                    .map(|t| {
+                        let str: String = t.into();
+                        if t.requires_wrap_for_nesting() {
+                            format!("({})", str)
+                        } else {
+                            str
+                        }
+                    })
+                    .collect();
+                type_str.join(" | ")
+            }
+            Type::ArrayType(element) => {
+                if element.requires_wrap_for_nesting() {
+                    format!("Array<{}>", element)
+                } else {
+                    format!("{}[]", element)
+                }
+            }
+            Type::TypeReference(id) => id.text.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_type {
+    use super::*;
+    #[test]
+    fn it_renders_union() {
+        let type_ = Type::UnionType(UnionType {
+            types: vec![
+                Type::Boolean,
+                Type::Number,
+                Type::String,
+                Type::Null,
+                Type::Undefined,
+            ],
+        });
+        let rendered: String = (&type_).into();
+        assert_eq!(rendered, "boolean | number | string | null | undefined");
+    }
+    #[test]
+    fn it_renders_array_with_nested_type() {
+        let type_ = Type::array(
+            UnionType {
+                types: vec![
+                    Type::Boolean,
+                    Type::Number,
+                    Type::String,
+                    Type::Null,
+                    Type::Undefined,
+                ],
+            }
+            .into(),
+        );
+        let rendered: String = (&type_).into();
+        assert_eq!(
+            rendered,
+            "Array<boolean | number | string | null | undefined>"
+        );
+    }
+    #[test]
+    fn it_renders_bool_array() {
+        let type_ = Type::array(Type::Boolean);
+        let rendered: String = (&type_).into();
+        assert_eq!(rendered, "boolean[]");
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str: String = self.into();
+        write!(f, "{}", str)
+    }
+}
+
+impl From<&InterfaceDeclaration> for String {
+    fn from(interface_declaration: &InterfaceDeclaration) -> Self {
+        let mut res = String::new();
+        let InterfaceDeclaration {
+            modifiers,
+            name,
+            members,
+        } = interface_declaration;
+        for modifier in modifiers {
+            match modifier {
+                Modifier::Export => res.push_str("export "),
+            }
+        }
+        res.push_str("interface ");
+        res.push_str(name.text.as_str());
+        if members.len() <= 0 {
+            res.push_str("{}");
+            return res;
+        }
+        res.push_str(" {\n");
+        for member in members {
+            match member {
+                InterfaceMember::PropertySignature(prop) => {
+                    res.push_str("  ");
+                    res.push_str(prop.name.text.clone().as_str());
+                    res.push_str(": ");
+                    let type_str: String = (&prop.propertyType).into();
+                    res.push_str(type_str.as_str());
+                    res.push_str("\n");
+                }
+            }
+        }
+        res.push_str("}");
+
+        res
+    }
+}
+
+#[cfg(test)]
+mod test_interface_declaration {
+    use super::*;
+    #[test]
+    fn it_works() {
+        let decl = InterfaceDeclaration {
+            modifiers: vec![Modifier::Export],
+            name: "MyInterface".into(),
+            members: vec![
+                PropertySignature {
+                    name: "A".into(),
+                    propertyType: Type::Boolean,
+                }
+                .into(),
+                PropertySignature {
+                    name: "B".into(),
+                    propertyType: Type::Number,
+                }
+                .into(),
+                PropertySignature {
+                    name: "C".into(),
+                    propertyType: Type::String,
+                }
+                .into(),
+            ],
+        };
+        let rendered: String = (&decl).into();
+        assert_eq!(
+            rendered,
+            "export interface MyInterface {\n  A: boolean\n  B: number\n  C: string\n}"
+                .to_string()
+        );
     }
 }
 
@@ -127,6 +289,9 @@ impl From<&Statement> for String {
         match statement {
             Statement::ImportDeclaration(import_declaration) => (&**import_declaration).into(),
             Statement::EnumDeclaration(enum_declaration) => (&**enum_declaration).into(),
+            Statement::InterfaceDeclaration(interface_declaration) => {
+                (&**interface_declaration).into()
+            }
         }
     }
 }
