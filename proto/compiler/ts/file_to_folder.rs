@@ -7,10 +7,10 @@ use crate::proto::{
     package_tree::PackageTree,
 };
 
-struct MessageContext<'a, 'b> {
+struct MessageContext<'a> {
     package_tree: &'a PackageTree,
-    proto_file: &'b ProtoFile,
-    parent_messages: Vec<MessageDeclaration>,
+    proto_file: &'a ProtoFile,
+    parent_messages: Vec<&'a MessageDeclaration>,
 }
 
 pub(super) fn file_to_folder(
@@ -38,22 +38,27 @@ pub(super) fn file_to_folder(
 }
 
 fn insert_message_declaration(
-    res: &mut Folder,
+    message_parent_folder: &mut Folder,
     message_context: MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    insert_message_types(res, &message_context, message_declaration)?;
-    insert_encode(res, &message_context, message_declaration)?;
-    insert_decode(res, &message_context, message_declaration)?;
+    let mut message_folder = Folder::new(message_declaration.name.clone());
+    insert_message_types(&mut message_folder, &message_context, message_declaration)?;
+    insert_encode(&mut message_folder, &message_context, message_declaration)?;
+    insert_decode(&mut message_folder, &message_context, message_declaration)?;
+    insert_children(&mut message_folder, &message_context, message_declaration)?;
+    message_parent_folder.entries.push(message_folder.into());
+
     println!();
     Ok(())
 }
 
 fn insert_message_types(
-    res: &mut Folder,
+    message_folder: &mut Folder,
     message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
+    //! TODO: Implement this
     println!(
         "{}: insert_message_types, not implemented",
         message_declaration.name
@@ -61,10 +66,11 @@ fn insert_message_types(
     Ok(())
 }
 fn insert_encode(
-    res: &mut Folder,
+    message_folder: &mut Folder,
     message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
+    //! TODO: Implement this
     println!(
         "{}: insert_encode, not implemented",
         message_declaration.name
@@ -72,20 +78,50 @@ fn insert_encode(
     Ok(())
 }
 fn insert_decode(
-    res: &mut Folder,
+    message_folder: &mut Folder,
     message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
+    //! TODO: Implement this
     println!(
         "{}: insert_decode, not implemented",
         message_declaration.name
     );
     Ok(())
 }
+fn insert_children(
+    message_folder: &mut Folder,
+    message_context: &MessageContext,
+    message_declaration: &MessageDeclaration,
+) -> Result<(), ProtoError> {
+    for entry in message_declaration.entries.iter() {
+        use crate::proto::package::MessageEntry::*;
+        match entry {
+            Field(_) => {}
+            OneOf(_) => {}
+            Message(m) => {
+                let mut child_context = MessageContext {
+                    parent_messages: vec![message_declaration],
+                    package_tree: message_context.package_tree,
+                    proto_file: message_context.proto_file,
+                };
+                for p in message_context.parent_messages.iter() {
+                    child_context.parent_messages.push(p);
+                }
+
+                insert_message_declaration(message_folder, child_context, m)?;
+            }
+            Enum(e) => {
+                insert_enum_declaration(message_folder, e);
+            }
+        }
+    }
+    Ok(())
+}
 
 fn insert_enum_declaration(res: &mut Folder, enum_declaration: &EnumDeclaration) {
     let mut file = File::new(enum_declaration.name.clone());
-    let mut enum_declaration = super::ast::EnumDeclaration {
+    let enum_declaration = super::ast::EnumDeclaration {
         modifiers: vec![Modifier::Export],
         name: enum_declaration.name.clone().into(),
         members: enum_declaration
