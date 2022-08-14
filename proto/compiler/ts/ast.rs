@@ -62,7 +62,7 @@ where
         }
     }
 }
-impl <'a>From<&'a Identifier> for &'a str {
+impl<'a> From<&'a Identifier> for &'a str {
     fn from(identifier: &'a Identifier) -> &'a str {
         identifier.text.as_str()
     }
@@ -162,6 +162,17 @@ pub(crate) enum Statement {
     EnumDeclaration(Box<EnumDeclaration>),
 }
 
+impl From<EnumDeclaration> for Statement {
+    fn from(enum_declaration: EnumDeclaration) -> Self {
+        Statement::EnumDeclaration(Box::new(enum_declaration))
+    }
+}
+impl From<ImportDeclaration> for Statement {
+    fn from(import_declaration: ImportDeclaration) -> Self {
+        Statement::ImportDeclaration(Box::new(import_declaration))
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct File {
     pub name: String,
@@ -190,11 +201,16 @@ impl From<File> for FolderEntry {
         Self::File(Box::new(file))
     }
 }
+impl From<Folder> for FolderEntry {
+    fn from(folder: Folder) -> Self {
+        Self::Folder(Box::new(folder))
+    }
+}
 
 impl FolderEntry {
     pub fn as_folder_mut(&mut self) -> Option<&mut Folder> {
         match self {
-            FolderEntry::Folder(folder) => Some(folder.as_mut()),
+            FolderEntry::Folder(folder) => Some(folder),
             _ => None,
         }
     }
@@ -254,11 +270,5 @@ impl Folder {
             }
         }
         res
-    }
-}
-
-impl From<Folder> for FolderEntry {
-    fn from(folder: Folder) -> Self {
-        Self::Folder(Box::new(folder))
     }
 }

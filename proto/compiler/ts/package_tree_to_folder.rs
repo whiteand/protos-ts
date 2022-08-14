@@ -1,19 +1,19 @@
-use super::ast::*;
-use crate::proto::package_tree::*;
+use super::{ast::*, file_to_folder};
+use crate::proto::{error::ProtoError, package_tree::*};
 
-impl From<&PackageTree> for Folder {
-    fn from(package_tree: &PackageTree) -> Self {
+impl TryFrom<&PackageTree> for Folder {
+    type Error = ProtoError;
+    fn try_from(package_tree: &PackageTree) -> Result<Self, Self::Error> {
         let mut folder = Self::new(package_tree.name.clone());
         for child in package_tree.children.iter() {
-            folder
-                .entries
-                .push(FolderEntry::Folder(Box::new(child.into())))
+            let child_folder: Folder = child.try_into()?;
+            folder.entries.push(child_folder.into());
         }
         for file in package_tree.files.iter() {
-            folder
-                .entries
-                .push(FolderEntry::Folder(Box::new(file.into())))
+            let file_folder = file_to_folder::file_to_folder(package_tree, file)?;
+
+            folder.entries.push(file_folder.into());
         }
-        folder
+        Ok(folder)
     }
 }
