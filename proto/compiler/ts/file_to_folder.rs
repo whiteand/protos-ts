@@ -169,6 +169,14 @@ impl<'context> BlockScope<'context> {
         return Err(self.error(format!("Could not resolve name {}", name).as_str()));
     }
 
+    fn resolve_path(&self, path: &Vec<String>) -> Result<DefinedId, ProtoError> {
+        let mut resolution = self.resolve(&path[0])?;
+        for name in &path[1..] {
+            resolution = resolution.resolve(name)?;
+        }
+        Ok(resolution)
+    }
+
     fn error(&self, message: &str) -> ProtoError {
         let mut error_message = String::new();
         error_message.push_str(message);
@@ -297,10 +305,7 @@ fn import_type(
                     _ => {}
                 }
             }
-            let mut resolution = scope.resolve(&ids[0])?;
-            for name in &ids[1..] {
-                resolution = resolution.resolve(name)?;
-            }
+            let resolution = scope.resolve_path(ids)?;
 
             println!("Resolved {}:\n{}", ids.join("."), resolution.declaration);
 
