@@ -1,6 +1,6 @@
-use super::{error::ProtoError, lexems, package_tree::PackageTree, syntax};
+use super::{error::ProtoError, lexems, package_tree::PackageTree, scope::Scope, syntax};
 use lexems::read_lexems;
-use std::{fmt::Display, io::Read, path::PathBuf};
+use std::{fmt::Display, io::Read, ops::Index, path::PathBuf};
 use syntax::parse_package;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,6 +55,12 @@ pub(crate) enum FieldType {
     IdPath(Vec<String>),
     Repeated(Box<FieldType>),
     Map(Box<FieldType>, Box<FieldType>),
+}
+
+impl FieldType {
+    pub fn repeated(t: Self) -> Self {
+        FieldType::Repeated(Box::new(t))
+    }
 }
 
 impl std::fmt::Display for FieldType {
@@ -123,8 +129,7 @@ impl std::fmt::Display for OneOfDeclaration {
 #[derive(Debug, Clone)]
 pub(crate) enum MessageEntry {
     Field(FieldDeclaration),
-    Message(MessageDeclaration),
-    Enum(EnumDeclaration),
+    Declaration(Declaration),
     OneOf(OneOfDeclaration),
 }
 impl std::fmt::Display for MessageEntry {
@@ -132,10 +137,15 @@ impl std::fmt::Display for MessageEntry {
         use MessageEntry::*;
         match self {
             Field(field) => write!(f, "{};", field),
-            Message(message) => write!(f, "\n{}", message),
-            Enum(enum_decl) => write!(f, "\n{}", enum_decl),
+            Declaration(decl) => write!(f, "\n{}", decl),
             OneOf(one_of_decl) => write!(f, "\n{}", one_of_decl),
         }
+    }
+}
+
+impl From<Declaration> for MessageEntry {
+    fn from(decl: Declaration) -> Self {
+        MessageEntry::Declaration(decl)
     }
 }
 
@@ -159,10 +169,45 @@ impl std::fmt::Display for MessageDeclaration {
     }
 }
 
-#[derive(Debug)]
+impl Scope for MessageDeclaration {
+    type Declaration = Declaration;
+    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Self::Declaration> {
+        let mut res = None;
+        for i in 0..self.entries.len() {
+            let entry = &self.entries[i];
+            match entry {
+                MessageEntry::Field(_) => {}
+                MessageEntry::Declaration(decl) => {
+                    let matches = match decl {
+                        Declaration::Enum(e) => e.name == name,
+                        Declaration::Message(m) => m.name == name,
+                    };
+                    if matches {
+                        res = Some(&*decl);
+                    }
+                }
+                MessageEntry::OneOf(_) => {}
+            }
+        }
+        res
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) enum Declaration {
     Enum(EnumDeclaration),
     Message(MessageDeclaration),
+}
+
+impl From<EnumDeclaration> for Declaration {
+    fn from(decl: EnumDeclaration) -> Self {
+        Declaration::Enum(decl)
+    }
+}
+impl From<MessageDeclaration> for Declaration {
+    fn from(decl: MessageDeclaration) -> Self {
+        Declaration::Message(decl)
+    }
 }
 
 impl std::fmt::Display for Declaration {
@@ -218,6 +263,34 @@ pub(crate) struct ProtoFile {
     pub imports: Vec<ImportPath>,
     pub path: Vec<String>,
     pub name: String,
+}
+
+impl Scope for ProtoFile {
+    type Declaration = Declaration;
+    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Self::Declaration> {
+        let mut decl_index = None;
+        for i in 0..self.declarations.len() {
+            let decl = &self.declarations[i];
+            match decl {
+                Declaration::Enum(e) => {
+                    if e.name == name {
+                        decl_index = Some(i);
+                        break;
+                    }
+                }
+                Declaration::Message(m) => {
+                    if m.name == name {
+                        decl_index = Some(i);
+                        break;
+                    }
+                }
+            }
+        }
+        match decl_index {
+            Some(ind) => Some(&self.declarations[ind]),
+            None => None,
+        }
+    }
 }
 
 impl ProtoFile {
@@ -332,6 +405,7 @@ fn relative_file_path(cur_dir: &PathBuf, file_path: &PathBuf) -> String {
             todo!();
         }
     }
+
     while let Some(std::path::Component::Normal(x)) = file_path_components.next() {
         res.push_str("/");
         res.push_str(x.to_str().unwrap());

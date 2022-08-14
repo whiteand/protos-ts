@@ -3,7 +3,9 @@ use super::file_name_to_folder_name::file_name_to_folder_name;
 use crate::proto::{
     compiler::ts::ast::*,
     error::ProtoError,
-    package::{Declaration, EnumDeclaration, MessageDeclaration, ProtoFile},
+    package::{
+        Declaration, EnumDeclaration, FieldType, MessageDeclaration, MessageEntry, ProtoFile,
+    },
     package_tree::PackageTree,
 };
 
@@ -88,11 +90,13 @@ fn insert_encoded_input_interface(
     for entry in &message_declaration.entries {
         use crate::proto::package::MessageEntry::*;
         match entry {
-            Field(f) => interface
-                .members
-                .push(PropertySignature::new_optional(f.json_name(), Type::Null).into()),
-            Message(_) => {}
-            Enum(_) => {}
+            Field(f) => {
+                let t: Type = Type::Null;
+                interface
+                    .members
+                    .push(PropertySignature::new_optional(f.json_name(), t).into());
+            }
+            Declaration(_) => {}
             OneOf(_) => todo!("Not implemented handling of OneOf Field"),
         }
     }
@@ -100,6 +104,7 @@ fn insert_encoded_input_interface(
     types_file.ast.statements.push(interface.into());
     Ok(())
 }
+
 fn insert_decode_result_interface(
     types_file: &mut super::ast::File,
     message_context: &MessageContext,
@@ -112,8 +117,7 @@ fn insert_decode_result_interface(
             Field(f) => interface
                 .members
                 .push(PropertySignature::new(f.json_name(), Type::Null).into()),
-            Message(_) => {}
-            Enum(_) => {}
+            Declaration(_) => {}
             OneOf(_) => todo!("Not implemented handling of OneOf Field"),
         }
     }
@@ -121,6 +125,7 @@ fn insert_decode_result_interface(
     types_file.ast.statements.push(interface.into());
     Ok(())
 }
+
 fn insert_encode(
     message_folder: &mut Folder,
     message_context: &MessageContext,
@@ -158,25 +163,26 @@ fn insert_children(
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     for entry in message_declaration.entries.iter() {
-        use crate::proto::package::MessageEntry::*;
         match entry {
-            Field(_) => {}
-            OneOf(_) => {}
-            Message(m) => {
-                let mut child_context = MessageContext {
-                    parent_messages: vec![message_declaration],
-                    package_tree: message_context.package_tree,
-                    proto_file: message_context.proto_file,
-                };
-                for p in message_context.parent_messages.iter() {
-                    child_context.parent_messages.push(p);
+            MessageEntry::Field(_) => {}
+            MessageEntry::OneOf(_) => {}
+            MessageEntry::Declaration(decl) => match decl {
+                Declaration::Enum(e) => {
+                    insert_enum_declaration(message_folder, e);
                 }
+                Declaration::Message(m) => {
+                    let mut child_context = MessageContext {
+                        parent_messages: vec![message_declaration],
+                        package_tree: message_context.package_tree,
+                        proto_file: message_context.proto_file,
+                    };
+                    for p in message_context.parent_messages.iter() {
+                        child_context.parent_messages.push(p);
+                    }
 
-                insert_message_declaration(message_folder, child_context, m)?;
-            }
-            Enum(e) => {
-                insert_enum_declaration(message_folder, e);
-            }
+                    insert_message_declaration(message_folder, child_context, m)?;
+                }
+            },
         }
     }
     Ok(())

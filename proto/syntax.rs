@@ -68,6 +68,42 @@ enum StackItem {
     OneOf(OneOfDeclaration),
 }
 
+impl From<String> for StackItem {
+    fn from(s: String) -> Self {
+        StackItem::String(s)
+    }
+}
+impl From<i64> for StackItem {
+    fn from(i: i64) -> Self {
+        StackItem::Int64(i)
+    }
+}
+impl From<EnumDeclaration> for StackItem {
+    fn from(e: EnumDeclaration) -> Self {
+        StackItem::Enum(e)
+    }
+}
+impl From<OneOfDeclaration> for StackItem {
+    fn from(o: OneOfDeclaration) -> Self {
+        StackItem::OneOf(o)
+    }
+}
+impl From<MessageDeclaration> for StackItem {
+    fn from(m: MessageDeclaration) -> Self {
+        StackItem::Message(m)
+    }
+}
+impl From<MessageEntry> for StackItem {
+    fn from(m: MessageEntry) -> Self {
+        StackItem::MessageEntry(m)
+    }
+}
+impl From<FieldType> for StackItem {
+    fn from(f: FieldType) -> Self {
+        StackItem::FieldType(f)
+    }
+}
+
 pub(super) fn parse_package(
     located_lexems: &[LocatedLexem],
     res: &mut ProtoFile,
@@ -154,7 +190,7 @@ pub(super) fn parse_package(
                     _ => unreachable!(),
                 };
                 let map_type = FieldType::Map(Box::new(key_type), Box::new(value_type));
-                stack.push(StackItem::FieldType(map_type));
+                stack.push(map_type.into());
                 continue;
             }
             ParseSyntaxStatement => {
@@ -222,7 +258,7 @@ pub(super) fn parse_package(
                 let lexem = &located_lexem.lexem;
                 match lexem {
                     Lexem::IntLiteral(i) => {
-                        stack.push(StackItem::Int64(*i));
+                        stack.push((*i).into());
                         ind += 1;
                         continue;
                     }
@@ -382,7 +418,7 @@ pub(super) fn parse_package(
                 let name_loc_lexem = &located_lexems[ind];
                 let name = &name_loc_lexem.lexem;
                 match name {
-                    Lexem::Id(id) => stack.push(StackItem::String(id.clone())),
+                    Lexem::Id(id) => stack.push(id.clone().into()),
                     _ => return Err(syntax_error("Expacted enum name", name_loc_lexem)),
                 }
                 ind += 1;
@@ -413,7 +449,7 @@ pub(super) fn parse_package(
                                     name: name,
                                     entries: entries,
                                 };
-                                stack.push(StackItem::Enum(enum_declaration));
+                                stack.push(enum_declaration.into());
                             }
                             (a, b) => {
                                 println!("Invalid stack items for enum declaration finishing: {:?} and {:?}", a, b);
@@ -498,19 +534,25 @@ pub(super) fn parse_package(
                     name: message_name,
                     entries,
                 };
-                stack.push(StackItem::Message(message_declaration));
+                stack.push(message_declaration.into());
                 continue;
             }
             WrapMessageEntry => {
                 let entry = match stack.pop() {
                     Some(StackItem::Message(message_declaration)) => {
-                        MessageEntry::Message(message_declaration)
+                        let decl: Declaration = message_declaration.into();
+                        let message_entry: MessageEntry = decl.into();
+                        message_entry
                     }
-                    Some(StackItem::Enum(enum_declaration)) => MessageEntry::Enum(enum_declaration),
+                    Some(StackItem::Enum(enum_declaration)) => {
+                        let decl: Declaration = enum_declaration.into();
+                        let message_entry: MessageEntry = decl.into();
+                        message_entry
+                    }
                     Some(StackItem::OneOf(decl)) => MessageEntry::OneOf(decl),
                     _ => unreachable!(),
                 };
-                stack.push(StackItem::MessageEntry(entry));
+                stack.push(entry.into());
                 continue;
             }
             PushMessageEntry => {
@@ -614,7 +656,7 @@ pub(super) fn parse_package(
                         })
                         .collect::<Vec<FieldDeclaration>>(),
                 };
-                stack.push(StackItem::OneOf(one_of_declaration));
+                stack.push(one_of_declaration.into());
                 continue;
             }
             ParseFieldType => {
@@ -648,7 +690,7 @@ pub(super) fn parse_package(
                     Some(StackItem::StringList(ids)) => FieldType::IdPath(ids),
                     _ => unreachable!(),
                 };
-                stack.push(StackItem::FieldType(field_type));
+                stack.push(field_type.into());
                 continue;
             }
             ParseIdPath => {
@@ -684,9 +726,7 @@ pub(super) fn parse_package(
                 let item = stack.pop();
                 match item {
                     Some(StackItem::FieldType(field_type)) => {
-                        stack.push(StackItem::FieldType(FieldType::Repeated(Box::new(
-                            field_type,
-                        ))));
+                        stack.push(FieldType::repeated(field_type).into());
                         continue;
                     }
                     _ => {
@@ -730,7 +770,7 @@ pub(super) fn parse_package(
                 match lexem {
                     Lexem::Id(found_id) => {
                         ind += 1;
-                        stack.push(StackItem::String(found_id.clone()));
+                        stack.push(found_id.clone().into());
                         continue;
                     }
                     _ => {
@@ -745,7 +785,7 @@ pub(super) fn parse_package(
                 match lexem {
                     Lexem::StringLiteral(found_literal) => {
                         ind += 1;
-                        stack.push(StackItem::String(found_literal.clone()));
+                        stack.push(found_literal.clone().into());
                         continue;
                     }
                     _ => {
