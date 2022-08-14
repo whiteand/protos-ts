@@ -71,7 +71,7 @@ impl<'scope> DefinedId<'scope> {
                     parent_messages: Vec::new(),
                     proto_file: p,
                 };
-                return package_block_scope.resolve(name)
+                return package_block_scope.resolve(name);
             }
         }
     }
@@ -252,7 +252,12 @@ fn insert_encoded_input_interface(
         match entry {
             Field(f) => {
                 let type_scope = scope.push(message_declaration);
-                let t: Type = import_type(types_file, &type_scope, &f.field_type)?;
+                let t: Type = import_type(
+                    types_file,
+                    &type_scope,
+                    &f.field_type,
+                    TypeUsage::EncodingField,
+                )?;
                 interface
                     .members
                     .push(PropertySignature::new_optional(f.json_name(), t).into());
@@ -266,10 +271,16 @@ fn insert_encoded_input_interface(
     Ok(())
 }
 
+enum TypeUsage {
+    EncodingField,
+    DecodingField,
+}
+
 fn import_type(
     types_file: &mut File,
     scope: &BlockScope,
     field_type: &FieldType,
+    usage: TypeUsage,
 ) -> Result<Type, ProtoError> {
     match field_type {
         FieldType::IdPath(ids) => {
@@ -296,7 +307,7 @@ fn import_type(
             return Ok(Type::Null);
         }
         FieldType::Repeated(field_type) => {
-            let element_type = import_type(types_file, scope, field_type)?;
+            let element_type = import_type(types_file, scope, field_type, usage)?;
             return Ok(Type::array(element_type));
         }
         FieldType::Map(_, _) => todo!(),
