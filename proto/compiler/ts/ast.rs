@@ -8,6 +8,33 @@ pub(crate) struct StringLiteral {
     pub text: String,
 }
 
+impl<T> From<T> for StringLiteral
+where
+    T: std::fmt::Display,
+{
+    fn from(text: T) -> Self {
+        StringLiteral {
+            text: format!("{}", text),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct NumericLiteral {
+    pub text: String,
+}
+
+impl<T> From<T> for NumericLiteral
+where
+    T: std::fmt::Display,
+{
+    fn from(text: T) -> Self {
+        NumericLiteral {
+            text: format!("{}", text),
+        }
+    }
+}
+
 impl StringLiteral {
     pub fn new(text: String) -> Self {
         Self { text }
@@ -25,6 +52,21 @@ impl Identifier {
     }
 }
 
+impl<T> From<T> for Identifier
+where
+    T: std::fmt::Display,
+{
+    fn from(text: T) -> Self {
+        Identifier {
+            text: format!("{}", text),
+        }
+    }
+}
+impl <'a>From<&'a Identifier> for &'a str {
+    fn from(identifier: &'a Identifier) -> &'a str {
+        identifier.text.as_str()
+    }
+}
 #[derive(Debug)]
 pub(crate) struct ImportSpecifier {
     pub name: Identifier,
@@ -58,6 +100,57 @@ pub(crate) struct ImportDeclaration {
 }
 
 #[derive(Debug)]
+pub(crate) enum Modifier {
+    Export,
+}
+
+#[derive(Debug)]
+pub(crate) enum EnumValue {
+    String(StringLiteral),
+    Number(NumericLiteral),
+}
+
+impl From<String> for EnumValue {
+    fn from(text: String) -> Self {
+        EnumValue::String(StringLiteral::new(text))
+    }
+}
+
+impl From<usize> for EnumValue {
+    fn from(n: usize) -> Self {
+        EnumValue::Number(n.into())
+    }
+}
+impl From<isize> for EnumValue {
+    fn from(n: isize) -> Self {
+        EnumValue::Number(n.into())
+    }
+}
+impl From<i32> for EnumValue {
+    fn from(n: i32) -> Self {
+        EnumValue::Number(n.into())
+    }
+}
+impl From<i64> for EnumValue {
+    fn from(n: i64) -> Self {
+        EnumValue::Number(n.into())
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct EnumMember {
+    pub name: Identifier,
+    pub value: Option<EnumValue>,
+}
+
+#[derive(Debug)]
+pub(crate) struct EnumDeclaration {
+    pub modifiers: Vec<Modifier>,
+    pub name: Identifier,
+    pub members: Vec<EnumMember>,
+}
+
+#[derive(Debug)]
 pub(crate) enum Node {
     SourceFile(Box<SourceFile>),
     ImportDeclaration(Box<ImportDeclaration>),
@@ -66,6 +159,7 @@ pub(crate) enum Node {
 #[derive(Debug)]
 pub(crate) enum Statement {
     ImportDeclaration(Box<ImportDeclaration>),
+    EnumDeclaration(Box<EnumDeclaration>),
 }
 
 #[derive(Debug)]
