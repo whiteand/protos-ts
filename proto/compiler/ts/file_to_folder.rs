@@ -7,6 +7,12 @@ use crate::proto::{
     package_tree::PackageTree,
 };
 
+struct MessageContext<'a, 'b> {
+    package_tree: &'a PackageTree,
+    proto_file: &'b ProtoFile,
+    parent_messages: Vec<MessageDeclaration>,
+}
+
 pub(super) fn file_to_folder(
     package_tree: &PackageTree,
     file: &ProtoFile,
@@ -19,7 +25,12 @@ pub(super) fn file_to_folder(
                 insert_enum_declaration(&mut res, enum_declaration);
             }
             Declaration::Message(message_declaration) => {
-                insert_message_declaration(&mut res, package_tree, file, message_declaration)?;
+                let message_context = MessageContext {
+                    package_tree,
+                    proto_file: file,
+                    parent_messages: Vec::new(),
+                };
+                insert_message_declaration(&mut res, message_context, message_declaration)?;
             }
         }
     }
@@ -28,21 +39,19 @@ pub(super) fn file_to_folder(
 
 fn insert_message_declaration(
     res: &mut Folder,
-    package_tree: &PackageTree,
-    file: &ProtoFile,
+    message_context: MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    insert_message_types(res, package_tree, file, message_declaration)?;
-    insert_encode(res, package_tree, file, message_declaration)?;
-    insert_decode(res, package_tree, file, message_declaration)?;
+    insert_message_types(res, &message_context, message_declaration)?;
+    insert_encode(res, &message_context, message_declaration)?;
+    insert_decode(res, &message_context, message_declaration)?;
     println!();
     Ok(())
 }
 
 fn insert_message_types(
     res: &mut Folder,
-    package_tree: &PackageTree,
-    file: &ProtoFile,
+    message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     println!(
@@ -53,8 +62,7 @@ fn insert_message_types(
 }
 fn insert_encode(
     res: &mut Folder,
-    package_tree: &PackageTree,
-    file: &ProtoFile,
+    message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     println!(
@@ -65,8 +73,7 @@ fn insert_encode(
 }
 fn insert_decode(
     res: &mut Folder,
-    package_tree: &PackageTree,
-    file: &ProtoFile,
+    message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     println!(
