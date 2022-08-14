@@ -260,13 +260,23 @@ impl Folder {
         res.push_str("\n");
         for entry in &self.entries {
             match entry {
-                FolderEntry::File(file) => {
-                    res.push_str(&file.name);
-                    res.push_str("\n");
-                }
+                FolderEntry::File(_) => {}
                 FolderEntry::Folder(folder) => {
                     res.push_str(&folder.display_level(level + 1));
                 }
+            }
+        }
+        for entry in &self.entries {
+            match entry {
+                FolderEntry::File(file) => {
+                    for _ in 0..level {
+                        res.push_str("  ");
+                    }
+                    res.push_str(" ");
+                    res.push_str(&file.name);
+                    res.push_str(".ts\n");
+                }
+                FolderEntry::Folder(_) => {}
             }
         }
         res

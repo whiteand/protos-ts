@@ -58,7 +58,11 @@ fn insert_message_types(
     message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    //! TODO: Implement this
+    let file = super::ast::File::new("types".into());
+
+    message_folder.entries.push(file.into());
+
+    ///! TODO: Implement this
     println!(
         "{}: insert_message_types, not implemented",
         message_declaration.name
@@ -70,7 +74,11 @@ fn insert_encode(
     message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    //! TODO: Implement this
+    let file = super::ast::File::new("encode".into());
+
+    message_folder.entries.push(file.into());
+
+    ///! TODO: Implement this
     println!(
         "{}: insert_encode, not implemented",
         message_declaration.name
@@ -82,7 +90,10 @@ fn insert_decode(
     message_context: &MessageContext,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    //! TODO: Implement this
+    let file = super::ast::File::new("decode".into());
+
+    message_folder.entries.push(file.into());
+    ///! TODO: Implement this
     println!(
         "{}: insert_decode, not implemented",
         message_declaration.name
