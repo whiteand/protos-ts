@@ -77,6 +77,51 @@ impl PackageTree {
         }
         Ok(())
     }
+
+    pub(super) fn resolve_subtree<'a, 'b>(&'a self, path: &[String]) -> Option<&'a PackageTree> {
+        if path.is_empty() {
+            return Some(self);
+        }
+        if self.name != path[0] {
+            return None;
+        }
+        let mut current: &'a PackageTree = self;
+        for name in &path[1..] {
+            let child_index = current
+                .children
+                .iter()
+                .enumerate()
+                .find(|(_, child)| child.name == *name)
+                .map(|p| p.0);
+            
+            match child_index {
+                Some(index) => current = &current.children[index],
+                _ => return None,
+            }
+        }
+        Some(current)
+    }
+
+    pub(super) fn files_tree(&self) -> String {
+        let mut res = String::new();
+        res.push_str(&self.name);
+        res.push('\n');
+        for child in self.children.iter() {
+            let child_str = child.files_tree();
+            for line in child_str.lines() {
+                res.push_str("  ");
+                res.push_str(line);
+                res.push('\n');
+            }
+        }
+        for file in self.files.iter() {
+            res.push(' ');
+            res.push(' ');
+            res.push_str(&file.name);
+            res.push('\n');
+        }
+        res
+    }
 }
 
 impl std::fmt::Display for PackageTree {

@@ -4,7 +4,8 @@ use crate::proto::{
     compiler::ts::ast::*,
     error::ProtoError,
     package::{
-        Declaration, EnumDeclaration, FieldType, MessageDeclaration, MessageEntry, ProtoFile,
+        Declaration, EnumDeclaration, FieldType, ImportPath, MessageDeclaration, MessageEntry,
+        ProtoFile,
     },
     package_tree::PackageTree,
     scope::Scope,
@@ -40,21 +41,21 @@ impl BlockScope<'_> {
 }
 
 #[derive(Debug)]
-enum NameDeclaration<'scope> {
-    Declaration(&'scope Declaration),
+enum IdType<'scope> {
+    DataType(&'scope Declaration),
     Package(&'scope ProtoFile),
 }
 
 #[derive(Debug)]
-struct TypeDeclaration<'a> {
+struct DefinedId<'a> {
     scope: BlockScope<'a>,
-    declaration: NameDeclaration<'a>,
+    declaration: IdType<'a>,
 }
 
-impl<'scope> TypeDeclaration<'scope> {
-    fn resolve(&self, name: &str) -> Result<TypeDeclaration<'scope>, ProtoError> {
+impl<'scope> DefinedId<'scope> {
+    fn resolve(&self, name: &str) -> Result<DefinedId<'scope>, ProtoError> {
         match self.declaration {
-            NameDeclaration::Declaration(decl) => match decl {
+            IdType::DataType(decl) => match decl {
                 Declaration::Enum(e) => {
                     return Err(self
                         .scope
@@ -64,16 +65,23 @@ impl<'scope> TypeDeclaration<'scope> {
                     todo!();
                 }
             },
-            NameDeclaration::Package(_) => todo!(),
+            IdType::Package(p) => {
+                let package_block_scope = BlockScope {
+                    package_tree: self.scope.package_tree,
+                    parent_messages: Vec::new(),
+                    proto_file: p,
+                };
+                return package_block_scope.resolve(name)
+            }
         }
     }
 }
 
-impl std::fmt::Display for NameDeclaration<'_> {
+impl std::fmt::Display for IdType<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NameDeclaration::Declaration(d) => write!(f, "{}", d),
-            NameDeclaration::Package(proto_file) => write!(f, "{}", proto_file),
+            IdType::DataType(d) => write!(f, "{}", d),
+            IdType::Package(proto_file) => write!(f, "{}", proto_file),
         }
     }
 }
@@ -87,34 +95,78 @@ impl<'context> BlockScope<'context> {
         res.push(self.proto_file.full_path());
         res
     }
-    fn resolve(&self, name: &str) -> Result<TypeDeclaration<'context>, ProtoError> {
+    fn resolve(&self, name: &str) -> Result<DefinedId<'context>, ProtoError> {
         for parent_index in 0..self.parent_messages.len() {
             let parent = self.parent_messages[parent_index];
 
             if let Some(declaration) = parent.resolve(name) {
                 let parent_messages = self.parent_messages[parent_index..].to_vec();
-                return Ok(TypeDeclaration {
+                return Ok(DefinedId {
                     scope: BlockScope {
                         package_tree: self.package_tree,
                         proto_file: self.proto_file,
                         parent_messages,
                     },
-                    declaration: NameDeclaration::Declaration(declaration),
+                    declaration: IdType::DataType(declaration),
                 });
             }
         }
         if let Some(declaration) = self.proto_file.resolve(name) {
-            return Ok(TypeDeclaration {
+            return Ok(DefinedId {
                 scope: BlockScope {
                     package_tree: self.package_tree,
                     proto_file: self.proto_file,
                     parent_messages: Vec::new(),
                 },
-                declaration: NameDeclaration::Declaration(declaration),
+                declaration: IdType::DataType(declaration),
             });
         }
 
-        return Err(self.error(format!("COuld not resolve name {}", name).as_str()));
+        println!("{}", self.package_tree.files_tree());
+
+        'nextImport: for imprt in &self.proto_file.imports {
+            let ImportPath {
+                packages,
+                file_name,
+            } = imprt;
+
+            let mut root_path = self.proto_file.path.clone();
+            loop {
+                for package in packages {
+                    root_path.push(package.clone());
+                }
+                match self.package_tree.resolve_subtree(&root_path) {
+                    Some(subtree) => {
+                        match subtree.files.iter().find(|f| f.name == *file_name) {
+                            Some(file) => {
+                                return Ok(DefinedId {
+                                    scope: BlockScope {
+                                        package_tree: self.package_tree,
+                                        proto_file: self.proto_file,
+                                        parent_messages: Vec::new(),
+                                    },
+                                    declaration: IdType::Package(file),
+                                })
+                            }
+                            None => {
+                                continue 'nextImport;
+                            }
+                        };
+                    }
+                    None => {
+                        for _ in packages {
+                            root_path.pop();
+                        }
+                        if root_path.is_empty() {
+                            continue 'nextImport;
+                        }
+                        root_path.pop();
+                    }
+                }
+            }
+        }
+
+        return Err(self.error(format!("Could not resolve name {}", name).as_str()));
     }
 
     fn error(&self, message: &str) -> ProtoError {
