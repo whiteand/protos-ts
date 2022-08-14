@@ -7,7 +7,10 @@ use crate::proto::{
     package_tree::PackageTree,
 };
 
-pub(super) fn file_to_folder(package_tree: &PackageTree, file: &ProtoFile) -> Result<Folder, ProtoError> {
+pub(super) fn file_to_folder(
+    package_tree: &PackageTree,
+    file: &ProtoFile,
+) -> Result<Folder, ProtoError> {
     let folder_name = file_name_to_folder_name(&file.name);
     let mut res = Folder::new(folder_name);
     for declaration in &file.declarations {
@@ -29,7 +32,47 @@ fn insert_message_declaration(
     file: &ProtoFile,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    println!("Ignored message {}", message_declaration.name);
+    insert_message_types(res, package_tree, file, message_declaration)?;
+    insert_encode(res, package_tree, file, message_declaration)?;
+    insert_decode(res, package_tree, file, message_declaration)?;
+    println!();
+    Ok(())
+}
+
+fn insert_message_types(
+    res: &mut Folder,
+    package_tree: &PackageTree,
+    file: &ProtoFile,
+    message_declaration: &MessageDeclaration,
+) -> Result<(), ProtoError> {
+    println!(
+        "{}: insert_message_types, not implemented",
+        message_declaration.name
+    );
+    Ok(())
+}
+fn insert_encode(
+    res: &mut Folder,
+    package_tree: &PackageTree,
+    file: &ProtoFile,
+    message_declaration: &MessageDeclaration,
+) -> Result<(), ProtoError> {
+    println!(
+        "{}: insert_encode, not implemented",
+        message_declaration.name
+    );
+    Ok(())
+}
+fn insert_decode(
+    res: &mut Folder,
+    package_tree: &PackageTree,
+    file: &ProtoFile,
+    message_declaration: &MessageDeclaration,
+) -> Result<(), ProtoError> {
+    println!(
+        "{}: insert_decode, not implemented",
+        message_declaration.name
+    );
     Ok(())
 }
 
