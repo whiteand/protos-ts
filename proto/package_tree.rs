@@ -82,11 +82,8 @@ impl PackageTree {
         if path.is_empty() {
             return Some(self);
         }
-        if self.name != path[0] {
-            return None;
-        }
         let mut current: &'a PackageTree = self;
-        for name in &path[1..] {
+        for name in path {
             let child_index = current
                 .children
                 .iter()

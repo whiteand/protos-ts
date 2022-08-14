@@ -6,11 +6,12 @@ mod package_tree_to_folder;
 mod render_file;
 use crate::proto::error::ProtoError;
 use crate::proto::package_tree::PackageTree;
+use package_tree_to_folder::root_tree_to_folder;
 
 use self::ast::Folder;
 
 pub(crate) fn compile(package_tree: &PackageTree) -> Result<(), ProtoError> {
-    let folder: Folder = package_tree.try_into()?;
+    let folder: Folder = root_tree_to_folder(package_tree)?;
 
     commit_folder::commit_folder(&folder)?;
 

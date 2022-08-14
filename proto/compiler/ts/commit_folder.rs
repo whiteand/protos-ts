@@ -8,7 +8,6 @@ use super::super::super::error::ProtoError;
 use super::render_file;
 
 pub(crate) fn commit_folder(folder: &super::ast::Folder) -> Result<(), ProtoError> {
-    println!("{}", folder.display_tree());
     let destination_path = Path::new(&folder.name);
     if destination_path.exists() {
         remove_dir_all(&destination_path).map_err(ProtoError::IOError)?;
