@@ -245,6 +245,9 @@ pub(super) fn parse_package(
                         res.imports.push(imports_components);
                         continue;
                     }
+                    (Lexem::Id(_), Lexem::StringLiteral(_), _) => {
+                        return Err(syntax_error("expected semicolon", &located_lexems[ind + 2]))
+                    }
                     _ => {
                         return Err(syntax_error(
                             "Invalid import statement",

@@ -1,22 +1,41 @@
 mod args;
 mod proto;
 
+use std::process;
+
 use args::get_proto_folder_path;
 use args::CliArguments;
 use proto::compiler::ts::compile;
 use proto::folder::read_proto_folder;
 use proto::package::read_package_tree;
-use std::io;
 
-fn main() -> io::Result<()> {
+fn main() -> () {
     let CliArguments {
         proto_folder_path,
         out_folder_path,
-    } = get_proto_folder_path()?;
+    } = match get_proto_folder_path() {
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1);
+        }
+        Ok(r) => r,
+    };
 
-    let proto_folder = read_proto_folder(proto_folder_path)?;
+    let proto_folder = match read_proto_folder(proto_folder_path) {
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(2);
+        }
+        Ok(r) => r,
+    };
 
-    let mut package_tree = read_package_tree(&proto_folder.files)?;
+    let mut package_tree = match read_package_tree(&proto_folder.files) {
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(3);
+        }
+        Ok(r) => r,
+    };
 
     package_tree.name = out_folder_path
         .file_name()
@@ -24,7 +43,11 @@ fn main() -> io::Result<()> {
         .unwrap()
         .to_string();
 
-    compile(&package_tree)?;
-
-    Ok(())
+    match compile(&package_tree) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(4);
+        }
+    };
 }

@@ -10,6 +10,7 @@ use super::{
 
 #[derive(Debug)]
 pub(crate) enum ProtoError {
+    Default(String),
     CannotOpenFile(io::Error),
     IOError(io::Error),
     UnknownCharacter {
@@ -38,10 +39,17 @@ pub(crate) enum ProtoError {
     },
 }
 
+impl ProtoError {
+    pub fn new(value: String) -> Self {
+        ProtoError::Default(value)
+    }
+}
+
 impl Display for ProtoError {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         use ProtoError::*;
         match self {
+            Default(s) => f.write_str(s.as_str()),
             CannotOpenFile(err) => write!(f, "Cannot open file: {}", err),
             IOError(err) => write!(f, "IO Error: {}", err),
             UnknownCharacter {

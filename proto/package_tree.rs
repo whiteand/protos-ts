@@ -1,5 +1,6 @@
 use super::{error::ProtoError, package::ProtoFile};
 
+#[derive(Debug)]
 pub(crate) struct PackageTree {
     pub children: Vec<PackageTree>,
     pub files: Vec<ProtoFile>,

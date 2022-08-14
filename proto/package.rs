@@ -1,6 +1,11 @@
 use super::{error::ProtoError, lexems, package_tree::PackageTree, scope::Scope, syntax};
 use lexems::read_lexems;
-use std::{fmt::Display, io::Read, ops::Index, path::PathBuf};
+use std::{
+    fmt::Display,
+    io::Read,
+    ops::{Deref, Index},
+    path::PathBuf,
+};
 use syntax::parse_package;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,7 +24,7 @@ impl std::fmt::Display for ProtoVersion {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EnumEntry {
     pub name: String,
     pub value: i64,
@@ -31,7 +36,7 @@ impl std::fmt::Display for EnumEntry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EnumDeclaration {
     pub name: String,
     pub entries: Vec<EnumEntry>,
@@ -50,7 +55,7 @@ impl std::fmt::Display for EnumDeclaration {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FieldType {
     IdPath(Vec<String>),
     Repeated(Box<FieldType>),
@@ -74,7 +79,7 @@ impl std::fmt::Display for FieldType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FieldDeclaration {
     pub name: String,
     pub field_type: FieldType,
@@ -110,7 +115,7 @@ impl std::fmt::Display for FieldDeclaration {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OneOfDeclaration {
     pub name: String,
     pub options: Vec<FieldDeclaration>,
@@ -126,7 +131,7 @@ impl std::fmt::Display for OneOfDeclaration {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MessageEntry {
     Field(FieldDeclaration),
     Declaration(Declaration),
@@ -149,7 +154,7 @@ impl From<Declaration> for MessageEntry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MessageDeclaration {
     pub name: String,
     pub entries: Vec<MessageEntry>,
@@ -170,8 +175,7 @@ impl std::fmt::Display for MessageDeclaration {
 }
 
 impl Scope for MessageDeclaration {
-    type Declaration = Declaration;
-    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Self::Declaration> {
+    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Declaration> {
         let mut res = None;
         for i in 0..self.entries.len() {
             let entry = &self.entries[i];
@@ -193,7 +197,7 @@ impl Scope for MessageDeclaration {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Declaration {
     Enum(EnumDeclaration),
     Message(MessageDeclaration),
@@ -256,7 +260,7 @@ impl Ord for ImportPath {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ProtoFile {
     pub version: ProtoVersion,
     pub declarations: Vec<Declaration>,
@@ -266,8 +270,7 @@ pub(crate) struct ProtoFile {
 }
 
 impl Scope for ProtoFile {
-    type Declaration = Declaration;
-    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Self::Declaration> {
+    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Declaration> {
         let mut decl_index = None;
         for i in 0..self.declarations.len() {
             let decl = &self.declarations[i];

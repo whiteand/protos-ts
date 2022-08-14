@@ -7,12 +7,124 @@ use crate::proto::{
         Declaration, EnumDeclaration, FieldType, MessageDeclaration, MessageEntry, ProtoFile,
     },
     package_tree::PackageTree,
+    scope::Scope,
 };
 
-struct MessageContext<'a> {
+#[derive(Debug)]
+struct BlockScope<'a> {
     package_tree: &'a PackageTree,
     proto_file: &'a ProtoFile,
     parent_messages: Vec<&'a MessageDeclaration>,
+}
+
+impl BlockScope<'_> {
+    pub fn push<'x>(&'x self, message: &'x MessageDeclaration) -> BlockScope<'x> {
+        let mut parent_messages = vec![message];
+        for p in self.parent_messages.iter() {
+            parent_messages.push(p);
+        }
+        BlockScope {
+            package_tree: self.package_tree,
+            proto_file: self.proto_file,
+            parent_messages,
+        }
+    }
+
+    pub fn new<'x>(package_tree: &'x PackageTree, proto_file: &'x ProtoFile) -> BlockScope<'x> {
+        BlockScope {
+            package_tree,
+            proto_file,
+            parent_messages: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum NameDeclaration<'scope> {
+    Declaration(&'scope Declaration),
+    Package(&'scope ProtoFile),
+}
+
+#[derive(Debug)]
+struct TypeDeclaration<'a> {
+    scope: BlockScope<'a>,
+    declaration: NameDeclaration<'a>,
+}
+
+impl<'scope> TypeDeclaration<'scope> {
+    fn resolve(&self, name: &str) -> Result<TypeDeclaration<'scope>, ProtoError> {
+        match self.declaration {
+            NameDeclaration::Declaration(decl) => match decl {
+                Declaration::Enum(e) => {
+                    return Err(self
+                        .scope
+                        .error(format!("Cannot resolve {}\n  in {}", name, e.name).as_str()))
+                }
+                Declaration::Message(m) => {
+                    todo!();
+                }
+            },
+            NameDeclaration::Package(_) => todo!(),
+        }
+    }
+}
+
+impl std::fmt::Display for NameDeclaration<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NameDeclaration::Declaration(d) => write!(f, "{}", d),
+            NameDeclaration::Package(proto_file) => write!(f, "{}", proto_file),
+        }
+    }
+}
+
+impl<'context> BlockScope<'context> {
+    fn stack_trace(&self) -> Vec<String> {
+        let mut res: Vec<String> = Vec::new();
+        for &parent in self.parent_messages.iter() {
+            res.push(parent.name.clone());
+        }
+        res.push(self.proto_file.full_path());
+        res
+    }
+    fn resolve(&self, name: &str) -> Result<TypeDeclaration<'context>, ProtoError> {
+        for parent_index in 0..self.parent_messages.len() {
+            let parent = self.parent_messages[parent_index];
+
+            if let Some(declaration) = parent.resolve(name) {
+                let parent_messages = self.parent_messages[parent_index..].to_vec();
+                return Ok(TypeDeclaration {
+                    scope: BlockScope {
+                        package_tree: self.package_tree,
+                        proto_file: self.proto_file,
+                        parent_messages,
+                    },
+                    declaration: NameDeclaration::Declaration(declaration),
+                });
+            }
+        }
+        if let Some(declaration) = self.proto_file.resolve(name) {
+            return Ok(TypeDeclaration {
+                scope: BlockScope {
+                    package_tree: self.package_tree,
+                    proto_file: self.proto_file,
+                    parent_messages: Vec::new(),
+                },
+                declaration: NameDeclaration::Declaration(declaration),
+            });
+        }
+
+        return Err(self.error(format!("COuld not resolve name {}", name).as_str()));
+    }
+
+    fn error(&self, message: &str) -> ProtoError {
+        let mut error_message = String::new();
+        error_message.push_str(message);
+        for location in self.stack_trace() {
+            error_message.push_str(format!("\n  in {}", location).as_str());
+        }
+        return ProtoError::new(error_message);
+    }
 }
 
 pub(super) fn file_to_folder(
@@ -27,12 +139,8 @@ pub(super) fn file_to_folder(
                 insert_enum_declaration(&mut res, enum_declaration);
             }
             Declaration::Message(message_declaration) => {
-                let message_context = MessageContext {
-                    package_tree,
-                    proto_file: file,
-                    parent_messages: Vec::new(),
-                };
-                insert_message_declaration(&mut res, message_context, message_declaration)?;
+                let file_scope = BlockScope::new(package_tree, file);
+                insert_message_declaration(&mut res, file_scope, message_declaration)?;
             }
         }
     }
@@ -41,14 +149,14 @@ pub(super) fn file_to_folder(
 
 fn insert_message_declaration(
     message_parent_folder: &mut Folder,
-    message_context: MessageContext,
+    scope: BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let mut message_folder = Folder::new(message_declaration.name.clone());
-    insert_message_types(&mut message_folder, &message_context, message_declaration)?;
-    insert_encode(&mut message_folder, &message_context, message_declaration)?;
-    insert_decode(&mut message_folder, &message_context, message_declaration)?;
-    insert_children(&mut message_folder, &message_context, message_declaration)?;
+    insert_message_types(&mut message_folder, &scope, message_declaration)?;
+    insert_encode(&mut message_folder, &scope, message_declaration)?;
+    insert_decode(&mut message_folder, &scope, message_declaration)?;
+    insert_children(&mut message_folder, &scope, message_declaration)?;
     message_parent_folder.entries.push(message_folder.into());
 
     println!();
@@ -57,13 +165,13 @@ fn insert_message_declaration(
 
 fn insert_message_types(
     message_folder: &mut Folder,
-    message_context: &MessageContext,
+    scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let mut file = super::ast::File::new("types".into());
 
-    insert_encoded_input_interface(&mut file, message_context, message_declaration)?;
-    insert_decode_result_interface(&mut file, message_context, message_declaration)?;
+    insert_encoded_input_interface(&mut file, scope, message_declaration)?;
+    insert_decode_result_interface(&mut file, scope, message_declaration)?;
 
     message_folder.entries.push(file.into());
 
@@ -81,7 +189,7 @@ fn message_name_to_encode_type_name(message_name: &str) -> String {
 
 fn insert_encoded_input_interface(
     types_file: &mut super::ast::File,
-    message_context: &MessageContext,
+    scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let mut interface = InterfaceDeclaration::new_exported(message_name_to_encode_type_name(
@@ -91,7 +199,8 @@ fn insert_encoded_input_interface(
         use crate::proto::package::MessageEntry::*;
         match entry {
             Field(f) => {
-                let t: Type = Type::Null;
+                let type_scope = scope.push(message_declaration);
+                let t: Type = import_type(types_file, &type_scope, &f.field_type)?;
                 interface
                     .members
                     .push(PropertySignature::new_optional(f.json_name(), t).into());
@@ -105,9 +214,46 @@ fn insert_encoded_input_interface(
     Ok(())
 }
 
+fn import_type(
+    types_file: &mut File,
+    scope: &BlockScope,
+    field_type: &FieldType,
+) -> Result<Type, ProtoError> {
+    match field_type {
+        FieldType::IdPath(ids) => {
+            if ids.len() <= 0 {
+                return Err(ProtoError::new(format!(
+                    "Field type has no ids: {:?}",
+                    field_type
+                )));
+            }
+            if ids.len() <= 1 {
+                let id = &ids[0];
+                match id.as_str() {
+                    "uint32" => return Ok(Type::Number),
+                    _ => {}
+                }
+            }
+            let mut resolution = scope.resolve(&ids[0])?;
+            for name in &ids[1..] {
+                resolution = resolution.resolve(name)?;
+            }
+
+            println!("Resolved {}:\n{}", ids.join("."), resolution.declaration);
+
+            return Ok(Type::Null);
+        }
+        FieldType::Repeated(field_type) => {
+            let element_type = import_type(types_file, scope, field_type)?;
+            return Ok(Type::array(element_type));
+        }
+        FieldType::Map(_, _) => todo!(),
+    }
+}
+
 fn insert_decode_result_interface(
     types_file: &mut super::ast::File,
-    message_context: &MessageContext,
+    scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let mut interface = InterfaceDeclaration::new_exported(message_declaration.name.clone().into());
@@ -128,7 +274,7 @@ fn insert_decode_result_interface(
 
 fn insert_encode(
     message_folder: &mut Folder,
-    message_context: &MessageContext,
+    scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let file = super::ast::File::new("encode".into());
@@ -144,7 +290,7 @@ fn insert_encode(
 }
 fn insert_decode(
     message_folder: &mut Folder,
-    message_context: &MessageContext,
+    scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let file = super::ast::File::new("decode".into());
@@ -159,7 +305,7 @@ fn insert_decode(
 }
 fn insert_children(
     message_folder: &mut Folder,
-    message_context: &MessageContext,
+    scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     for entry in message_declaration.entries.iter() {
@@ -171,12 +317,12 @@ fn insert_children(
                     insert_enum_declaration(message_folder, e);
                 }
                 Declaration::Message(m) => {
-                    let mut child_context = MessageContext {
+                    let mut child_context = BlockScope {
                         parent_messages: vec![message_declaration],
-                        package_tree: message_context.package_tree,
-                        proto_file: message_context.proto_file,
+                        package_tree: scope.package_tree,
+                        proto_file: scope.proto_file,
                     };
-                    for p in message_context.parent_messages.iter() {
+                    for p in scope.parent_messages.iter() {
                         child_context.parent_messages.push(p);
                     }
 
