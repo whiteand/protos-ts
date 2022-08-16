@@ -154,6 +154,9 @@ impl From<&Type> for String {
                     format!("{}[]", element)
                 }
             }
+            Type::Record(key, value) => {
+                format!("Record<{}, {}>", key, value)
+            }
             Type::TypeReference(id) => id.text.clone(),
         }
     }

@@ -525,7 +525,11 @@ fn import_type(
             let element_type = import_type(types_file, scope, field_type, usage)?;
             return Ok(Type::array(element_type));
         }
-        FieldType::Map(_, _) => todo!(),
+        FieldType::Map(key, value) => {
+            let key_type = import_type(types_file, scope, key, usage)?;
+            let value_type = import_type(types_file, scope, value, usage)?;
+            return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
+        }
     }
 }
 

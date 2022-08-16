@@ -170,6 +170,7 @@ pub(crate) enum Type {
     String,
     UnionType(UnionType),
     ArrayType(Box<Type>),
+    Record(Box<Type>, Box<Type>),
     TypeReference(Identifier),
 }
 
@@ -184,6 +185,7 @@ impl Type {
             Type::Boolean => false,
             Type::String => false,
             Type::TypeReference(_) => false,
+            Type::Record(_, _) => false,
         }
     }
 }
