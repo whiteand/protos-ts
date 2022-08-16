@@ -74,10 +74,16 @@ pub(crate) struct ImportSpecifier {
 }
 
 impl ImportSpecifier {
-    pub fn new(name: Identifier, property_name: Option<Identifier>) -> Self {
+    pub fn new_full(name: Identifier, property_name: Option<Identifier>) -> Self {
         Self {
             name,
             property_name,
+        }
+    }
+    pub fn new(name: Identifier) -> Self {
+        Self {
+            name,
+            property_name: None,
         }
     }
 }

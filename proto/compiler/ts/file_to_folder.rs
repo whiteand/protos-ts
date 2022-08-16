@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use super::ast::Folder;
 use super::file_name_to_folder_name::file_name_to_folder_name;
 use crate::proto::{
@@ -151,7 +153,7 @@ impl ProtoPath {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum TsPathComponent {
     Folder(String),
     File(String),
@@ -181,11 +183,24 @@ impl TsPathComponent {
             TsPathComponent::Function(_) => true,
         }
     }
+    fn is_file(&self) -> bool {
+        return matches!(self, TsPathComponent::File(_));
+    }
+    fn is_folder(&self) -> bool {
+        return matches!(self, TsPathComponent::Folder(_));
+    }
 }
 
 #[derive(Debug)]
 struct TsPath {
     path: Vec<TsPathComponent>,
+}
+
+impl Deref for TsPath {
+    type Target = Vec<TsPathComponent>;
+    fn deref(&self) -> &Self::Target {
+        &self.path
+    }
 }
 
 impl TsPath {
@@ -240,7 +255,8 @@ fn proto_path_to_ts_path(proto_path: ProtoPath) -> TsPath {
                 res.path.push(TsPathComponent::Folder(s.clone()));
             }
             PathComponent::File(s) => {
-                res.path.push(TsPathComponent::Folder(s.clone()));
+                res.path
+                    .push(TsPathComponent::Folder(file_name_to_folder_name(s)));
             }
             PathComponent::Message(s) => {
                 res.path.push(TsPathComponent::Folder(s.clone()));
@@ -458,12 +474,7 @@ fn insert_encoded_input_interface(
         match entry {
             Field(f) => {
                 let type_scope = scope.push(message_declaration);
-                let t: Type = import_type(
-                    types_file,
-                    &type_scope,
-                    &f.field_type,
-                    TypeUsage::EncodingFieldType,
-                )?;
+                let t: Type = import_encoding_input_type(types_file, &type_scope, &f.field_type)?;
                 interface
                     .members
                     .push(PropertySignature::new_optional(f.json_name(), t).into());
@@ -483,16 +494,10 @@ enum TypeUsage {
     DecodingFieldType,
 }
 
-fn get_ts_file_to_definition(scope: &BlockScope, ids: &Vec<String>) -> Result<TsPath, ProtoError> {
-    let resolve_result = scope.resolve_path(ids)?;
-    let requested_path = resolve_result.path();
-    let requested_ts_path = proto_path_to_ts_path(requested_path);
-    Ok(requested_ts_path)
-}
-
 fn try_get_predefined_type(s: &str) -> Option<Type> {
     match s {
         "bool" => Some(Type::Boolean),
+        "string" => Some(Type::String),
         "int32" => Some(Type::Number),
         "uint32" => Some(Type::Number),
         "float" => Some(Type::Number),
@@ -501,11 +506,10 @@ fn try_get_predefined_type(s: &str) -> Option<Type> {
     }
 }
 
-fn import_type(
+fn import_encoding_input_type(
     types_file: &mut File,
     scope: &BlockScope,
     field_type: &FieldType,
-    usage: TypeUsage,
 ) -> Result<Type, ProtoError> {
     match field_type {
         FieldType::IdPath(ids) => {
@@ -518,18 +522,160 @@ fn import_type(
                     None => {}
                 }
             }
+            let resolve_result = scope.resolve_path(ids)?;
+            let requested_path = resolve_result.path();
+            let mut requested_ts_path = proto_path_to_ts_path(requested_path);
+
+            match resolve_result.declaration {
+                IdType::DataType(decl) => match decl {
+                    Declaration::Enum(e) => {
+                        requested_ts_path.push(TsPathComponent::Enum(e.name.clone()));
+                    }
+                    Declaration::Message(m) => {
+                        requested_ts_path.push(TsPathComponent::File("types".into()));
+                        requested_ts_path.push(TsPathComponent::Interface(
+                            message_name_to_encode_type_name(&m.name),
+                        ));
+                    }
+                },
+                IdType::Package(_) => unreachable!(),
+            }
+
+            let mut current_file_path = proto_path_to_ts_path(scope.path());
+            current_file_path.push(TsPathComponent::File("types".into()));
+
+            let import_declaration = get_relative_import(&current_file_path, &requested_ts_path);
+
+            let str: String = (&import_declaration).into();
+            println!("{}", str);
+            dbg!(import_declaration);
 
             return Ok(Type::Null);
         }
         FieldType::Repeated(field_type) => {
-            let element_type = import_type(types_file, scope, field_type, usage)?;
+            let element_type = import_encoding_input_type(types_file, scope, field_type)?;
             return Ok(Type::array(element_type));
         }
         FieldType::Map(key, value) => {
-            let key_type = import_type(types_file, scope, key, usage)?;
-            let value_type = import_type(types_file, scope, value, usage)?;
+            let key_type = import_encoding_input_type(types_file, scope, key)?;
+            let value_type = import_encoding_input_type(types_file, scope, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
+    }
+}
+
+fn get_relative_import(
+    mut from: &[TsPathComponent],
+    mut to: &[TsPathComponent],
+) -> ImportDeclaration {
+    assert!(to.last().unwrap().is_declaration());
+    while from.len() > 0 && to.len() > 0 && from[0] == to[0] {
+        from = &from[1..];
+        to = &to[1..];
+    }
+    assert!(from.len() > 0);
+    assert!(to.len() > 0);
+    let imported_component = to.last().unwrap();
+    assert!(imported_component.is_declaration());
+    let imported_name: String = imported_component.into();
+    if from.first().unwrap().is_file() {
+        let mut file_string = format!(".");
+        for component in to.iter() {
+            if component.is_declaration() {
+                break;
+            }
+            file_string.push('/');
+            let component_name: String = component.into();
+            file_string.push_str(&component_name);
+        }
+
+        return ImportDeclaration {
+            import_clause: ImportClause {
+                name: None,
+                named_bindings: Some(NamedImports {
+                    elements: vec![ImportSpecifier::new(imported_name.into())],
+                }),
+            }
+            .into(),
+            string_literal: file_string.into(),
+        };
+    }
+
+    let mut import_string = String::new();
+
+    while from.len() > 0 && from[0].is_folder() {
+        import_string.push_str("../");
+        from = &from[1..];
+    }
+
+    while to.len() > 0 && to[0].is_folder() {
+        let ref folder = to[0];
+        let folder_name: String = folder.into();
+        import_string.push_str(&folder_name);
+        import_string.push('/');
+        to = &to[1..];
+    }
+    let ref file_component = to[0];
+    assert!(file_component.is_file());
+    let file_name: String = file_component.into();
+    import_string.push_str(&file_name);
+    ImportDeclaration {
+        import_clause: ImportClause {
+            name: None,
+            named_bindings: Some(NamedImports {
+                elements: vec![ImportSpecifier::new(imported_name.into())],
+            }),
+        }
+        .into(),
+        string_literal: import_string.into(),
+    }
+}
+
+#[cfg(test)]
+mod test_get_relative_import {
+    use super::get_relative_import;
+    use super::TsPathComponent::*;
+    #[test]
+    #[should_panic]
+    fn same_file_import_panics() {
+        let from = &[File("types".into())];
+        let to = &[File("types".into()), Enum("Test".into())];
+        let _ = get_relative_import(from, to);
+    }
+    #[test]
+    #[should_panic]
+    fn same_file_import_panics_2() {
+        let from = &[Folder("Hello".into()), File("types".into())];
+        let to = &[
+            Folder("Hello".into()),
+            File("types".into()),
+            Enum("Test".into()),
+        ];
+        let _ = get_relative_import(from, to);
+    }
+    #[test]
+    fn same_folder_file() {
+        let from = &[Folder("Hello".into()), File("types".into())];
+        let to = &[
+            Folder("Hello".into()),
+            File("defs".into()),
+            Enum("Test".into()),
+        ];
+        let decl = get_relative_import(from, to);
+        let decl_str: String = (&decl).into();
+        assert_eq!(decl_str, "import { Test } from \"./defs\"")
+    }
+    #[test]
+    fn parent_folder_path() {
+        let from = &[Folder("Goodbye".into()), File("types".into())];
+        let to = &[
+            Folder("Hello".into()),
+            File("defs".into()),
+            Enum("Test".into()),
+        ];
+        let decl = get_relative_import(from, to);
+        let decl_str: String = (&decl).into();
+        assert_eq!(decl_str, "import { Test } from \"../Hello/defs\"")
     }
 }
 

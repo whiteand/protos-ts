@@ -34,7 +34,7 @@ mod test_import_declaration {
             import_clause: Box::new(ImportClause {
                 name: Some(Identifier::new("google".into())),
                 named_bindings: Some(NamedImports {
-                    elements: vec![ImportSpecifier::new(
+                    elements: vec![ImportSpecifier::new_full(
                         Identifier::new("wrong".into()),
                         Some(Identifier::new("right".into())),
                     )],
