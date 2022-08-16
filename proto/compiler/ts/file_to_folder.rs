@@ -677,6 +677,38 @@ mod test_get_relative_import {
         let decl_str: String = (&decl).into();
         assert_eq!(decl_str, "import { Test } from \"../Hello/defs\"")
     }
+    #[test]
+    fn parent_folder_path_2() {
+        let from = &[
+            Folder("Goodbye".into()),
+            Folder("World".into()),
+            File("types".into()),
+        ];
+        let to = &[
+            Folder("Hello".into()),
+            File("defs".into()),
+            Enum("Test".into()),
+        ];
+        let decl = get_relative_import(from, to);
+        let decl_str: String = (&decl).into();
+        assert_eq!(decl_str, "import { Test } from \"../../Hello/defs\"")
+    }
+    #[test]
+    fn parent_folder_path_3() {
+        let from = &[
+            Folder("Goodbye".into()),
+            Folder("World".into()),
+            File("types".into()),
+        ];
+        let to = &[
+            Folder("Goodbye".into()),
+            File("defs".into()),
+            Enum("Test".into()),
+        ];
+        let decl = get_relative_import(from, to);
+        let decl_str: String = (&decl).into();
+        assert_eq!(decl_str, "import { Test } from \"../defs\"")
+    }
 }
 
 fn insert_decode_result_interface(
