@@ -129,6 +129,7 @@ impl From<&Type> for String {
             Type::Number => "number".into(),
             Type::String => "string".into(),
             Type::Null => "null".into(),
+            Type::Never => "never".into(),
             Type::Undefined => "undefined".into(),
             Type::UnionType(UnionType { types }) => {
                 let type_str: Vec<String> = types

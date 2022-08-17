@@ -474,10 +474,12 @@ fn insert_encoded_input_interface(
         match entry {
             Field(f) => {
                 let type_scope = scope.push(message_declaration);
-                let t: Type = import_encoding_input_type(types_file, &type_scope, &f.field_type)?;
+                let property_type =
+                    import_encoding_input_type(types_file, &type_scope, &f.field_type)?
+                        .or(&Type::Null);
                 interface
                     .members
-                    .push(PropertySignature::new_optional(f.json_name(), t).into());
+                    .push(PropertySignature::new_optional(f.json_name(), property_type).into());
             }
             Declaration(_) => {}
             OneOf(_) => todo!("Not implemented handling of OneOf Field"),

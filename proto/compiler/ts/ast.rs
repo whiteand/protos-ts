@@ -41,7 +41,7 @@ impl StringLiteral {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct Identifier {
     pub text: String,
 }
@@ -151,9 +151,38 @@ pub(crate) struct EnumDeclaration {
     pub members: Vec<EnumMember>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UnionType {
     pub types: Vec<Type>,
+}
+
+impl Default for UnionType {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl UnionType {
+    fn new() -> Self {
+        Self { types: Vec::new() }
+    }
+    fn push(&mut self, t: Type) {
+        match t {
+            Type::UnionType(u) => {
+                for x in u.types.into_iter() {
+                    self.push(x);
+                }
+            }
+            _ => {
+                for x in self.types.iter() {
+                    if *x == t {
+                        return;
+                    }
+                }
+                self.types.push(t);
+            }
+        }
+    }
 }
 
 impl From<Vec<Type>> for UnionType {
@@ -162,11 +191,12 @@ impl From<Vec<Type>> for UnionType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Type {
     Number,
     Null,
     Undefined,
+    Never,
     Boolean,
     String,
     UnionType(UnionType),
@@ -175,12 +205,26 @@ pub(crate) enum Type {
     TypeReference(Identifier),
 }
 
+impl From<UnionType> for Type {
+    fn from(mut union_type: UnionType) -> Self {
+        if union_type.types.len() <= 0 {
+            return Type::Never;
+        }
+        if union_type.types.len() <= 1 {
+            let res = union_type.types.pop().unwrap();
+            return res;
+        }
+        Self::UnionType(union_type)
+    }
+}
+
 impl Type {
     pub fn requires_wrap_for_nesting(&self) -> bool {
         match self {
             Type::ArrayType(_) => true,
             Type::UnionType(_) => true,
             Type::Number => false,
+            Type::Never => false,
             Type::Null => false,
             Type::Undefined => false,
             Type::Boolean => false,
@@ -189,16 +233,18 @@ impl Type {
             Type::Record(_, _) => false,
         }
     }
+
+    pub fn or(&self, another: &Self) -> Self {
+        let mut res = UnionType::new();
+        res.push(self.clone());
+        res.push(another.clone());
+        res.into()
+    }
 }
 
 impl From<Identifier> for Type {
     fn from(identifier: Identifier) -> Self {
         Self::TypeReference(identifier)
-    }
-}
-impl From<UnionType> for Type {
-    fn from(union_type: UnionType) -> Self {
-        Self::UnionType(union_type)
     }
 }
 
