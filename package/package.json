@@ -1,0 +1,26 @@
+{
+  "name": "protos-ts",
+  "version": "0.0.1",
+  "description": "CLI compiler of protocol buffer schemas to typescript es modules",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whiteand/protobufts.git"
+  },
+  "keywords": [
+    "protocol",
+    "buffers",
+    "protobuf",
+    "rust",
+    "js"
+  ],
+  "author": "whiteand",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/whiteand/protobufts/issues"
+  },
+  "homepage": "https://github.com/whiteand/protobufts#readme"
+}
