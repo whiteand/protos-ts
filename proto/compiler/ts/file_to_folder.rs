@@ -566,6 +566,64 @@ fn import_encoding_input_type(
     }
 }
 
+fn import_decode_result_type(
+    types_file: &mut File,
+    scope: &BlockScope,
+    field_type: &FieldType,
+) -> Result<Type, ProtoError> {
+    match field_type {
+        FieldType::IdPath(ids) => {
+            if ids.is_empty() {
+                unreachable!();
+            }
+            if ids.len() == 1 {
+                match try_get_predefined_type(&ids[0]) {
+                    Some(t) => return Ok(t),
+                    None => {}
+                }
+            }
+            let resolve_result = scope.resolve_path(ids)?;
+            let requested_path = resolve_result.path();
+            let mut requested_ts_path = proto_path_to_ts_path(requested_path);
+
+            let mut imported_type_name = String::new();
+            match resolve_result.declaration {
+                IdType::DataType(decl) => match decl {
+                    Declaration::Enum(e) => {
+                        requested_ts_path.push(TsPathComponent::Enum(e.name.clone()));
+                        imported_type_name = e.name.clone();
+                    }
+                    Declaration::Message(m) => {
+                        requested_ts_path.push(TsPathComponent::File("types".into()));
+                        let encode_type_name = message_name_to_encode_type_name(&m.name);
+                        imported_type_name = encode_type_name.clone();
+                        requested_ts_path.push(TsPathComponent::Interface(encode_type_name));
+                    }
+                },
+                IdType::Package(_) => unreachable!(),
+            }
+
+            let mut current_file_path = proto_path_to_ts_path(scope.path());
+            current_file_path.push(TsPathComponent::File("types".into()));
+
+            let import_declaration = get_relative_import(&current_file_path, &requested_ts_path);
+
+            ensure_import(types_file, import_declaration);
+
+            return Ok(Type::TypeReference(imported_type_name.into()));
+        }
+        FieldType::Repeated(field_type) => {
+            let element_type = import_encoding_input_type(types_file, scope, field_type)?;
+            return Ok(Type::array(element_type));
+        }
+        FieldType::Map(key, value) => {
+            let key_type = import_encoding_input_type(types_file, scope, key)?;
+            let value_type = import_encoding_input_type(types_file, scope, value)?;
+            return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
+        }
+    }
+}
+
 fn ensure_import(types_file: &mut File, mut new_import: ImportDeclaration) {
     let mut import_statement_index = 0;
     let mut found_import_statement_to_the_same_file = false;
@@ -784,9 +842,15 @@ fn insert_decode_result_interface(
     for entry in &message_declaration.entries {
         use crate::proto::package::MessageEntry::*;
         match entry {
-            Field(f) => interface
-                .members
-                .push(PropertySignature::new(f.json_name(), Type::Null).into()),
+            Field(f) => {
+                let type_scope = scope.push(message_declaration);
+                let property_type =
+                    import_decode_result_type(types_file, &type_scope, &f.field_type)?
+                        .or(&Type::Null);
+                interface
+                    .members
+                    .push(PropertySignature::new_optional(f.json_name(), property_type).into())
+            }
             Declaration(_) => {}
             OneOf(_) => todo!("Not implemented handling of OneOf Field"),
         }
