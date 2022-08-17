@@ -32,12 +32,10 @@ mod test_import_declaration {
         let decl = Statement::ImportDeclaration(Box::new(ImportDeclaration {
             import_clause: Box::new(ImportClause {
                 name: Some(Identifier::new("google".into())),
-                named_bindings: Some(NamedImports {
-                    elements: vec![ImportSpecifier::new_full(
-                        Identifier::new("wrong".into()),
-                        Some(Identifier::new("right".into())),
-                    )],
-                }),
+                named_bindings: Some(vec![ImportSpecifier::new_full(
+                    Identifier::new("wrong".into()),
+                    Some(Identifier::new("right".into())),
+                )]),
             }),
             string_literal: StringLiteral::new("google/proto".into()),
         }));
