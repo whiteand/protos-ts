@@ -41,7 +41,7 @@ impl StringLiteral {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Identifier {
     pub text: String,
 }
@@ -67,7 +67,7 @@ impl<'a> From<&'a Identifier> for &'a str {
         identifier.text.as_str()
     }
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ImportSpecifier {
     pub name: Identifier,
     pub property_name: Option<Identifier>,
@@ -89,14 +89,9 @@ impl ImportSpecifier {
 }
 
 #[derive(Debug)]
-pub(crate) struct NamedImports {
-    pub elements: Vec<ImportSpecifier>,
-}
-
-#[derive(Debug)]
 pub(crate) struct ImportClause {
     pub name: Option<Identifier>,
-    pub named_bindings: Option<NamedImports>,
+    pub named_bindings: Option<Vec<ImportSpecifier>>,
 }
 
 #[derive(Debug)]

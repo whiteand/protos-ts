@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use super::ast::Folder;
 use super::file_name_to_folder_name::file_name_to_folder_name;
@@ -526,16 +526,18 @@ fn import_encoding_input_type(
             let requested_path = resolve_result.path();
             let mut requested_ts_path = proto_path_to_ts_path(requested_path);
 
+            let mut imported_type_name = String::new();
             match resolve_result.declaration {
                 IdType::DataType(decl) => match decl {
                     Declaration::Enum(e) => {
                         requested_ts_path.push(TsPathComponent::Enum(e.name.clone()));
+                        imported_type_name = e.name.clone();
                     }
                     Declaration::Message(m) => {
                         requested_ts_path.push(TsPathComponent::File("types".into()));
-                        requested_ts_path.push(TsPathComponent::Interface(
-                            message_name_to_encode_type_name(&m.name),
-                        ));
+                        let encode_type_name = message_name_to_encode_type_name(&m.name);
+                        imported_type_name = encode_type_name.clone();
+                        requested_ts_path.push(TsPathComponent::Interface(encode_type_name));
                     }
                 },
                 IdType::Package(_) => unreachable!(),
@@ -546,11 +548,9 @@ fn import_encoding_input_type(
 
             let import_declaration = get_relative_import(&current_file_path, &requested_ts_path);
 
-            let str: String = (&import_declaration).into();
-            println!("{}", str);
-            dbg!(import_declaration);
+            ensure_import(types_file, import_declaration);
 
-            return Ok(Type::Null);
+            return Ok(Type::TypeReference(imported_type_name.into()));
         }
         FieldType::Repeated(field_type) => {
             let element_type = import_encoding_input_type(types_file, scope, field_type)?;
@@ -562,6 +562,72 @@ fn import_encoding_input_type(
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
     }
+}
+
+fn ensure_import(types_file: &mut File, mut new_import: ImportDeclaration) {
+    let mut import_statement_index = 0;
+    let mut found_import_statement_to_the_same_file = false;
+    while import_statement_index < types_file.ast.statements.len() {
+        let statement = &mut types_file.ast.statements[import_statement_index];
+        match statement {
+            Statement::ImportDeclaration(import) => {
+                if import.string_literal.text != new_import.string_literal.text {
+                    import_statement_index += 1;
+                    continue;
+                }
+                found_import_statement_to_the_same_file = true;
+                break;
+            }
+            _ => {
+                break;
+            }
+        }
+    }
+    if !found_import_statement_to_the_same_file {
+        types_file
+            .ast
+            .statements
+            .insert(import_statement_index, new_import.into());
+        return;
+    }
+    let actual_import_declaration = match &mut types_file.ast.statements[import_statement_index] {
+        Statement::ImportDeclaration(imprt) => imprt,
+        _ => unreachable!(),
+    };
+    for specifier in new_import
+        .import_clause
+        .named_bindings
+        .into_iter()
+        .flatten()
+    {
+        ensure_import_specifier(&mut actual_import_declaration.import_clause, specifier);
+    }
+}
+
+fn ensure_import_specifier(import_clause: &mut ImportClause, specifier: ImportSpecifier) {
+    match specifier.property_name {
+        Some(_) => todo!(),
+        None => {}
+    }
+
+    let mut found_specifier = false;
+    for specifier in import_clause.named_bindings.iter().flatten() {
+        if specifier.name == specifier.name {
+            found_specifier = true;
+            break;
+        }
+    }
+    if found_specifier {
+        return;
+    }
+
+    let mut named_bindings = import_clause.named_bindings.take();
+    if let Some(ref mut vec) = named_bindings {
+        vec.push(specifier);
+    } else {
+        named_bindings = Some(vec![specifier]);
+    }
+    import_clause.named_bindings = named_bindings;
 }
 
 fn get_relative_import(
@@ -592,9 +658,7 @@ fn get_relative_import(
         return ImportDeclaration {
             import_clause: ImportClause {
                 name: None,
-                named_bindings: Some(NamedImports {
-                    elements: vec![ImportSpecifier::new(imported_name.into())],
-                }),
+                named_bindings: Some(vec![ImportSpecifier::new(imported_name.into())]),
             }
             .into(),
             string_literal: file_string.into(),
@@ -622,9 +686,7 @@ fn get_relative_import(
     ImportDeclaration {
         import_clause: ImportClause {
             name: None,
-            named_bindings: Some(NamedImports {
-                elements: vec![ImportSpecifier::new(imported_name.into())],
-            }),
+            named_bindings: Some(vec![ImportSpecifier::new(imported_name.into())]),
         }
         .into(),
         string_literal: import_string.into(),

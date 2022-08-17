@@ -8,7 +8,6 @@ impl From<&ImportDeclaration> for String {
         }
         if let Some(bindings) = &import_declaration.import_clause.named_bindings {
             let pairs: Vec<String> = bindings
-                .elements
                 .iter()
                 .map(|e| match &e.property_name {
                     Some(property_name) => format!("{} as {}", property_name.text, e.name.text),
