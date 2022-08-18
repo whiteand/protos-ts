@@ -13,7 +13,7 @@ fn package_tree_to_folder(
         folder.entries.push(child_folder.into());
     }
     for file in package_tree.files.iter() {
-        let file_folder = file_to_folder::file_to_folder(root, package_tree, file)?;
+        let file_folder = file_to_folder::file_to_folder(root, file)?;
 
         folder.entries.push(file_folder.into());
     }
