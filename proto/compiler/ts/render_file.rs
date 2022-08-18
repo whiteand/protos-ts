@@ -348,6 +348,11 @@ impl From<&PropertyAccessExpression> for String {
             Expression::CallExpression(_) => todo!(),
             Expression::PropertyAccessExpression(_) => todo!(),
             Expression::ParenthesizedExpression(_) => todo!(),
+            Expression::ArrayLiteralExpression(_) => todo!(),
+            Expression::ObjectLiteralExpression(_) => todo!(),
+            Expression::NewExpression(_) => todo!(),
+            Expression::NumericLiteral(_) => todo!(),
+            Expression::StringLiteral(_) => todo!(),
         };
         res
     }
@@ -393,6 +398,11 @@ impl From<&Expression> for String {
                 let expr_str: String = expr.deref().into();
                 format!("({})", expr_str)
             }
+            Expression::ArrayLiteralExpression(_) => todo!(),
+            Expression::ObjectLiteralExpression(_) => todo!(),
+            Expression::NewExpression(_) => todo!(),
+            Expression::NumericLiteral(_) => todo!(),
+            Expression::StringLiteral(_) => todo!(),
         }
     }
 }

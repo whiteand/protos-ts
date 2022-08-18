@@ -82,6 +82,26 @@ impl FieldType {
     pub fn repeated(t: Self) -> Self {
         FieldType::Repeated(Box::new(t))
     }
+    pub fn is_basic(&self) -> bool {
+        match self {
+            FieldType::Bool => true,
+            FieldType::Bytes => true,
+            FieldType::Double => true,
+            FieldType::Fixed32 => true,
+            FieldType::Fixed64 => true,
+            FieldType::Float => true,
+            FieldType::Int32 => true,
+            FieldType::Int64 => true,
+            FieldType::Sfixed32 => true,
+            FieldType::Sfixed64 => true,
+            FieldType::Sint32 => true,
+            FieldType::Sint64 => true,
+            FieldType::String => true,
+            FieldType::Uint32 => true,
+            FieldType::Uint64 => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<Vec<Rc<str>>> for FieldType {

@@ -453,6 +453,27 @@ pub(crate) struct PropertyAccessExpression {
     pub expression: Rc<Expression>,
     pub name: Rc<Identifier>,
 }
+#[derive(Debug)]
+pub(crate) enum PropertyAssignment {}
+
+#[derive(Debug)]
+pub(crate) struct NewExpression {
+    pub expression: Rc<Expression>,
+    pub arguments: Vec<Rc<Expression>>,
+}
+
+impl NewExpression {
+    pub fn new(expression: Rc<Expression>) -> Self {
+        Self {
+            expression,
+            arguments: Vec::new(),
+        }
+    }
+    pub fn add_argument(&mut self, argument: Rc<Expression>) -> &mut Self {
+        self.arguments.push(argument);
+        self
+    }
+}
 
 #[derive(Debug)]
 pub(crate) enum Expression {
@@ -465,6 +486,35 @@ pub(crate) enum Expression {
     CallExpression(CallExpression),
     PropertyAccessExpression(PropertyAccessExpression),
     ParenthesizedExpression(Rc<Expression>),
+    ArrayLiteralExpression(Vec<Rc<Expression>>),
+    ObjectLiteralExpression(Vec<Rc<PropertyAssignment>>),
+    NewExpression(NewExpression),
+    NumericLiteral(f64),
+    StringLiteral(StringLiteral),
+}
+
+impl From<f64> for Expression {
+    fn from(f: f64) -> Self {
+        Self::NumericLiteral(f)
+    }
+}
+
+impl From<StringLiteral> for Expression {
+    fn from(str: StringLiteral) -> Self {
+        Self::StringLiteral(str)
+    }
+}
+
+impl From<NewExpression> for Expression {
+    fn from(new_expression: NewExpression) -> Self {
+        Self::NewExpression(new_expression)
+    }
+}
+
+impl From<Vec<Rc<Expression>>> for Expression {
+    fn from(expressions: Vec<Rc<Expression>>) -> Self {
+        Self::ArrayLiteralExpression(expressions)
+    }
 }
 
 impl Expression {
