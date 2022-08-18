@@ -10,6 +10,7 @@ use package_tree_to_folder::root_tree_to_folder;
 mod protopath;
 mod ts_path;
 mod block_scope;
+mod defined_id;
 
 use self::ast::Folder;
 
