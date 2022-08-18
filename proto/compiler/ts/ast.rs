@@ -1,3 +1,5 @@
+use std::{ops::Deref, rc::Rc};
+
 #[derive(Debug)]
 pub(crate) struct SourceFile {
     pub statements: Vec<Statement>,
@@ -47,8 +49,18 @@ pub(crate) struct Identifier {
 }
 
 impl Identifier {
-    pub fn new(text: String) -> Self {
-        Self { text }
+    pub fn new(text: &str) -> Self {
+        Self {
+            text: text.to_owned(),
+        }
+    }
+}
+
+impl Deref for Identifier {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.text
     }
 }
 
@@ -69,18 +81,18 @@ impl<'a> From<&'a Identifier> for &'a str {
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ImportSpecifier {
-    pub name: Identifier,
-    pub property_name: Option<Identifier>,
+    pub name: Rc<Identifier>,
+    pub property_name: Option<Rc<Identifier>>,
 }
 
 impl ImportSpecifier {
-    pub fn new_full(name: Identifier, property_name: Option<Identifier>) -> Self {
+    pub fn new_full(name: Rc<Identifier>, property_name: Option<Rc<Identifier>>) -> Self {
         Self {
             name,
             property_name,
         }
     }
-    pub fn new(name: Identifier) -> Self {
+    pub fn new(name: Rc<Identifier>) -> Self {
         Self {
             name,
             property_name: None,
@@ -222,7 +234,7 @@ pub(crate) enum Type {
     UnionType(UnionType),
     ArrayType(Box<Type>),
     Record(Box<Type>, Box<Type>),
-    TypeReference(Identifier),
+    TypeReference(Rc<Identifier>),
 }
 
 impl From<UnionType> for Type {
@@ -265,6 +277,11 @@ impl Type {
 
 impl From<Identifier> for Type {
     fn from(identifier: Identifier) -> Self {
+        Rc::new(identifier).into()
+    }
+}
+impl From<Rc<Identifier>> for Type {
+    fn from(identifier: Rc<Identifier>) -> Self {
         Self::TypeReference(identifier)
     }
 }
@@ -278,7 +295,7 @@ impl Type {
 #[derive(Debug)]
 pub(crate) struct PropertySignature {
     pub name: Identifier,
-    pub propertyType: Type,
+    pub property_type: Type,
     pub optional: bool,
 }
 
@@ -286,7 +303,7 @@ impl PropertySignature {
     pub fn new(name: String, propertyType: Type) -> Self {
         Self {
             name: name.into(),
-            propertyType,
+            property_type: propertyType,
             optional: false,
         }
     }
@@ -331,24 +348,24 @@ impl InterfaceDeclaration {
 }
 #[derive(Debug)]
 pub(crate) struct Parameter {
-    pub name: Identifier,
-    pub parameter_type: Type,
+    pub name: Rc<Identifier>,
+    pub parameter_type: Rc<Type>,
     pub optional: bool,
 }
 
 impl Parameter {
     pub fn new(name: &str, _type: Type) -> Self {
+        let id: Rc<Identifier> = Rc::new(name.into());
         Self {
-            name: name.into(),
-            parameter_type: _type,
+            name: id,
+            parameter_type: Rc::new(_type),
             optional: false,
         }
     }
     pub fn new_optional(name: &str, _type: Type) -> Self {
         Self {
-            name: name.into(),
-            parameter_type: _type,
             optional: true,
+            ..Self::new(name, _type)
         }
     }
 }
@@ -388,13 +405,73 @@ impl FunctionDeclaration {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BinaryOperator {
+    LogicalOr,
+    LessThan,
+}
+
+impl From<&BinaryOperator> for &str {
+    fn from(binary_operator: &BinaryOperator) -> Self {
+        match binary_operator {
+            BinaryOperator::LogicalOr => "||",
+            BinaryOperator::LessThan => "<",
+        }
+    }
+}
+impl From<BinaryOperator> for &str {
+    fn from(binary_operator: BinaryOperator) -> Self {
+        (&binary_operator).into()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct BinaryExpression {
+    pub operator: BinaryOperator,
+    pub left: Rc<Expression>,
+    pub right: Rc<Expression>,
+}
+
+impl BinaryExpression {
+    pub fn new(operator: BinaryOperator) -> Self {
+        Self {
+            operator,
+            left: Rc::new(Expression::Undefined),
+            right: Rc::new(Expression::Undefined),
+        }
+    }
+    pub fn left(&mut self, expr: Rc<Expression>) -> &mut Self {
+        self.left = Rc::clone(&expr);
+        self
+    }
+    pub fn right(&mut self, expr: Rc<Expression>) -> &mut Self {
+        self.right = Rc::clone(&expr);
+        self
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct CallExpression {
+    pub expression: Rc<Expression>,
+    pub arguments: Vec<Rc<Expression>>,
+}
+#[derive(Debug)]
+pub(crate) struct PropertyAccessExpression {
+    pub expression: Rc<Expression>,
+    pub name: Rc<Identifier>,
+}
+
 #[derive(Debug)]
 pub(crate) enum Expression {
-    Identifier(Identifier),
+    Identifier(Rc<Identifier>),
     Null,
     Undefined,
     False,
     True,
+    BinaryExpression(BinaryExpression),
+    CallExpression(CallExpression),
+    PropertyAccessExpression(PropertyAccessExpression),
+    ParenthesizedExpression(Rc<Expression>),
 }
 
 impl Expression {
@@ -403,9 +480,71 @@ impl Expression {
     }
 }
 
+impl From<BinaryExpression> for Expression {
+    fn from(binary_expression: BinaryExpression) -> Self {
+        Self::BinaryExpression(binary_expression)
+    }
+}
+
+impl From<Rc<Identifier>> for Expression {
+    fn from(identifier: Rc<Identifier>) -> Self {
+        Self::Identifier(identifier)
+    }
+}
+impl From<CallExpression> for Expression {
+    fn from(call_expression: CallExpression) -> Self {
+        Self::CallExpression(call_expression)
+    }
+}
+
+impl From<PropertyAccessExpression> for Expression {
+    fn from(property_access_expression: PropertyAccessExpression) -> Self {
+        Self::PropertyAccessExpression(property_access_expression)
+    }
+}
+
 impl From<Identifier> for Expression {
     fn from(identifier: Identifier) -> Self {
-        Self::Identifier(identifier)
+        Self::Identifier(Rc::new(identifier))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum VariableKind {
+    Let,
+    Const,
+}
+
+#[derive(Debug)]
+pub(crate) struct VariableDeclaration {
+    pub name: Rc<Identifier>,
+    pub initializer: Rc<Expression>,
+}
+
+impl VariableDeclaration {
+    pub fn new(name: Rc<Identifier>, initializer: Rc<Expression>) -> Self {
+        Self { name, initializer }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct VariableDeclarationList {
+    pub kind: VariableKind,
+    pub declarations: Vec<VariableDeclaration>,
+}
+
+impl VariableDeclarationList {
+    pub fn constants(declarations: Vec<VariableDeclaration>) -> Self {
+        Self {
+            kind: VariableKind::Const,
+            declarations,
+        }
+    }
+    pub fn vars(declarations: Vec<VariableDeclaration>) -> Self {
+        Self {
+            kind: VariableKind::Let,
+            declarations,
+        }
     }
 }
 
@@ -416,6 +555,13 @@ pub(crate) enum Statement {
     InterfaceDeclaration(Box<InterfaceDeclaration>),
     FunctionDeclaration(Box<FunctionDeclaration>),
     ReturnStatement(Option<Expression>),
+    VariableStatement(Rc<VariableDeclarationList>),
+}
+
+impl From<Rc<VariableDeclarationList>> for Statement {
+    fn from(list: Rc<VariableDeclarationList>) -> Self {
+        Self::VariableStatement(list)
+    }
 }
 
 impl From<EnumDeclaration> for Statement {

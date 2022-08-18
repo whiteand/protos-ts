@@ -1,4 +1,7 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    rc::Rc,
+};
 
 use super::ast::Folder;
 use super::file_name_to_folder_name::file_name_to_folder_name;
@@ -503,7 +506,7 @@ fn try_get_predefined_type(s: &str) -> Option<Type> {
         "int32" => Some(Type::Number),
         "uint32" => Some(Type::Number),
         "float" => Some(Type::Number),
-        "bytes" => Some(Type::TypeReference("Uint8Array".into())),
+        "bytes" => Some(Type::TypeReference(Identifier::from("Uint8Array").into())),
         _ => None,
     }
 }
@@ -552,7 +555,9 @@ fn import_encoding_input_type(
 
             ensure_import(types_file, import_declaration);
 
-            return Ok(Type::TypeReference(imported_type_name.into()));
+            return Ok(Type::TypeReference(
+                Identifier::new(&imported_type_name).into(),
+            ));
         }
         FieldType::Repeated(field_type) => {
             let element_type = import_encoding_input_type(types_file, scope, field_type)?;
@@ -610,7 +615,9 @@ fn import_decode_result_type(
 
             ensure_import(types_file, import_declaration);
 
-            return Ok(Type::TypeReference(imported_type_name.into()));
+            return Ok(Type::TypeReference(
+                Identifier::new(&imported_type_name).into(),
+            ));
         }
         FieldType::Repeated(field_type) => {
             let element_type = import_encoding_input_type(types_file, scope, field_type)?;
@@ -718,7 +725,9 @@ fn get_relative_import(
         return ImportDeclaration {
             import_clause: ImportClause {
                 name: None,
-                named_bindings: Some(vec![ImportSpecifier::new(imported_name.into())]),
+                named_bindings: Some(vec![ImportSpecifier::new(
+                    Identifier::new(&imported_name).into(),
+                )]),
             }
             .into(),
             string_literal: file_string.into(),
@@ -746,7 +755,9 @@ fn get_relative_import(
     ImportDeclaration {
         import_clause: ImportClause {
             name: None,
-            named_bindings: Some(vec![ImportSpecifier::new(imported_name.into())]),
+            named_bindings: Some(vec![ImportSpecifier::new(
+                Identifier::new(&imported_name).into(),
+            )]),
         }
         .into(),
         string_literal: import_string.into(),
@@ -869,9 +880,11 @@ fn insert_encode(
 ) -> Result<(), ProtoError> {
     let mut file = super::ast::File::new("encode".into());
 
+    let writer_type_id: Rc<Identifier> = Identifier::new("Writer").into();
+
     file.push_statement(
         ImportDeclaration::import(
-            vec![ImportSpecifier::new("Writer".into())],
+            vec![ImportSpecifier::new(Rc::clone(&writer_type_id))],
             PROTOBUF_MODULE.into(),
         )
         .into(),
@@ -879,27 +892,49 @@ fn insert_encode(
 
     let mut encode_declaration = FunctionDeclaration::new_exported("encode");
 
-    let message_encode_input_type_id: Identifier =
-        message_name_to_encode_type_name(&message_declaration.name).into();
+    let message_encode_input_type_id: Rc<Identifier> =
+        Identifier::new(&message_name_to_encode_type_name(&message_declaration.name)).into();
 
     let encode_type_import = ImportDeclaration::import(
-        vec![ImportSpecifier::new(message_encode_input_type_id.clone())],
+        vec![ImportSpecifier::new(Rc::clone(
+            &message_encode_input_type_id,
+        ))],
         "./types".into(),
     );
     ensure_import(&mut file, encode_type_import);
 
-    encode_declaration.add_param(Parameter::new(
-        "message",
-        Type::TypeReference(message_encode_input_type_id.clone()),
-    ));
-    encode_declaration.add_param(Parameter::new_optional(
-        "writer",
-        Type::TypeReference("Writer".into()),
-    ));
+    let message_parameter_id = Rc::new(Identifier::new("message"));
+    let writer_parameter_id = Rc::new(Identifier::new("writer"));
 
-    encode_declaration.returns(Type::TypeReference("Writer".into()));
+    encode_declaration.add_param(Parameter {
+        name: Rc::clone(&message_parameter_id),
+        parameter_type: Type::TypeReference(Rc::clone(&message_encode_input_type_id)).into(),
+        optional: false,
+    });
+    encode_declaration.add_param(Parameter {
+        name: Rc::clone(&writer_parameter_id),
+        parameter_type: Type::TypeReference(Rc::clone(&writer_type_id)).into(),
+        optional: true,
+    });
 
-    encode_declaration.push_statement(Expression::Identifier("Writer".into()).ret());
+    encode_declaration
+        .returns(Type::TypeReference(Rc::clone(&message_encode_input_type_id)).into());
+
+    let writer_var = Rc::new(Identifier { text: "w".into() });
+
+    encode_declaration.push_statement(Statement::from(Rc::from(
+        VariableDeclarationList::constants(vec![VariableDeclaration {
+            name: Rc::clone(&writer_var),
+            initializer: Expression::from(BinaryExpression {
+                operator: BinaryOperator::LogicalOr,
+                left: Expression::from(Rc::clone(&writer_parameter_id)).into(),
+                right: Expression::from(Rc::clone(&writer_parameter_id)).into(),
+            })
+            .into(),
+        }]),
+    )));
+
+    encode_declaration.push_statement(Expression::Identifier(Identifier::new("w").into()).ret());
 
     file.push_statement(encode_declaration.into());
 

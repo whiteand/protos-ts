@@ -244,7 +244,7 @@ impl From<&InterfaceDeclaration> for String {
                         res.push_str("?");
                     }
                     res.push_str(": ");
-                    let type_str: String = (&prop.propertyType).into();
+                    let type_str: String = (&prop.property_type).into();
                     res.push_str(type_str.as_str());
                     res.push_str("\n");
                 }
@@ -308,7 +308,7 @@ impl From<&FunctionDeclaration> for String {
                 res.push_str("?");
             }
             res.push_str(": ");
-            let type_str: String = (&param.parameter_type).into();
+            let type_str: String = param.parameter_type.deref().into();
             res.push_str(type_str.as_str());
         }
         res.push_str(")");
@@ -333,6 +333,49 @@ impl From<&FunctionDeclaration> for String {
     }
 }
 
+impl From<&PropertyAccessExpression> for String {
+    fn from(decl: &PropertyAccessExpression) -> Self {
+        let mut res = String::new();
+        match decl.expression.deref() {
+            Expression::Identifier(id) => {
+                res.push_str(&id);
+            }
+            Expression::Null => unreachable!(),
+            Expression::Undefined => unreachable!(),
+            Expression::False => unreachable!(),
+            Expression::True => unreachable!(),
+            Expression::BinaryExpression(_) => todo!(),
+            Expression::CallExpression(_) => todo!(),
+            Expression::PropertyAccessExpression(_) => todo!(),
+            Expression::ParenthesizedExpression(_) => todo!(),
+        };
+        res
+    }
+}
+
+impl From<&BinaryExpression> for String {
+    fn from(expr: &BinaryExpression) -> Self {
+        let BinaryExpression {
+            left,
+            right,
+            operator,
+        } = expr;
+        let mut res = String::new();
+
+        let left_str: String = left.deref().into();
+        let right_str: String = right.deref().into();
+        assert!(!left_str.contains('\n'));
+        assert!(!right_str.contains('\n'));
+
+        res.push_str(&left_str);
+        res.push(' ');
+        res.push_str(operator.into());
+        res.push(' ');
+        res.push_str(&right_str);
+
+        res
+    }
+}
 impl From<&Expression> for String {
     fn from(expr: &Expression) -> Self {
         match expr {
@@ -341,7 +384,38 @@ impl From<&Expression> for String {
             Expression::Undefined => "undefined".to_string(),
             Expression::False => "false".to_string(),
             Expression::True => "true".to_string(),
+            Expression::BinaryExpression(expr) => expr.into(),
+            Expression::CallExpression(_) => todo!(),
+            Expression::PropertyAccessExpression(proeprty_access_expr) => {
+                proeprty_access_expr.into()
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                let expr_str: String = expr.deref().into();
+                format!("({})", expr_str)
+            }
         }
+    }
+}
+
+impl From<&VariableDeclarationList> for String {
+    fn from(vars: &VariableDeclarationList) -> Self {
+        assert!(!vars.declarations.is_empty());
+        let mut res = String::new();
+        match vars.kind {
+            VariableKind::Let => res.push_str("let "),
+            VariableKind::Const => res.push_str("const "),
+        }
+        for (ind, var) in vars.declarations.iter().enumerate() {
+            if ind > 0 {
+                res.push_str(",\n  ");
+            }
+            res.push_str(&var.name.text);
+            res.push_str(" = ");
+
+            let expr_str: String = var.initializer.deref().into();
+            res.push_str(&expr_str);
+        }
+        res
     }
 }
 
@@ -362,6 +436,7 @@ impl From<&Statement> for String {
                 res
             }
             &Statement::ReturnStatement(None) => "return".to_string(),
+            Statement::VariableStatement(var_decl) => var_decl.deref().into(),
         }
     }
 }
@@ -381,6 +456,7 @@ impl From<&File> for String {
                 (Statement::FunctionDeclaration(_), _) => res.push_str("\n"),
                 (_, Some(Statement::ReturnStatement(_))) => res.push_str("\n"),
                 (&Statement::ReturnStatement(_), _) => {}
+                _ => {}
             }
             let statement_string: String = statement.into();
             res.push_str(&statement_string);
