@@ -1,12 +1,12 @@
-use std::{
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::{ops::Deref, rc::Rc};
 
-use super::ast::Folder;
-use super::file_name_to_folder_name::file_name_to_folder_name;
+use super::{
+    ast::Folder,
+    ast::{self, Type},
+    file_name_to_folder_name::file_name_to_folder_name,
+    protopath::{PathComponent, ProtoPath},
+};
 use crate::proto::{
-    compiler::ts::ast::*,
     error::ProtoError,
     package::{
         Declaration, EnumDeclaration, FieldType, ImportPath, MessageDeclaration, MessageEntry,
@@ -120,42 +120,6 @@ impl<'scope> DefinedId<'scope> {
     }
 }
 
-#[derive(Debug, Clone)]
-enum PathComponent {
-    Package(Rc<str>),
-    File(Rc<str>),
-    Message(Rc<str>),
-    Enum(Rc<str>),
-}
-
-impl From<&PathComponent> for String {
-    fn from(p: &PathComponent) -> String {
-        match p {
-            PathComponent::Package(s) => s.to_string(),
-            PathComponent::File(s) => s.to_string(),
-            PathComponent::Message(s) => s.to_string(),
-            PathComponent::Enum(s) => s.to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ProtoPath {
-    path: Vec<PathComponent>,
-}
-
-impl ProtoPath {
-    fn new() -> Self {
-        ProtoPath { path: Vec::new() }
-    }
-    fn push(&mut self, item: PathComponent) {
-        self.path.push(item);
-    }
-    fn is_empty(&self) -> bool {
-        self.path.is_empty()
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TsPathComponent {
     Folder(Rc<str>),
@@ -231,52 +195,35 @@ impl std::fmt::Display for TsPath {
             }
         }
         let str: String = self.path.last().unwrap().into();
-        f.write_str(&str);
-        Ok(())
+        f.write_str(&str)
     }
 }
 
-fn proto_path_to_ts_path(proto_path: ProtoPath) -> TsPath {
-    let mut res = TsPath::default();
-    if proto_path.is_empty() {
-        return res;
-    }
-    let ProtoPath { path } = proto_path;
-    for p in path.iter() {
-        match p {
-            PathComponent::Package(s) => {
-                res.path.push(TsPathComponent::Folder(Rc::clone(&s)));
-            }
-            PathComponent::File(s) => {
-                res.path
-                    .push(TsPathComponent::Folder(file_name_to_folder_name(s)));
-            }
-            PathComponent::Message(s) => {
-                res.path.push(TsPathComponent::Folder(Rc::clone(&s)));
-            }
-            PathComponent::Enum(s) => {
-                res.path.push(TsPathComponent::File(Rc::clone(&s)));
+impl From<ProtoPath> for TsPath {
+    fn from(proto_path: ProtoPath) -> Self {
+        let mut res = TsPath::default();
+        if proto_path.is_empty() {
+            return res;
+        }
+        let ProtoPath { path } = proto_path;
+        for p in path.iter() {
+            match p {
+                PathComponent::Package(s) => {
+                    res.path.push(TsPathComponent::Folder(Rc::clone(&s)));
+                }
+                PathComponent::File(s) => {
+                    res.path
+                        .push(TsPathComponent::Folder(file_name_to_folder_name(s)));
+                }
+                PathComponent::Message(s) => {
+                    res.path.push(TsPathComponent::Folder(Rc::clone(&s)));
+                }
+                PathComponent::Enum(s) => {
+                    res.path.push(TsPathComponent::File(Rc::clone(&s)));
+                }
             }
         }
-    }
-    res
-}
-
-impl std::fmt::Display for ProtoPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_empty() {
-            return Ok(());
-        }
-        for (prev, cur) in self.path.iter().zip(self.path[1..].iter()) {
-            match (prev, cur) {
-                (PathComponent::Package(prev), _) => write!(f, "{}/", prev)?,
-                (PathComponent::File(prev), _) => write!(f, "{}::", prev)?,
-                (PathComponent::Enum(_), _) => unreachable!(),
-                (PathComponent::Message(prev), _) => write!(f, "{}.", prev)?,
-            }
-        }
-        let str: String = self.path.last().unwrap().into();
-        Ok(())
+        res
     }
 }
 
@@ -455,11 +402,11 @@ fn message_name_to_encode_type_name(message_name: &str) -> Rc<str> {
 }
 
 fn insert_encoded_input_interface(
-    types_file: &mut super::ast::File,
+    types_file: &mut ast::File,
     scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    let mut interface = InterfaceDeclaration::new_exported(message_name_to_encode_type_name(
+    let mut interface = ast::InterfaceDeclaration::new_exported(message_name_to_encode_type_name(
         &message_declaration.name,
     ));
     for entry in &message_declaration.entries {
@@ -470,9 +417,9 @@ fn insert_encoded_input_interface(
                 let property_type =
                     import_encoding_input_type(types_file, &type_scope, &f.field_type)?
                         .or(&Type::Null);
-                interface
-                    .members
-                    .push(PropertySignature::new_optional(f.json_name(), property_type).into());
+                interface.members.push(
+                    ast::PropertySignature::new_optional(f.json_name(), property_type).into(),
+                );
             }
             Declaration(_) => {}
             OneOf(_) => todo!("Not implemented handling of OneOf Field"),
@@ -490,13 +437,15 @@ fn try_get_predefined_type(s: &str) -> Option<Type> {
         "int32" => Some(Type::Number),
         "uint32" => Some(Type::Number),
         "float" => Some(Type::Number),
-        "bytes" => Some(Type::TypeReference(Identifier::from("Uint8Array").into())),
+        "bytes" => Some(Type::TypeReference(
+            ast::Identifier::from("Uint8Array").into(),
+        )),
         _ => None,
     }
 }
 
 fn import_encoding_input_type(
-    types_file: &mut File,
+    types_file: &mut ast::File,
     scope: &BlockScope,
     field_type: &FieldType,
 ) -> Result<Type, ProtoError> {
@@ -513,7 +462,7 @@ fn import_encoding_input_type(
             }
             let resolve_result = scope.resolve_path(ids)?;
             let requested_path = resolve_result.path();
-            let mut requested_ts_path = proto_path_to_ts_path(requested_path);
+            let mut requested_ts_path = TsPath::from(requested_path);
 
             let imported_type_name = match resolve_result.declaration {
                 IdType::DataType(decl) => match decl {
@@ -532,7 +481,7 @@ fn import_encoding_input_type(
                 IdType::Package(_) => unreachable!(),
             };
 
-            let mut current_file_path = proto_path_to_ts_path(scope.path());
+            let mut current_file_path = TsPath::from(scope.path());
             current_file_path.push(TsPathComponent::File("types".into()));
 
             let import_declaration = get_relative_import(&current_file_path, &requested_ts_path);
@@ -540,7 +489,7 @@ fn import_encoding_input_type(
             ensure_import(types_file, import_declaration);
 
             return Ok(Type::TypeReference(
-                Identifier {
+                ast::Identifier {
                     text: imported_type_name,
                 }
                 .into(),
@@ -559,7 +508,7 @@ fn import_encoding_input_type(
 }
 
 fn import_decode_result_type(
-    types_file: &mut File,
+    types_file: &mut ast::File,
     scope: &BlockScope,
     field_type: &FieldType,
 ) -> Result<Type, ProtoError> {
@@ -576,7 +525,7 @@ fn import_decode_result_type(
             }
             let resolve_result = scope.resolve_path(ids)?;
             let requested_path = resolve_result.path();
-            let mut requested_ts_path = proto_path_to_ts_path(requested_path);
+            let mut requested_ts_path = TsPath::from(requested_path);
 
             let mut imported_type_name = Rc::from(String::new());
             match resolve_result.declaration {
@@ -595,7 +544,7 @@ fn import_decode_result_type(
                 IdType::Package(_) => unreachable!(),
             }
 
-            let mut current_file_path = proto_path_to_ts_path(scope.path());
+            let mut current_file_path = TsPath::from(scope.path());
             current_file_path.push(TsPathComponent::File("types".into()));
 
             let import_declaration = get_relative_import(&current_file_path, &requested_ts_path);
@@ -603,7 +552,7 @@ fn import_decode_result_type(
             ensure_import(types_file, import_declaration);
 
             return Ok(Type::TypeReference(
-                Identifier::new(&imported_type_name).into(),
+                ast::Identifier::new(&imported_type_name).into(),
             ));
         }
         FieldType::Repeated(field_type) => {
@@ -618,13 +567,13 @@ fn import_decode_result_type(
     }
 }
 
-fn ensure_import(types_file: &mut File, mut new_import: ImportDeclaration) {
+fn ensure_import(types_file: &mut ast::File, mut new_import: ast::ImportDeclaration) {
     let mut import_statement_index = 0;
     let mut found_import_statement_to_the_same_file = false;
     while import_statement_index < types_file.ast.statements.len() {
         let statement = &mut types_file.ast.statements[import_statement_index];
         match statement {
-            Statement::ImportDeclaration(import) => {
+            ast::Statement::ImportDeclaration(import) => {
                 if import.string_literal.text != new_import.string_literal.text {
                     import_statement_index += 1;
                     continue;
@@ -645,7 +594,7 @@ fn ensure_import(types_file: &mut File, mut new_import: ImportDeclaration) {
         return;
     }
     let actual_import_declaration = match &mut types_file.ast.statements[import_statement_index] {
-        Statement::ImportDeclaration(imprt) => imprt,
+        ast::Statement::ImportDeclaration(imprt) => imprt,
         _ => unreachable!(),
     };
     for specifier in new_import
@@ -658,7 +607,7 @@ fn ensure_import(types_file: &mut File, mut new_import: ImportDeclaration) {
     }
 }
 
-fn ensure_import_specifier(import_clause: &mut ImportClause, specifier: ImportSpecifier) {
+fn ensure_import_specifier(import_clause: &mut ast::ImportClause, specifier: ast::ImportSpecifier) {
     match specifier.property_name {
         Some(_) => todo!(),
         None => {}
@@ -687,7 +636,7 @@ fn ensure_import_specifier(import_clause: &mut ImportClause, specifier: ImportSp
 fn get_relative_import(
     mut from: &[TsPathComponent],
     mut to: &[TsPathComponent],
-) -> ImportDeclaration {
+) -> ast::ImportDeclaration {
     assert!(to.last().unwrap().is_declaration());
     while from.len() > 0 && to.len() > 0 && from[0] == to[0] {
         from = &from[1..];
@@ -709,11 +658,11 @@ fn get_relative_import(
             file_string.push_str(&component_name);
         }
 
-        return ImportDeclaration {
-            import_clause: ImportClause {
+        return ast::ImportDeclaration {
+            import_clause: ast::ImportClause {
                 name: None,
-                named_bindings: Some(vec![ImportSpecifier::new(
-                    Identifier::new(&imported_name).into(),
+                named_bindings: Some(vec![ast::ImportSpecifier::new(
+                    ast::Identifier::new(&imported_name).into(),
                 )]),
             }
             .into(),
@@ -739,11 +688,11 @@ fn get_relative_import(
     assert!(file_component.is_file());
     let file_name: String = file_component.into();
     import_string.push_str(&file_name);
-    ImportDeclaration {
-        import_clause: ImportClause {
+    ast::ImportDeclaration {
+        import_clause: ast::ImportClause {
             name: None,
-            named_bindings: Some(vec![ImportSpecifier::new(
-                Identifier::new(&imported_name).into(),
+            named_bindings: Some(vec![ast::ImportSpecifier::new(
+                ast::Identifier::new(&imported_name).into(),
             )]),
         }
         .into(),
@@ -837,7 +786,7 @@ fn insert_decode_result_interface(
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let mut interface =
-        InterfaceDeclaration::new_exported(Rc::clone(&message_declaration.name).into());
+        ast::InterfaceDeclaration::new_exported(Rc::clone(&message_declaration.name).into());
     for entry in &message_declaration.entries {
         use crate::proto::package::MessageEntry::*;
         match entry {
@@ -848,7 +797,7 @@ fn insert_decode_result_interface(
                         .or(&Type::Null);
                 interface
                     .members
-                    .push(PropertySignature::new_optional(f.json_name(), property_type).into())
+                    .push(ast::PropertySignature::new_optional(f.json_name(), property_type).into())
             }
             Declaration(_) => {}
             OneOf(_) => todo!("Not implemented handling of OneOf Field"),
@@ -868,38 +817,38 @@ fn insert_encode(
 ) -> Result<(), ProtoError> {
     let mut file = super::ast::File::new("encode".into());
 
-    let writer_type_id: Rc<Identifier> = Identifier::new("Writer").into();
+    let writer_type_id: Rc<ast::Identifier> = ast::Identifier::new("Writer").into();
 
     file.push_statement(
-        ImportDeclaration::import(
-            vec![ImportSpecifier::new(Rc::clone(&writer_type_id))],
+        ast::ImportDeclaration::import(
+            vec![ast::ImportSpecifier::new(Rc::clone(&writer_type_id))],
             PROTOBUF_MODULE.into(),
         )
         .into(),
     );
 
-    let mut encode_declaration = FunctionDeclaration::new_exported("encode");
+    let mut encode_declaration = ast::FunctionDeclaration::new_exported("encode");
 
-    let message_encode_input_type_id: Rc<Identifier> =
-        Identifier::new(&message_name_to_encode_type_name(&message_declaration.name)).into();
+    let message_encode_input_type_id: Rc<ast::Identifier> =
+        ast::Identifier::new(&message_name_to_encode_type_name(&message_declaration.name)).into();
 
-    let encode_type_import = ImportDeclaration::import(
-        vec![ImportSpecifier::new(Rc::clone(
+    let encode_type_import = ast::ImportDeclaration::import(
+        vec![ast::ImportSpecifier::new(Rc::clone(
             &message_encode_input_type_id,
         ))],
         "./types".into(),
     );
     ensure_import(&mut file, encode_type_import);
 
-    let message_parameter_id = Rc::new(Identifier::new("message"));
-    let writer_parameter_id = Rc::new(Identifier::new("writer"));
+    let message_parameter_id = Rc::new(ast::Identifier::new("message"));
+    let writer_parameter_id = Rc::new(ast::Identifier::new("writer"));
 
-    encode_declaration.add_param(Parameter {
+    encode_declaration.add_param(ast::Parameter {
         name: Rc::clone(&message_parameter_id),
         parameter_type: Type::TypeReference(Rc::clone(&message_encode_input_type_id)).into(),
         optional: false,
     });
-    encode_declaration.add_param(Parameter {
+    encode_declaration.add_param(ast::Parameter {
         name: Rc::clone(&writer_parameter_id),
         parameter_type: Type::TypeReference(Rc::clone(&writer_type_id)).into(),
         optional: true,
@@ -908,21 +857,22 @@ fn insert_encode(
     encode_declaration
         .returns(Type::TypeReference(Rc::clone(&message_encode_input_type_id)).into());
 
-    let writer_var = Rc::new(Identifier { text: "w".into() });
+    let writer_var = Rc::new(ast::Identifier { text: "w".into() });
 
-    encode_declaration.push_statement(Statement::from(Rc::from(
-        VariableDeclarationList::constants(vec![VariableDeclaration {
+    encode_declaration.push_statement(ast::Statement::from(Rc::from(
+        ast::VariableDeclarationList::constants(vec![ast::VariableDeclaration {
             name: Rc::clone(&writer_var),
-            initializer: Expression::from(BinaryExpression {
-                operator: BinaryOperator::LogicalOr,
-                left: Expression::from(Rc::clone(&writer_parameter_id)).into(),
-                right: Expression::from(Rc::clone(&writer_parameter_id)).into(),
+            initializer: ast::Expression::from(ast::BinaryExpression {
+                operator: ast::BinaryOperator::LogicalOr,
+                left: ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
+                right: ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
             })
             .into(),
         }]),
     )));
 
-    encode_declaration.push_statement(Expression::Identifier(Identifier::new("w").into()).ret());
+    encode_declaration
+        .push_statement(ast::Expression::Identifier(ast::Identifier::new("w").into()).ret());
 
     file.push_statement(encode_declaration.into());
 
@@ -973,9 +923,9 @@ fn insert_children(
 }
 
 fn insert_enum_declaration(res: &mut Folder, enum_declaration: &EnumDeclaration) {
-    let mut file = File::new(Rc::clone(&enum_declaration.name));
+    let mut file = ast::File::new(Rc::clone(&enum_declaration.name));
     let enum_declaration = super::ast::EnumDeclaration {
-        modifiers: vec![Modifier::Export],
+        modifiers: vec![ast::Modifier::Export],
         name: enum_declaration.name.clone().into(),
         members: enum_declaration
             .entries
