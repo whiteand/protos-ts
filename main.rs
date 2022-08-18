@@ -41,7 +41,7 @@ fn main() -> () {
         .file_name()
         .map(|s| s.to_string_lossy())
         .unwrap()
-        .to_string();
+        .into();
 
     match compile(&package_tree) {
         Ok(_) => {}

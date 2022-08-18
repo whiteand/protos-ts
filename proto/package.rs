@@ -5,6 +5,7 @@ use std::{
     io::Read,
     ops::{Deref, Index},
     path::PathBuf,
+    rc::Rc,
 };
 use syntax::parse_package;
 
@@ -26,7 +27,7 @@ impl std::fmt::Display for ProtoVersion {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EnumEntry {
-    pub name: String,
+    pub name: Rc<str>,
     pub value: i64,
 }
 
@@ -38,7 +39,7 @@ impl std::fmt::Display for EnumEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EnumDeclaration {
-    pub name: String,
+    pub name: Rc<str>,
     pub entries: Vec<EnumEntry>,
 }
 impl std::fmt::Display for EnumDeclaration {
@@ -57,7 +58,7 @@ impl std::fmt::Display for EnumDeclaration {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FieldType {
-    IdPath(Vec<String>),
+    IdPath(Vec<Rc<str>>),
     Repeated(Box<FieldType>),
     Map(Box<FieldType>, Box<FieldType>),
 }
@@ -81,20 +82,20 @@ impl std::fmt::Display for FieldType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FieldDeclaration {
-    pub name: String,
+    pub name: Rc<str>,
     pub field_type: FieldType,
     pub tag: i64,
-    pub attributes: Vec<(String, String)>,
+    pub attributes: Vec<(Rc<str>, Rc<str>)>,
 }
 
 impl FieldDeclaration {
-    pub fn json_name(&self) -> String {
+    pub fn json_name(&self) -> Rc<str> {
         for (key, value) in &self.attributes {
-            if key == "json_name" {
-                return value.clone();
+            if key.deref() == "json_name" {
+                return Rc::clone(value);
             }
         }
-        self.name.clone()
+        Rc::clone(&self.name)
     }
 }
 
@@ -117,7 +118,7 @@ impl std::fmt::Display for FieldDeclaration {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OneOfDeclaration {
-    pub name: String,
+    pub name: Rc<str>,
     pub options: Vec<FieldDeclaration>,
 }
 
@@ -156,7 +157,7 @@ impl From<Declaration> for MessageEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MessageDeclaration {
-    pub name: String,
+    pub name: Rc<str>,
     pub entries: Vec<MessageEntry>,
 }
 
@@ -183,8 +184,8 @@ impl Scope for MessageDeclaration {
                 MessageEntry::Field(_) => {}
                 MessageEntry::Declaration(decl) => {
                     let matches = match decl {
-                        Declaration::Enum(e) => e.name == name,
-                        Declaration::Message(m) => m.name == name,
+                        Declaration::Enum(e) => e.name.deref() == name,
+                        Declaration::Message(m) => m.name.deref() == name,
                     };
                     if matches {
                         res = Some(&*decl);
@@ -226,8 +227,8 @@ impl std::fmt::Display for Declaration {
 
 #[derive(Debug)]
 pub(crate) struct ImportPath {
-    pub file_name: String,
-    pub packages: Vec<String>,
+    pub file_name: Rc<str>,
+    pub packages: Vec<Rc<str>>,
 }
 
 impl Display for ImportPath {
@@ -265,8 +266,8 @@ pub(crate) struct ProtoFile {
     pub version: ProtoVersion,
     pub declarations: Vec<Declaration>,
     pub imports: Vec<ImportPath>,
-    pub path: Vec<String>,
-    pub name: String,
+    pub path: Vec<Rc<str>>,
+    pub name: Rc<str>,
 }
 
 impl Scope for ProtoFile {
@@ -276,13 +277,13 @@ impl Scope for ProtoFile {
             let decl = &self.declarations[i];
             match decl {
                 Declaration::Enum(e) => {
-                    if e.name == name {
+                    if e.name.deref() == name {
                         decl_index = Some(i);
                         break;
                     }
                 }
                 Declaration::Message(m) => {
-                    if m.name == name {
+                    if m.name.deref() == name {
                         decl_index = Some(i);
                         break;
                     }
@@ -297,8 +298,8 @@ impl Scope for ProtoFile {
 }
 
 impl ProtoFile {
-    pub fn full_path(&self) -> String {
-        return format!("{}/{}", self.path.join("/"), self.name);
+    pub fn full_path(&self) -> Rc<str> {
+        return format!("{}/{}", self.path.join("/"), self.name).into();
     }
 }
 
@@ -358,7 +359,7 @@ fn read_proto_file(file_path: &PathBuf) -> Result<ProtoFile, ProtoError> {
         declarations: vec![],
         imports: vec![],
         path: vec![],
-        name: file_name,
+        name: file_name.into(),
     };
 
     parse_package(&lexems, &mut res)?;

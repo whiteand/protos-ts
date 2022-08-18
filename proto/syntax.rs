@@ -1,3 +1,5 @@
+use std::{ops::Deref, rc::Rc};
+
 use crate::proto::package::FieldDeclaration;
 
 use super::{
@@ -55,21 +57,21 @@ use Task::*;
 
 #[derive(Debug, Clone)]
 enum StackItem {
-    String(String),
-    StringList(Vec<String>),
+    String(Rc<str>),
+    StringList(Vec<Rc<str>>),
     EnumEntriesList(Vec<EnumEntry>),
     MessageEntriesList(Vec<MessageEntry>),
     MessageEntry(MessageEntry),
     FieldType(FieldType),
     Int64(i64),
     Message(MessageDeclaration),
-    OptionalAttributes(Option<Vec<(String, String)>>),
+    OptionalAttributes(Option<Vec<(Rc<str>, Rc<str>)>>),
     Enum(EnumDeclaration),
     OneOf(OneOfDeclaration),
 }
 
-impl From<String> for StackItem {
-    fn from(s: String) -> Self {
+impl From<Rc<str>> for StackItem {
+    fn from(s: Rc<str>) -> Self {
         StackItem::String(s)
     }
 }
@@ -130,24 +132,24 @@ pub(super) fn parse_package(
                 let located_lexem = &located_lexems[ind];
                 let lexem = &located_lexem.lexem;
                 match lexem {
-                    Lexem::Id(id) if id == "syntax" => {
+                    Lexem::Id(id) if id.deref() == "syntax" => {
                         tasks.push(ParseSyntaxStatement);
                         continue;
                     }
-                    Lexem::Id(id) if id == "message" => {
+                    Lexem::Id(id) if id.deref() == "message" => {
                         tasks.push(AppendDeclarationToPackage);
                         tasks.push(ParseMessageStatement);
                         continue;
                     }
-                    Lexem::Id(id) if id == "import" => {
+                    Lexem::Id(id) if id.deref() == "import" => {
                         tasks.push(ParseImportStatement);
                         continue;
                     }
-                    Lexem::Id(id) if id == "package" => {
+                    Lexem::Id(id) if id.deref() == "package" => {
                         tasks.push(ParsePackageStatement);
                         continue;
                     }
-                    Lexem::Id(id) if id == "enum" => {
+                    Lexem::Id(id) if id.deref() == "enum" => {
                         tasks.push(AppendDeclarationToPackage);
                         tasks.push(ParseEnumDeclaration);
                         continue;
@@ -206,13 +208,13 @@ pub(super) fn parse_package(
                 let semi_colon = &located_lexems[ind + 3].lexem;
                 match (syntax, equals, version, semi_colon) {
                     (Lexem::Id(id), Lexem::Equal, Lexem::StringLiteral(s), Lexem::SemiColon)
-                        if id == "syntax" && s == "proto2" =>
+                        if id.deref() == "syntax" && s.deref() == "proto2" =>
                     {
                         ind += 4;
                         continue;
                     }
                     (Lexem::Id(id), Lexem::Equal, Lexem::StringLiteral(s), Lexem::SemiColon)
-                        if id == "syntax" && s == "proto3" =>
+                        if id.deref() == "syntax" && s.deref() == "proto3" =>
                     {
                         ind += 4;
                         res.version = super::package::ProtoVersion::Proto3;
@@ -238,7 +240,7 @@ pub(super) fn parse_package(
                 let semi_colon = &located_lexems[ind + 2].lexem;
                 match (import, str, semi_colon) {
                     (Lexem::Id(id), Lexem::StringLiteral(s), Lexem::SemiColon)
-                        if id == "import" =>
+                        if id.deref().eq("import") =>
                     {
                         ind += 3;
                         let imports_components: ImportPath = parse_import_path(s);
@@ -370,7 +372,7 @@ pub(super) fn parse_package(
                 )?;
                 let package = &located_lexems[ind].lexem;
                 match package {
-                    Lexem::Id(id) if id == "package" => {}
+                    Lexem::Id(id) if id.deref() == "package" => {}
                     _ => {
                         return Err(syntax_error(
                             "Invalid package statement",
@@ -386,7 +388,7 @@ pub(super) fn parse_package(
                     let id = &id_loc_lexem.lexem;
                     match id {
                         Lexem::Id(id) => {
-                            res.path.push(id.clone());
+                            res.path.push(Rc::clone(id));
                         }
                         _ => {
                             return Err(syntax_error("Expected identifier", id_loc_lexem));
@@ -421,7 +423,7 @@ pub(super) fn parse_package(
                 let name_loc_lexem = &located_lexems[ind];
                 let name = &name_loc_lexem.lexem;
                 match name {
-                    Lexem::Id(id) => stack.push(id.clone().into()),
+                    Lexem::Id(id) => stack.push(Rc::clone(id).into()),
                     _ => return Err(syntax_error("Expacted enum name", name_loc_lexem)),
                 }
                 ind += 1;
@@ -449,7 +451,7 @@ pub(super) fn parse_package(
                         match (list_item, enum_name_item) {
                             (StackItem::EnumEntriesList(entries), StackItem::String(name)) => {
                                 let enum_declaration = EnumDeclaration {
-                                    name: name,
+                                    name,
                                     entries: entries,
                                 };
                                 stack.push(enum_declaration.into());
@@ -493,7 +495,7 @@ pub(super) fn parse_package(
                         match entries {
                             StackItem::EnumEntriesList(mut list) => {
                                 list.push(super::package::EnumEntry {
-                                    name: id.clone(),
+                                    name: Rc::clone(id),
                                     value: *value,
                                 });
                                 stack.push(StackItem::EnumEntriesList(list));
@@ -593,19 +595,19 @@ pub(super) fn parse_package(
                 let start_loc = &located_lexems[ind];
                 let start = &start_loc.lexem;
                 match start {
-                    Lexem::Id(id) if id == "message" => {
+                    Lexem::Id(id) if id.deref() == "message" => {
                         tasks.push(PushMessageEntry);
                         tasks.push(WrapMessageEntry);
                         tasks.push(ParseMessageStatement);
                         continue;
                     }
-                    Lexem::Id(id) if id == "enum" => {
+                    Lexem::Id(id) if id.deref() == "enum" => {
                         tasks.push(PushMessageEntry);
                         tasks.push(WrapMessageEntry);
                         tasks.push(ParseEnumDeclaration);
                         continue;
                     }
-                    Lexem::Id(id) if id == "oneof" => {
+                    Lexem::Id(id) if id.deref() == "oneof" => {
                         tasks.push(PushMessageEntry);
                         tasks.push(WrapMessageEntry);
                         tasks.push(PushOneOf);
@@ -617,7 +619,7 @@ pub(super) fn parse_package(
                         tasks.push(ExpectLexem(Lexem::Id("oneof".into())));
                         continue;
                     }
-                    Lexem::Id(id) if id == "enum" => {
+                    Lexem::Id(id) if id.deref() == "enum" => {
                         print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot handle start message entry {:?}", start)
                     }
@@ -666,13 +668,13 @@ pub(super) fn parse_package(
                 let start_loc = &located_lexems[ind];
                 let start = &start_loc.lexem;
                 if let Lexem::Id(id) = start {
-                    if id == "repeated" {
+                    if id.deref() == "repeated" {
                         tasks.push(WrapRepeated);
                         tasks.push(ParseFieldType);
                         ind += 1;
                         continue;
                     }
-                    if id == "map" {
+                    if id.deref() == "map" {
                         tasks.push(WrapMapType);
                         tasks.push(ExpectLexem(Lexem::Greater));
                         tasks.push(ParseFieldType);
@@ -806,9 +808,9 @@ fn parse_import_path(s: &str) -> ImportPath {
     let packages = parts
         .iter()
         .take(parts.len() - 1)
-        .map(|s| s.to_string())
-        .collect();
-    let file_name = parts.last().unwrap().to_string();
+        .map(|&s| Rc::from(s))
+        .collect::<Vec<_>>();
+    let file_name = Rc::from(parts.last().unwrap().deref());
     return ImportPath {
         packages,
         file_name,

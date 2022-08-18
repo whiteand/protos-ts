@@ -1,21 +1,15 @@
+use std::{ops::Deref, rc::Rc};
+
 use super::{error::ProtoError, package::ProtoFile};
 
 #[derive(Debug)]
 pub(crate) struct PackageTree {
     pub children: Vec<PackageTree>,
     pub files: Vec<ProtoFile>,
-    pub name: String,
+    pub name: Rc<str>,
 }
 
 impl PackageTree {
-    fn new() -> PackageTree {
-        Self {
-            children: Vec::new(),
-            files: Vec::new(),
-            name: String::new(),
-        }
-    }
-
     fn append_subtree(&mut self, tree: PackageTree) -> Result<(), ProtoError> {
         let name = tree.name;
         let files = tree.files;
@@ -41,19 +35,20 @@ impl PackageTree {
         Ok(())
     }
 
-    fn create_child(&mut self, name: &String) -> usize {
+    fn create_child(&mut self, name: &str) -> usize {
         let child_ind = self
             .children
             .iter()
             .enumerate()
-            .find(|(_, child)| child.name == *name)
+            .find(|(_, child)| child.name.deref() == name)
             .map(|pair| pair.0);
         match child_ind {
             Some(index) => index,
             _ => {
                 let child = PackageTree {
-                    name: name.clone(),
-                    ..Default::default()
+                    name: Rc::from(name),
+                    files: vec![],
+                    children: vec![],
                 };
                 self.children.push(child);
                 return self.children.len() - 1;
@@ -78,7 +73,7 @@ impl PackageTree {
         Ok(())
     }
 
-    pub(super) fn resolve_subtree<'a, 'b>(&'a self, path: &[String]) -> Option<&'a PackageTree> {
+    pub(super) fn resolve_subtree<'a, 'b>(&'a self, path: &[Rc<str>]) -> Option<&'a PackageTree> {
         if path.is_empty() {
             return Some(self);
         }
@@ -90,7 +85,7 @@ impl PackageTree {
                 .enumerate()
                 .find(|(_, child)| child.name == *name)
                 .map(|p| p.0);
-            
+
             match child_index {
                 Some(index) => current = &current.children[index],
                 _ => return None,
@@ -127,18 +122,13 @@ impl std::fmt::Display for PackageTree {
     }
 }
 
-impl Default for PackageTree {
-    fn default() -> Self {
-        return PackageTree::new();
-    }
-}
-
 impl From<ProtoFile> for PackageTree {
     fn from(f: ProtoFile) -> Self {
         if f.path.len() <= 0 {
             return PackageTree {
                 files: vec![f],
-                ..Default::default()
+                name: "".into(),
+                children: vec![],
             };
         }
         if f.path.len() == 1 {
@@ -146,18 +136,19 @@ impl From<ProtoFile> for PackageTree {
             return PackageTree {
                 files: vec![f],
                 name,
-                ..Default::default()
+                children: vec![],
             };
         }
         let mut res = PackageTree {
-            name: f.path[0].clone(),
-            ..PackageTree::default()
+            name: Rc::clone(&f.path[0]),
+            files: vec![],
+            children: vec![],
         };
 
         let mut cur = &mut res;
 
         for parent in f.path.iter().skip(1) {
-            let child_index = cur.create_child(&parent);
+            let child_index = cur.create_child(parent.deref());
             cur = &mut cur.children[child_index];
         }
 
@@ -171,7 +162,11 @@ impl TryFrom<Vec<ProtoFile>> for PackageTree {
     type Error = ProtoError;
 
     fn try_from(files: Vec<ProtoFile>) -> Result<Self, Self::Error> {
-        let mut res = Self::default();
+        let mut res = Self {
+            children: vec![],
+            files: vec![],
+            name: "".into(),
+        };
 
         for file in files {
             let file_tree: PackageTree = file.into();

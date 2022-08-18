@@ -45,14 +45,12 @@ impl StringLiteral {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct Identifier {
-    pub text: String,
+    pub text: Rc<str>,
 }
 
 impl Identifier {
     pub fn new(text: &str) -> Self {
-        Self {
-            text: text.to_owned(),
-        }
+        Self { text: text.into() }
     }
 }
 
@@ -70,13 +68,8 @@ where
 {
     fn from(text: T) -> Self {
         Identifier {
-            text: format!("{}", text),
+            text: format!("{}", text).into(),
         }
-    }
-}
-impl<'a> From<&'a Identifier> for &'a str {
-    fn from(identifier: &'a Identifier) -> &'a str {
-        identifier.text.as_str()
     }
 }
 #[derive(Debug, PartialEq, Eq)]
@@ -300,14 +293,14 @@ pub(crate) struct PropertySignature {
 }
 
 impl PropertySignature {
-    pub fn new(name: String, property_type: Type) -> Self {
+    pub fn new(name: Rc<str>, property_type: Type) -> Self {
         Self {
             name: name.into(),
             property_type,
             optional: false,
         }
     }
-    pub fn new_optional(name: String, property_type: Type) -> Self {
+    pub fn new_optional(name: Rc<str>, property_type: Type) -> Self {
         let mut res = Self::new(name, property_type);
         res.optional = true;
         return res;
@@ -333,14 +326,14 @@ pub(crate) struct InterfaceDeclaration {
 }
 
 impl InterfaceDeclaration {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: Rc<str>) -> Self {
         Self {
             modifiers: vec![],
             name: name.into(),
             members: Vec::new(),
         }
     }
-    pub fn new_exported(name: String) -> Self {
+    pub fn new_exported(name: Rc<str>) -> Self {
         let mut r = Self::new(name);
         r.modifiers.push(Modifier::Export);
         r
@@ -587,12 +580,12 @@ impl From<FunctionDeclaration> for Statement {
 
 #[derive(Debug)]
 pub(crate) struct File {
-    pub name: String,
+    pub name: Rc<str>,
     pub ast: Box<SourceFile>,
 }
 
 impl File {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: Rc<str>) -> Self {
         Self {
             name,
             ast: Box::new(SourceFile {
@@ -633,18 +626,18 @@ impl FolderEntry {
 
 #[derive(Debug)]
 pub(crate) struct Folder {
-    pub name: String,
+    pub name: Rc<str>,
     pub entries: Vec<FolderEntry>,
 }
 
 impl Folder {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: Rc<str>) -> Self {
         Self {
             name,
             entries: Vec::new(),
         }
     }
-    pub fn insert_folder(&mut self, name: String) -> usize {
+    pub fn insert_folder(&mut self, name: Rc<str>) -> usize {
         for i in 0..self.entries.len() {
             if let FolderEntry::Folder(folder) = &self.entries[i] {
                 if folder.name == name {
@@ -655,10 +648,10 @@ impl Folder {
         self.entries.push(Folder::new(name).into());
         return self.entries.len() - 1;
     }
-    pub fn insert_folder_by_path(&mut self, package_path: &[String]) {
+    pub fn insert_folder_by_path(&mut self, package_path: &[Rc<str>]) {
         let mut cur = self;
         for folder in package_path {
-            let index = cur.insert_folder(folder.clone());
+            let index = cur.insert_folder(Rc::clone(&folder));
             let entry = cur.entries[index].as_folder_mut().unwrap();
             cur = entry;
         }

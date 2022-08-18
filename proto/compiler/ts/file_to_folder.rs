@@ -113,7 +113,7 @@ impl<'scope> DefinedId<'scope> {
                 }
             },
             IdType::Package(p) => {
-                res.push(PathComponent::Package(p.name.clone()));
+                res.push(PathComponent::Package(Rc::clone(&p.name)));
             }
         }
         res
@@ -122,19 +122,19 @@ impl<'scope> DefinedId<'scope> {
 
 #[derive(Debug, Clone)]
 enum PathComponent {
-    Package(String),
-    File(String),
-    Message(String),
-    Enum(String),
+    Package(Rc<str>),
+    File(Rc<str>),
+    Message(Rc<str>),
+    Enum(Rc<str>),
 }
 
 impl From<&PathComponent> for String {
     fn from(p: &PathComponent) -> String {
         match p {
-            PathComponent::Package(s) => s.clone(),
-            PathComponent::File(s) => s.clone(),
-            PathComponent::Message(s) => s.clone(),
-            PathComponent::Enum(s) => s.clone(),
+            PathComponent::Package(s) => s.to_string(),
+            PathComponent::File(s) => s.to_string(),
+            PathComponent::Message(s) => s.to_string(),
+            PathComponent::Enum(s) => s.to_string(),
         }
     }
 }
@@ -158,20 +158,20 @@ impl ProtoPath {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TsPathComponent {
-    Folder(String),
-    File(String),
-    Enum(String),
-    Interface(String),
-    Function(String),
+    Folder(Rc<str>),
+    File(Rc<str>),
+    Enum(Rc<str>),
+    Interface(Rc<str>),
+    Function(Rc<str>),
 }
 impl From<&TsPathComponent> for String {
     fn from(p: &TsPathComponent) -> String {
         match p {
-            TsPathComponent::Folder(s) => s.clone(),
-            TsPathComponent::File(s) => s.clone(),
-            TsPathComponent::Enum(s) => s.clone(),
-            TsPathComponent::Interface(s) => s.clone(),
-            TsPathComponent::Function(s) => s.clone(),
+            TsPathComponent::Folder(s) => s.to_string(),
+            TsPathComponent::File(s) => s.to_string(),
+            TsPathComponent::Enum(s) => s.to_string(),
+            TsPathComponent::Interface(s) => s.to_string(),
+            TsPathComponent::Function(s) => s.to_string(),
         }
     }
 }
@@ -245,17 +245,17 @@ fn proto_path_to_ts_path(proto_path: ProtoPath) -> TsPath {
     for p in path.iter() {
         match p {
             PathComponent::Package(s) => {
-                res.path.push(TsPathComponent::Folder(s.clone()));
+                res.path.push(TsPathComponent::Folder(Rc::clone(&s)));
             }
             PathComponent::File(s) => {
                 res.path
                     .push(TsPathComponent::Folder(file_name_to_folder_name(s)));
             }
             PathComponent::Message(s) => {
-                res.path.push(TsPathComponent::Folder(s.clone()));
+                res.path.push(TsPathComponent::Folder(Rc::clone(&s)));
             }
             PathComponent::Enum(s) => {
-                res.path.push(TsPathComponent::File(s.clone()));
+                res.path.push(TsPathComponent::File(Rc::clone(&s)));
             }
         }
     }
@@ -290,10 +290,10 @@ impl std::fmt::Display for IdType<'_> {
 }
 
 impl<'context> BlockScope<'context> {
-    fn stack_trace(&self) -> Vec<String> {
-        let mut res: Vec<String> = Vec::new();
+    fn stack_trace(&self) -> Vec<Rc<str>> {
+        let mut res: Vec<Rc<str>> = Vec::new();
         for &parent in self.parent_messages.iter() {
-            res.push(parent.name.clone());
+            res.push(Rc::clone(&parent.name));
         }
         res.push(self.proto_file.full_path());
         res
@@ -336,7 +336,7 @@ impl<'context> BlockScope<'context> {
                 file_name,
             } = imprt;
 
-            if imprt.packages.last().unwrap().ne(name) {
+            if imprt.packages.last().unwrap().deref().ne(name) {
                 continue 'nextImport;
             }
 
@@ -344,7 +344,7 @@ impl<'context> BlockScope<'context> {
 
             loop {
                 for package in packages {
-                    root_path.push(package.clone());
+                    root_path.push(Rc::clone(package));
                 }
                 match self.root.resolve_subtree(&root_path) {
                     Some(subtree) => {
@@ -380,7 +380,7 @@ impl<'context> BlockScope<'context> {
         return Err(self.error(format!("Could not resolve name {}", name).as_str()));
     }
 
-    fn resolve_path(&self, path: &Vec<String>) -> Result<DefinedId, ProtoError> {
+    fn resolve_path(&self, path: &Vec<Rc<str>>) -> Result<DefinedId, ProtoError> {
         let mut resolution = self.resolve(&path[0])?;
         for name in &path[1..] {
             resolution = resolution.resolve(name)?;
@@ -450,8 +450,8 @@ fn insert_message_types(
     Ok(())
 }
 
-fn message_name_to_encode_type_name(message_name: &str) -> String {
-    format!("{}EncodeInput", message_name)
+fn message_name_to_encode_type_name(message_name: &str) -> Rc<str> {
+    format!("{}EncodeInput", message_name).into()
 }
 
 fn insert_encoded_input_interface(
@@ -515,22 +515,22 @@ fn import_encoding_input_type(
             let requested_path = resolve_result.path();
             let mut requested_ts_path = proto_path_to_ts_path(requested_path);
 
-            let mut imported_type_name = String::new();
-            match resolve_result.declaration {
+            let imported_type_name = match resolve_result.declaration {
                 IdType::DataType(decl) => match decl {
                     Declaration::Enum(e) => {
                         requested_ts_path.push(TsPathComponent::Enum(e.name.clone()));
-                        imported_type_name = e.name.clone();
+                        Rc::clone(&e.name)
                     }
                     Declaration::Message(m) => {
                         requested_ts_path.push(TsPathComponent::File("types".into()));
                         let encode_type_name = message_name_to_encode_type_name(&m.name);
-                        imported_type_name = encode_type_name.clone();
-                        requested_ts_path.push(TsPathComponent::Interface(encode_type_name));
+                        requested_ts_path
+                            .push(TsPathComponent::Interface(Rc::clone(&encode_type_name)));
+                        Rc::clone(&encode_type_name)
                     }
                 },
                 IdType::Package(_) => unreachable!(),
-            }
+            };
 
             let mut current_file_path = proto_path_to_ts_path(scope.path());
             current_file_path.push(TsPathComponent::File("types".into()));
@@ -540,7 +540,10 @@ fn import_encoding_input_type(
             ensure_import(types_file, import_declaration);
 
             return Ok(Type::TypeReference(
-                Identifier::new(&imported_type_name).into(),
+                Identifier {
+                    text: imported_type_name,
+                }
+                .into(),
             ));
         }
         FieldType::Repeated(field_type) => {
@@ -575,17 +578,17 @@ fn import_decode_result_type(
             let requested_path = resolve_result.path();
             let mut requested_ts_path = proto_path_to_ts_path(requested_path);
 
-            let mut imported_type_name = String::new();
+            let mut imported_type_name = Rc::from(String::new());
             match resolve_result.declaration {
                 IdType::DataType(decl) => match decl {
                     Declaration::Enum(e) => {
-                        requested_ts_path.push(TsPathComponent::Enum(e.name.clone()));
-                        imported_type_name = e.name.clone();
+                        requested_ts_path.push(TsPathComponent::Enum(Rc::clone(&e.name)));
+                        imported_type_name = Rc::clone(&e.name);
                     }
                     Declaration::Message(m) => {
                         requested_ts_path.push(TsPathComponent::File("types".into()));
                         let encode_type_name = message_name_to_encode_type_name(&m.name);
-                        imported_type_name = encode_type_name.clone();
+                        imported_type_name = Rc::clone(&encode_type_name);
                         requested_ts_path.push(TsPathComponent::Interface(encode_type_name));
                     }
                 },
@@ -833,7 +836,8 @@ fn insert_decode_result_interface(
     scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    let mut interface = InterfaceDeclaration::new_exported(message_declaration.name.clone().into());
+    let mut interface =
+        InterfaceDeclaration::new_exported(Rc::clone(&message_declaration.name).into());
     for entry in &message_declaration.entries {
         use crate::proto::package::MessageEntry::*;
         match entry {
@@ -969,7 +973,7 @@ fn insert_children(
 }
 
 fn insert_enum_declaration(res: &mut Folder, enum_declaration: &EnumDeclaration) {
-    let mut file = File::new(enum_declaration.name.clone());
+    let mut file = File::new(Rc::clone(&enum_declaration.name));
     let enum_declaration = super::ast::EnumDeclaration {
         modifiers: vec![Modifier::Export],
         name: enum_declaration.name.clone().into(),

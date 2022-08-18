@@ -1,7 +1,9 @@
-pub(crate) fn file_name_to_folder_name(file_name: &String) -> String {
+use std::rc::Rc;
+
+pub(crate) fn file_name_to_folder_name(file_name: &str) -> Rc<str> {
     if file_name.ends_with(".proto") {
-        file_name[..file_name.len() - 6].to_string()
+        file_name[..file_name.len() - 6].into()
     } else {
-        file_name.clone()
+        Rc::from(file_name)
     }
 }

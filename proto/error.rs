@@ -1,6 +1,7 @@
 use std::{
     fmt::{Display, Formatter},
     io,
+    rc::Rc,
 };
 
 use super::{
@@ -34,8 +35,8 @@ pub(crate) enum ProtoError {
     },
     UnsupportedProtoVersion(Vec<String>, ProtoVersion),
     ConflictingFiles {
-        first_path: String,
-        second_path: String,
+        first_path: Rc<str>,
+        second_path: Rc<str>,
     },
 }
 

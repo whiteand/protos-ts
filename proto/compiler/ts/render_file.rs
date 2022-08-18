@@ -13,10 +13,10 @@ impl From<&ImportDeclaration> for String {
                 .iter()
                 .map(|e| match &e.property_name {
                     Some(property_name) => format!("{} as {}", property_name.text, e.name.text),
-                    None => e.name.text.clone(),
+                    None => e.name.text.to_string(),
                 })
                 .collect();
-            imports.push(format!("{{ {} }}", pairs.join(", ")));
+            imports.push(format!("{{ {} }}", pairs.join(", ")).into());
         }
         format!(
             "import {} from \"{}\"",
@@ -63,7 +63,7 @@ impl From<&EnumDeclaration> for String {
             }
         }
         res.push_str("enum ");
-        res.push_str(name.text.as_str());
+        res.push_str(&name.text);
         if members.len() <= 0 {
             res.push_str("{}");
             return res;
@@ -71,7 +71,7 @@ impl From<&EnumDeclaration> for String {
         res.push_str(" {\n");
         for member in members {
             res.push_str("  ");
-            res.push_str(member.name.text.as_str());
+            res.push_str(&member.name.text);
             if let Some(value) = &member.value {
                 res.push_str(" = ");
                 match value {
@@ -158,7 +158,7 @@ impl From<&Type> for String {
             Type::Record(key, value) => {
                 format!("Record<{}, {}>", key, value)
             }
-            Type::TypeReference(id) => id.text.clone(),
+            Type::TypeReference(id) => id.text.to_string(),
         }
     }
 }
@@ -229,7 +229,7 @@ impl From<&InterfaceDeclaration> for String {
             }
         }
         res.push_str("interface ");
-        res.push_str(name.text.as_str());
+        res.push_str(&name.text);
         if members.len() <= 0 {
             res.push_str("{}");
             return res;
@@ -239,7 +239,7 @@ impl From<&InterfaceDeclaration> for String {
             match member {
                 InterfaceMember::PropertySignature(prop) => {
                     res.push_str("  ");
-                    res.push_str(prop.name.text.clone().as_str());
+                    res.push_str(&prop.name.text);
                     if prop.optional {
                         res.push_str("?");
                     }
@@ -297,13 +297,13 @@ impl From<&FunctionDeclaration> for String {
             }
         }
         res.push_str("function ");
-        res.push_str(name.text.as_str());
+        res.push_str(&name.text);
         res.push_str("(");
         for (ind, param) in parameters.iter().enumerate() {
             if (ind > 0) {
                 res.push_str(", ");
             }
-            res.push_str(param.name.text.as_str());
+            res.push_str(&param.name.text);
             if param.optional {
                 res.push_str("?");
             }
@@ -379,7 +379,7 @@ impl From<&BinaryExpression> for String {
 impl From<&Expression> for String {
     fn from(expr: &Expression) -> Self {
         match expr {
-            Expression::Identifier(id) => id.text.clone(),
+            Expression::Identifier(id) => id.text.to_string(),
             Expression::Null => "null".to_string(),
             Expression::Undefined => "undefined".to_string(),
             Expression::False => "false".to_string(),

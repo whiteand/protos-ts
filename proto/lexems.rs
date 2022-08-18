@@ -1,12 +1,12 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 use super::error::ProtoError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Lexem {
-    Id(String),
+    Id(Rc<str>),
     Equal,
-    StringLiteral(String),
+    StringLiteral(Rc<str>),
     SemiColon,
     Dot,
     IntLiteral(i64),
@@ -217,7 +217,7 @@ fn try_read_id<'file_path>(
     if int_str.len() <= 0 {
         unreachable!()
     }
-    let lexem = Lexem::Id(int_str);
+    let lexem = Lexem::Id(Rc::from(int_str));
     let range = SourceRange { start, end };
     let located_lexem: LocatedLexem<'file_path> = LocatedLexem { lexem, range };
     Ok(located_lexem)
@@ -339,7 +339,7 @@ fn try_read_string_literal<'file_path>(
         string_literal.push(char);
         last_char = char;
     }
-    let lexem = Lexem::StringLiteral(string_literal);
+    let lexem = Lexem::StringLiteral(Rc::from(string_literal));
     let range = SourceRange { start, end };
     let located_lexem: LocatedLexem<'file_path> = LocatedLexem { lexem, range };
     Ok(located_lexem)

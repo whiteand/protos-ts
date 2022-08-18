@@ -8,7 +8,8 @@ use super::super::super::error::ProtoError;
 use super::render_file;
 
 pub(crate) fn commit_folder(folder: &super::ast::Folder) -> Result<(), ProtoError> {
-    let destination_path = Path::new(&folder.name);
+    let folder_name = folder.name.to_string();
+    let destination_path = Path::new(&folder_name);
     if destination_path.exists() {
         remove_dir_all(&destination_path).map_err(ProtoError::IOError)?;
     }
@@ -23,7 +24,7 @@ fn write_folder(dist: &Path, folder: &super::ast::Folder) -> Result<(), ProtoErr
     for entry in &folder.entries {
         match entry {
             super::ast::FolderEntry::Folder(subfolder) => {
-                let destination_path = dist.join(&subfolder.name);
+                let destination_path = dist.join(&subfolder.name.to_string());
                 create_dir(&destination_path).map_err(ProtoError::IOError)?;
                 write_folder(&destination_path, subfolder)?;
             }
