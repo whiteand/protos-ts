@@ -8,6 +8,7 @@ use crate::proto::error::ProtoError;
 use crate::proto::package_tree::PackageTree;
 use package_tree_to_folder::root_tree_to_folder;
 mod protopath;
+mod ts_path;
 
 use self::ast::Folder;
 
