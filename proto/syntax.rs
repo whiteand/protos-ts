@@ -44,6 +44,7 @@ enum Task {
     PushMessageEntry,
     PushMessageStatement,
     ParseIdPath,
+    /// Id -> Type
     WrapFieldType,
     /// [FieldType, FieldType] => Map<FieldType, FieldType>
     WrapMapType,
@@ -692,7 +693,9 @@ pub(super) fn parse_package(
             }
             WrapFieldType => {
                 let field_type = match stack.pop() {
-                    Some(StackItem::StringList(ids)) => FieldType::IdPath(ids),
+                    Some(StackItem::StringList(ids)) => {
+                        FieldType::from(ids)
+                    },
                     _ => unreachable!(),
                 };
                 stack.push(field_type.into());

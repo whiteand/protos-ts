@@ -71,6 +71,22 @@ pub(super) fn compile_encode(
         }]),
     )));
 
+    let mut fields = message_declaration
+        .entries
+        .iter()
+        .filter_map(|entry| match entry {
+            crate::proto::package::MessageEntry::Field(f) => Some(f),
+            crate::proto::package::MessageEntry::Declaration(_) => None,
+            crate::proto::package::MessageEntry::OneOf(_) => todo!(),
+        })
+        .collect::<Vec<_>>();
+
+    fields.sort_by_key(|x| x.tag);
+
+    for (index, field) in fields.into_iter().enumerate() {
+        dbg!((index, field));
+    }
+
     encode_declaration
         .push_statement(ast::Expression::Identifier(ast::Identifier::new("w").into()).ret());
 

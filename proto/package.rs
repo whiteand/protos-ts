@@ -61,11 +61,70 @@ pub(crate) enum FieldType {
     IdPath(Vec<Rc<str>>),
     Repeated(Box<FieldType>),
     Map(Box<FieldType>, Box<FieldType>),
+    Bool,     // bool
+    Bytes,    // bytes
+    Double,   // double
+    Fixed32,  // fixed32
+    Fixed64,  // fixed64
+    Float,    // float
+    Int32,    // int32
+    Int64,    // int64
+    Sfixed32, // sfixed32
+    Sfixed64, // sfixed64
+    Sint32,   // sint32
+    Sint64,   // sint64
+    String,   // string
+    Uint32,   // uint32
+    Uint64,   // uint64
 }
 
 impl FieldType {
     pub fn repeated(t: Self) -> Self {
         FieldType::Repeated(Box::new(t))
+    }
+}
+
+impl From<Vec<Rc<str>>> for FieldType {
+    fn from(id_path: Vec<Rc<str>>) -> Self {
+        assert!(id_path.len() > 0);
+        if id_path.len() == 1 {
+            let id = Rc::clone(&id_path[0]);
+            if id.deref() == "bool" {
+                return FieldType::Bool;
+            }
+            if id.deref() == "bool" {
+                return FieldType::Bool;
+            } else if id.deref() == "bytes" {
+                return FieldType::Bytes;
+            } else if id.deref() == "double" {
+                return FieldType::Double;
+            } else if id.deref() == "fixed32" {
+                return FieldType::Fixed32;
+            } else if id.deref() == "fixed64" {
+                return FieldType::Fixed64;
+            } else if id.deref() == "float" {
+                return FieldType::Float;
+            } else if id.deref() == "int32" {
+                return FieldType::Int32;
+            } else if id.deref() == "int64" {
+                return FieldType::Int64;
+            } else if id.deref() == "sfixed32" {
+                return FieldType::Sfixed32;
+            } else if id.deref() == "sfixed64" {
+                return FieldType::Sfixed64;
+            } else if id.deref() == "sint32" {
+                return FieldType::Sint32;
+            } else if id.deref() == "sint64" {
+                return FieldType::Sint64;
+            } else if id.deref() == "string" {
+                return FieldType::String;
+            } else if id.deref() == "uint32" {
+                return FieldType::Uint32;
+            } else if id.deref() == "uint64" {
+                return FieldType::Uint64;
+            }
+        }
+        FieldType::IdPath(id_path)
     }
 }
 
@@ -76,6 +135,21 @@ impl std::fmt::Display for FieldType {
             IdPath(path) => write!(f, "{}", path.join(".")),
             Repeated(field_type) => write!(f, "repeated {}", field_type),
             Map(key_type, value_type) => write!(f, "map<{}, {}>", key_type, value_type),
+            Bool => write!(f, "bool"),
+            Bytes => write!(f, "bytes"),
+            Double => write!(f, "double"),
+            Fixed32 => write!(f, "fixed32"),
+            Fixed64 => write!(f, "fixed64"),
+            Float => write!(f, "float"),
+            Int32 => write!(f, "int32"),
+            Int64 => write!(f, "int64"),
+            Sfixed32 => write!(f, "sfixed32"),
+            Sfixed64 => write!(f, "sfixed64"),
+            Sint32 => write!(f, "sint32"),
+            Sint64 => write!(f, "sint64"),
+            String => write!(f, "string"),
+            Uint32 => write!(f, "uint32"),
+            Uint64 => write!(f, "uint64"),
         }
     }
 }
@@ -328,12 +402,6 @@ impl std::fmt::Display for ProtoFile {
 
         Ok(())
     }
-}
-
-#[derive(Debug)]
-pub(crate) enum ResolvedImport {
-    Local(Vec<String>),
-    GoogleProtobuf(String),
 }
 
 pub(crate) fn read_package_tree(files: &[PathBuf]) -> Result<PackageTree, ProtoError> {

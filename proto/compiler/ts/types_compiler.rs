@@ -99,12 +99,6 @@ fn import_encoding_input_type(
             if ids.is_empty() {
                 unreachable!();
             }
-            if ids.len() == 1 {
-                match try_get_predefined_type(&ids[0]) {
-                    Some(t) => return Ok(t),
-                    None => {}
-                }
-            }
             let resolve_result = scope.resolve_path(ids)?;
             let requested_path = resolve_result.path();
             let mut requested_ts_path = TsPath::from(requested_path);
@@ -150,6 +144,23 @@ fn import_encoding_input_type(
             let value_type = import_encoding_input_type(types_file, scope, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
+        FieldType::Bool => Ok(Type::Boolean),
+        FieldType::Bytes => Ok(Type::TypeReference(
+            ast::Identifier::new("Uint8Array").into(),
+        )),
+        FieldType::Double => Ok(Type::Number),
+        FieldType::Fixed32 => Ok(Type::Number),
+        FieldType::Fixed64 => Ok(Type::Number),
+        FieldType::Float => Ok(Type::Number),
+        FieldType::Int32 => Ok(Type::Number),
+        FieldType::Int64 => todo!(),
+        FieldType::Sfixed32 => Ok(Type::Number),
+        FieldType::Sfixed64 => todo!(),
+        FieldType::Sint32 => Ok(Type::Number),
+        FieldType::Sint64 => todo!(),
+        FieldType::String => Ok(Type::String),
+        FieldType::Uint32 => todo!(),
+        FieldType::Uint64 => todo!(),
     }
 }
 
@@ -162,12 +173,6 @@ fn import_decode_result_type(
         FieldType::IdPath(ids) => {
             if ids.is_empty() {
                 unreachable!();
-            }
-            if ids.len() == 1 {
-                match try_get_predefined_type(&ids[0]) {
-                    Some(t) => return Ok(t),
-                    None => {}
-                }
             }
             let resolve_result = scope.resolve_path(ids)?;
             let requested_path = resolve_result.path();
@@ -211,19 +216,22 @@ fn import_decode_result_type(
             let value_type = import_decode_result_type(types_file, scope, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
-    }
-}
-
-fn try_get_predefined_type(s: &str) -> Option<Type> {
-    match s {
-        "bool" => Some(Type::Boolean),
-        "string" => Some(Type::String),
-        "int32" => Some(Type::Number),
-        "uint32" => Some(Type::Number),
-        "float" => Some(Type::Number),
-        "bytes" => Some(Type::TypeReference(
-            ast::Identifier::from("Uint8Array").into(),
+        FieldType::Bool => Ok(Type::Boolean),
+        FieldType::Bytes => Ok(Type::TypeReference(
+            ast::Identifier::new("Uint8Array").into(),
         )),
-        _ => None,
+        FieldType::Double => Ok(Type::Number),
+        FieldType::Fixed32 => Ok(Type::Number),
+        FieldType::Fixed64 => Ok(Type::Number),
+        FieldType::Float => Ok(Type::Number),
+        FieldType::Int32 => Ok(Type::Number),
+        FieldType::Int64 => todo!(),
+        FieldType::Sfixed32 => Ok(Type::Number),
+        FieldType::Sfixed64 => todo!(),
+        FieldType::Sint32 => Ok(Type::Number),
+        FieldType::Sint64 => todo!(),
+        FieldType::String => Ok(Type::String),
+        FieldType::Uint32 => todo!(),
+        FieldType::Uint64 => todo!(),
     }
 }
