@@ -826,8 +826,8 @@ mod test {
         assert_eq!(
             res,
             super::ImportPath {
-                packages: vec!["google".to_string(), "protobuf".to_string()],
-                file_name: "timestamp.proto".to_string()
+                packages: vec!["google".into(), "protobuf".into()],
+                file_name: "timestamp.proto".into()
             }
         );
     }

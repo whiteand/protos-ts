@@ -14,6 +14,7 @@ mod defined_id;
 mod ensure_import;
 mod get_relative_import;
 mod message_name_to_encode_type_name;
+mod types_compiler;
 
 use self::ast::Folder;
 
