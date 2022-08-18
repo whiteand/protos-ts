@@ -315,20 +315,14 @@ impl From<&FunctionDeclaration> for String {
         res.push_str(": ");
         let type_str: String = return_type.into();
         res.push_str(type_str.as_str());
-        if body.len() <= 0 {
+        if body.statements.len() <= 0 {
             res.push_str(" {}");
             return res;
         }
-        res.push_str(" {\n");
-        for s in body.iter() {
-            let expression_str: String = s.into();
-            for line in expression_str.lines() {
-                res.push_str("  ");
-                res.push_str(line);
-                res.push_str("\n");
-            }
-        }
-        res.push_str("}");
+
+        res.push(' ');
+        let block_str: String = body.into();
+        res.push_str(&block_str);
         res
     }
 }
@@ -429,6 +423,41 @@ impl From<&VariableDeclarationList> for String {
     }
 }
 
+impl From<&IfStatement> for String {
+    fn from(expr: &IfStatement) -> Self {
+        let mut res = String::new();
+        res.push_str("if (");
+        let test_expr_str: String = expr.expression.deref().into();
+        res.push_str(&test_expr_str);
+        res.push_str(") ");
+        let then_expr_str: String = expr.then_statement.deref().into();
+        res.push_str(&then_expr_str);
+        if let Some(else_statement) = &expr.else_statement {
+            res.push_str(" else ");
+            let else_expr_str: String = else_statement.deref().into();
+            res.push_str(&else_expr_str);
+        }
+        res
+    }
+}
+
+impl From<&Block> for String {
+    fn from(block: &Block) -> Self {
+        let mut res = String::new();
+        res.push_str("{\n");
+        for s in block.statements.iter() {
+            let statement_str: String = s.deref().into();
+            for line in statement_str.lines() {
+                res.push_str("  ");
+                res.push_str(line);
+                res.push_str("\n");
+            }
+        }
+        res.push_str("}");
+        res
+    }
+}
+
 impl From<&Statement> for String {
     fn from(statement: &Statement) -> Self {
         match statement {
@@ -447,6 +476,8 @@ impl From<&Statement> for String {
             }
             &Statement::ReturnStatement(None) => "return".to_string(),
             Statement::VariableStatement(var_decl) => var_decl.deref().into(),
+            Statement::IfStatement(if_stmt) => if_stmt.deref().into(),
+            Statement::Block(block) => block.deref().into(),
         }
     }
 }

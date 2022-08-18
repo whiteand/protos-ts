@@ -369,7 +369,7 @@ pub(crate) struct FunctionDeclaration {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: Type,
-    pub body: Vec<Statement>,
+    pub body: Block,
 }
 
 impl FunctionDeclaration {
@@ -379,7 +379,7 @@ impl FunctionDeclaration {
             name: name.into(),
             parameters: Vec::new(),
             return_type: Type::Never,
-            body: Vec::new(),
+            body: Block::new(),
         }
     }
     pub fn new_exported(name: &str) -> Self {
@@ -390,8 +390,8 @@ impl FunctionDeclaration {
     pub fn add_param(&mut self, param: Parameter) {
         self.parameters.push(param);
     }
-    pub fn push_statement(&mut self, statement: Statement) {
-        self.body.push(statement);
+    pub fn push_statement(&mut self, statement: Rc<Statement>) {
+        self.body.statements.push(statement);
     }
     pub fn returns(&mut self, return_type: Type) {
         self.return_type = return_type;
@@ -401,6 +401,7 @@ impl FunctionDeclaration {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BinaryOperator {
     LogicalOr,
+    LogicalAnd,
     LessThan,
 }
 
@@ -408,6 +409,7 @@ impl From<&BinaryOperator> for &str {
     fn from(binary_operator: &BinaryOperator) -> Self {
         match binary_operator {
             BinaryOperator::LogicalOr => "||",
+            BinaryOperator::LogicalAnd => "&&",
             BinaryOperator::LessThan => "<",
         }
     }
@@ -592,6 +594,30 @@ impl VariableDeclarationList {
 }
 
 #[derive(Debug)]
+pub(crate) struct IfStatement {
+    pub expression: Rc<Expression>,
+    pub then_statement: Rc<Statement>,
+    pub else_statement: Option<Rc<Statement>>,
+}
+
+#[derive(Debug)]
+pub(crate) struct Block {
+    pub statements: Vec<Rc<Statement>>,
+}
+
+impl Block {
+    pub fn new() -> Self {
+        Self {
+            statements: Vec::new(),
+        }
+    }
+    pub fn add_statement(&mut self, statement: Rc<Statement>) -> &mut Self {
+        self.statements.push(statement);
+        self
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum Statement {
     ImportDeclaration(Box<ImportDeclaration>),
     EnumDeclaration(Box<EnumDeclaration>),
@@ -599,6 +625,20 @@ pub(crate) enum Statement {
     FunctionDeclaration(Box<FunctionDeclaration>),
     ReturnStatement(Option<Expression>),
     VariableStatement(Rc<VariableDeclarationList>),
+    IfStatement(IfStatement),
+    Block(Block),
+}
+
+impl From<IfStatement> for Statement {
+    fn from(if_statement: IfStatement) -> Self {
+        Self::IfStatement(if_statement)
+    }
+}
+
+impl From<Block> for Statement {
+    fn from(block: Block) -> Self {
+        Self::Block(block)
+    }
 }
 
 impl From<Rc<VariableDeclarationList>> for Statement {

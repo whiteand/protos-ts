@@ -6,7 +6,7 @@ use super::ast;
 
 pub(super) const PROTOBUF_MODULE: &'static str = "protobufjs/minimal";
 
-pub(super) fn get_basic_wire_type(field_type: FieldType) -> u8 {
+pub(super) fn get_basic_wire_type(field_type: &FieldType) -> u32 {
     match field_type {
         FieldType::Bool => 0,
         FieldType::Bytes => 2,
