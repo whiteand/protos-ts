@@ -300,15 +300,15 @@ pub(crate) struct PropertySignature {
 }
 
 impl PropertySignature {
-    pub fn new(name: String, propertyType: Type) -> Self {
+    pub fn new(name: String, property_type: Type) -> Self {
         Self {
             name: name.into(),
-            property_type: propertyType,
+            property_type,
             optional: false,
         }
     }
-    pub fn new_optional(name: String, propertyType: Type) -> Self {
-        let mut res = Self::new(name, propertyType);
+    pub fn new_optional(name: String, property_type: Type) -> Self {
+        let mut res = Self::new(name, property_type);
         res.optional = true;
         return res;
     }

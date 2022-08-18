@@ -207,16 +207,6 @@ impl Deref for TsPath {
 }
 
 impl TsPath {
-    fn file_path(&self) -> Self {
-        let mut res = Self::default();
-        for x in self.path.iter() {
-            if x.is_declaration() {
-                break;
-            }
-            res.push(x.clone());
-        }
-        res
-    }
     fn push(&mut self, item: TsPathComponent) {
         self.path.push(item);
     }
@@ -491,12 +481,6 @@ fn insert_encoded_input_interface(
 
     types_file.ast.statements.push(interface.into());
     Ok(())
-}
-
-#[derive(Debug, Clone, Copy)]
-enum TypeUsage {
-    EncodingFieldType,
-    DecodingFieldType,
 }
 
 fn try_get_predefined_type(s: &str) -> Option<Type> {
