@@ -7,7 +7,7 @@ pub(crate) struct SourceFile {
 
 #[derive(Debug)]
 pub(crate) struct StringLiteral {
-    pub text: String,
+    pub text: Rc<str>,
 }
 
 impl<T> From<T> for StringLiteral
@@ -16,7 +16,7 @@ where
 {
     fn from(text: T) -> Self {
         StringLiteral {
-            text: format!("{}", text),
+            text: format!("{}", text).into(),
         }
     }
 }
@@ -38,7 +38,7 @@ where
 }
 
 impl StringLiteral {
-    pub fn new(text: String) -> Self {
+    pub fn new(text: Rc<str>) -> Self {
         Self { text }
     }
 }
@@ -134,8 +134,8 @@ pub(crate) enum EnumValue {
     Number(NumericLiteral),
 }
 
-impl From<String> for EnumValue {
-    fn from(text: String) -> Self {
+impl From<Rc<str>> for EnumValue {
+    fn from(text: Rc<str>) -> Self {
         EnumValue::String(StringLiteral::new(text))
     }
 }
@@ -402,6 +402,7 @@ impl FunctionDeclaration {
 pub(crate) enum BinaryOperator {
     LogicalOr,
     LogicalAnd,
+    WeakNotEqual,
     LessThan,
 }
 
@@ -410,6 +411,7 @@ impl From<&BinaryOperator> for &str {
         match binary_operator {
             BinaryOperator::LogicalOr => "||",
             BinaryOperator::LogicalAnd => "&&",
+            BinaryOperator::WeakNotEqual => "!=",
             BinaryOperator::LessThan => "<",
         }
     }
@@ -420,7 +422,7 @@ impl From<BinaryOperator> for &str {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct BinaryExpression {
     pub operator: BinaryOperator,
     pub left: Rc<Expression>,
@@ -445,15 +447,49 @@ impl BinaryExpression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct CallExpression {
     pub expression: Rc<Expression>,
     pub arguments: Vec<Rc<Expression>>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct PropertyAccessExpression {
     pub expression: Rc<Expression>,
     pub name: Rc<Identifier>,
+}
+
+impl PropertyAccessExpression {
+    pub fn new(expression: Rc<Expression>, name: Rc<Identifier>) -> Self {
+        Self { expression, name }
+    }
+    pub fn prop(&self, name: Rc<Identifier>) -> Self {
+        Self {
+            expression: Expression::PropertyAccessExpression(Self {
+                expression: Rc::clone(&self.expression),
+                name: Rc::clone(&self.name),
+            })
+            .into(),
+            name,
+        }
+    }
+    pub fn requires_wrap_for_prop(&self) -> bool {
+        match self.expression.deref() {
+            Expression::Identifier(_) => false,
+            Expression::Null => unreachable!(),
+            Expression::Undefined => unreachable!(),
+            Expression::False => unreachable!(),
+            Expression::True => unreachable!(),
+            Expression::BinaryExpression(_) => true,
+            Expression::CallExpression(_) => false,
+            Expression::PropertyAccessExpression(_) => false,
+            Expression::ParenthesizedExpression(_) => false,
+            Expression::ArrayLiteralExpression(_) => false,
+            Expression::ObjectLiteralExpression(_) => true,
+            Expression::NewExpression(_) => false,
+            Expression::NumericLiteral(_) => true,
+            Expression::StringLiteral(_) => false,
+        }
+    }
 }
 #[derive(Debug)]
 pub(crate) enum PropertyAssignment {}

@@ -13,12 +13,13 @@ mod decode_compiler;
 mod defined_id;
 mod encode_compiler;
 mod ensure_import;
+mod enum_compiler;
 mod get_relative_import;
+mod has_property;
 mod message_name_to_encode_type_name;
 mod protopath;
 mod ts_path;
 mod types_compiler;
-mod enum_compiler;
 
 use self::ast::Folder;
 

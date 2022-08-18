@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::proto::{
-    compiler::ts::constants::get_basic_wire_type,
+    compiler::ts::{constants::get_basic_wire_type, has_property::has_property},
     error::ProtoError,
     package::{FieldType, MessageDeclaration},
 };
@@ -91,6 +91,7 @@ pub(super) fn compile_encode(
 
     for (index, field) in fields.into_iter().enumerate() {
         let js_name = field.json_name();
+        let js_name_id: Rc<ast::Identifier> = ast::Identifier::new(&js_name).into();
         let field_value = Rc::new(ast::Expression::PropertyAccessExpression(
             ast::PropertyAccessExpression {
                 expression: ast::Expression::Identifier(Rc::clone(&message_parameter_id)).into(),
@@ -118,8 +119,18 @@ pub(super) fn compile_encode(
                         expression: Rc::new(ast::Expression::BinaryExpression(
                             ast::BinaryExpression {
                                 operator: ast::BinaryOperator::LogicalAnd,
-                                left: ast::Expression::False.into(),
-                                right: ast::Expression::Null.into(),
+                                left: ast::Expression::BinaryExpression(ast::BinaryExpression {
+                                    operator: ast::BinaryOperator::WeakNotEqual,
+                                    left: Rc::clone(&field_value),
+                                    right: Rc::new(ast::Expression::Null),
+                                })
+                                .into(),
+                                right: has_property(
+                                    ast::Expression::Identifier(Rc::clone(&message_parameter_id))
+                                        .into(),
+                                    Rc::clone(&js_name_id),
+                                )
+                                .into(),
                             },
                         )),
                         then_statement: ast::Statement::from(ast::Block {
@@ -144,11 +155,7 @@ pub(super) fn compile_encode(
         }
     }
 
-    encode_func.push_statement(
-        ast::Expression::Identifier(ast::Identifier::new("w").into())
-            .ret()
-            .into(),
-    );
+    encode_func.push_statement(ast::Expression::Identifier(writer_var).ret().into());
 
     file.push_statement(encode_func.into());
 

@@ -77,12 +77,10 @@ impl From<&EnumDeclaration> for String {
                 match value {
                     EnumValue::String(string_literal) => {
                         res.push_str("\"");
-                        res.push_str(string_literal.text.as_str());
+                        res.push_str(&string_literal.text);
                         res.push_str("\"");
                     }
-                    EnumValue::Number(numeric_literal) => {
-                        res.push_str(numeric_literal.text.as_str())
-                    }
+                    EnumValue::Number(numeric_literal) => res.push_str(&numeric_literal.text),
                 }
             }
             res.push_str(",\n");
@@ -330,24 +328,18 @@ impl From<&FunctionDeclaration> for String {
 impl From<&PropertyAccessExpression> for String {
     fn from(decl: &PropertyAccessExpression) -> Self {
         let mut res = String::new();
-        match decl.expression.deref() {
-            Expression::Identifier(id) => {
-                res.push_str(&id);
-            }
-            Expression::Null => unreachable!(),
-            Expression::Undefined => unreachable!(),
-            Expression::False => unreachable!(),
-            Expression::True => unreachable!(),
-            Expression::BinaryExpression(_) => todo!(),
-            Expression::CallExpression(_) => todo!(),
-            Expression::PropertyAccessExpression(_) => todo!(),
-            Expression::ParenthesizedExpression(_) => todo!(),
-            Expression::ArrayLiteralExpression(_) => todo!(),
-            Expression::ObjectLiteralExpression(_) => todo!(),
-            Expression::NewExpression(_) => todo!(),
-            Expression::NumericLiteral(_) => todo!(),
-            Expression::StringLiteral(_) => todo!(),
-        };
+        let wrapped = decl.requires_wrap_for_prop();
+        if wrapped {
+            res.push('(');
+        }
+        let obj_str: String = decl.expression.deref().into();
+        res.push_str(&obj_str);
+        if wrapped {
+            res.push(')');
+        }
+        res.push('.');
+        res.push_str(&decl.name.text);
+
         res
     }
 }
@@ -375,6 +367,24 @@ impl From<&BinaryExpression> for String {
         res
     }
 }
+impl From<&CallExpression> for String {
+    fn from(call_expr: &CallExpression) -> Self {
+        let mut res = String::new();
+        let callee_str: String = call_expr.expression.deref().into();
+        res.push_str(&callee_str);
+        res.push('(');
+        for (ind, arg) in call_expr.arguments.iter().enumerate() {
+            if ind > 0 {
+                res.push_str(", ");
+            }
+            let arg_str: String = arg.deref().into();
+            res.push_str(&arg_str);
+        }
+        res.push(')');
+        res
+    }
+}
+
 impl From<&Expression> for String {
     fn from(expr: &Expression) -> Self {
         match expr {
@@ -384,7 +394,7 @@ impl From<&Expression> for String {
             Expression::False => "false".to_string(),
             Expression::True => "true".to_string(),
             Expression::BinaryExpression(expr) => expr.into(),
-            Expression::CallExpression(_) => todo!(),
+            Expression::CallExpression(call_exrp) => call_exrp.deref().into(),
             Expression::PropertyAccessExpression(proeprty_access_expr) => {
                 proeprty_access_expr.into()
             }
@@ -396,7 +406,13 @@ impl From<&Expression> for String {
             Expression::ObjectLiteralExpression(_) => todo!(),
             Expression::NewExpression(_) => todo!(),
             Expression::NumericLiteral(_) => todo!(),
-            Expression::StringLiteral(_) => todo!(),
+            Expression::StringLiteral(str) => {
+                let mut res = String::new();
+                res.push('"');
+                res.push_str(&str.text);
+                res.push('"');
+                res
+            }
         }
     }
 }
