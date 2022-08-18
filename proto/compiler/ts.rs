@@ -13,6 +13,7 @@ mod block_scope;
 mod defined_id;
 mod ensure_import;
 mod get_relative_import;
+mod message_name_to_encode_type_name;
 
 use self::ast::Folder;
 

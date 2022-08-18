@@ -8,6 +8,7 @@ use super::{
     ensure_import::ensure_import,
     file_name_to_folder_name::file_name_to_folder_name,
     get_relative_import::get_relative_import,
+    message_name_to_encode_type_name::message_name_to_encode_type_name,
     ts_path::{TsPath, TsPathComponent},
 };
 use crate::proto::{
@@ -70,18 +71,14 @@ fn insert_message_types(
     Ok(())
 }
 
-fn message_name_to_encode_type_name(message_name: &str) -> Rc<str> {
-    format!("{}EncodeInput", message_name).into()
-}
-
 fn insert_encoded_input_interface(
     types_file: &mut ast::File,
     scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    let mut interface = ast::InterfaceDeclaration::new_exported(message_name_to_encode_type_name(
-        &message_declaration.name,
-    ));
+    let mut interface = ast::InterfaceDeclaration::new_exported(
+        message_name_to_encode_type_name(&message_declaration.name).into(),
+    );
     for entry in &message_declaration.entries {
         use crate::proto::package::MessageEntry::*;
         match entry {
@@ -145,10 +142,11 @@ fn import_encoding_input_type(
                     }
                     Declaration::Message(m) => {
                         requested_ts_path.push(TsPathComponent::File("types".into()));
-                        let encode_type_name = message_name_to_encode_type_name(&m.name);
+                        let encode_type_name: Rc<str> =
+                            Rc::from(message_name_to_encode_type_name(&m.name));
                         requested_ts_path
                             .push(TsPathComponent::Interface(Rc::clone(&encode_type_name)));
-                        Rc::clone(&encode_type_name)
+                        encode_type_name
                     }
                 },
                 IdType::Package(_) => unreachable!(),
@@ -210,8 +208,9 @@ fn import_decode_result_type(
                     Declaration::Message(m) => {
                         requested_ts_path.push(TsPathComponent::File("types".into()));
                         let encode_type_name = message_name_to_encode_type_name(&m.name);
-                        imported_type_name = Rc::clone(&encode_type_name);
-                        requested_ts_path.push(TsPathComponent::Interface(encode_type_name));
+                        imported_type_name = Rc::from(encode_type_name);
+                        requested_ts_path
+                            .push(TsPathComponent::Interface(Rc::clone(&imported_type_name)));
                     }
                 },
                 IdType::Package(_) => unreachable!(),
