@@ -11,6 +11,8 @@ mod protopath;
 mod ts_path;
 mod block_scope;
 mod defined_id;
+mod ensure_import;
+mod get_relative_import;
 
 use self::ast::Folder;
 

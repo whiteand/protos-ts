@@ -5,18 +5,17 @@ use super::{
     ast::{self, Type},
     block_scope::BlockScope,
     defined_id::IdType,
+    ensure_import::ensure_import,
     file_name_to_folder_name::file_name_to_folder_name,
-    protopath::{PathComponent, ProtoPath},
+    get_relative_import::get_relative_import,
     ts_path::{TsPath, TsPathComponent},
 };
 use crate::proto::{
     error::ProtoError,
     package::{
-        Declaration, EnumDeclaration, FieldType, ImportPath, MessageDeclaration, MessageEntry,
-        ProtoFile,
+        Declaration, EnumDeclaration, FieldType, MessageDeclaration, MessageEntry, ProtoFile,
     },
     package_tree::PackageTree,
-    scope::Scope,
 };
 
 pub(super) fn file_to_folder(
@@ -238,219 +237,6 @@ fn import_decode_result_type(
             let value_type = import_encoding_input_type(types_file, scope, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
-    }
-}
-
-fn ensure_import(types_file: &mut ast::File, mut new_import: ast::ImportDeclaration) {
-    let mut import_statement_index = 0;
-    let mut found_import_statement_to_the_same_file = false;
-    while import_statement_index < types_file.ast.statements.len() {
-        let statement = &mut types_file.ast.statements[import_statement_index];
-        match statement {
-            ast::Statement::ImportDeclaration(import) => {
-                if import.string_literal.text != new_import.string_literal.text {
-                    import_statement_index += 1;
-                    continue;
-                }
-                found_import_statement_to_the_same_file = true;
-                break;
-            }
-            _ => {
-                break;
-            }
-        }
-    }
-    if !found_import_statement_to_the_same_file {
-        types_file
-            .ast
-            .statements
-            .insert(import_statement_index, new_import.into());
-        return;
-    }
-    let actual_import_declaration = match &mut types_file.ast.statements[import_statement_index] {
-        ast::Statement::ImportDeclaration(imprt) => imprt,
-        _ => unreachable!(),
-    };
-    for specifier in new_import
-        .import_clause
-        .named_bindings
-        .into_iter()
-        .flatten()
-    {
-        ensure_import_specifier(&mut actual_import_declaration.import_clause, specifier);
-    }
-}
-
-fn ensure_import_specifier(import_clause: &mut ast::ImportClause, specifier: ast::ImportSpecifier) {
-    match specifier.property_name {
-        Some(_) => todo!(),
-        None => {}
-    }
-
-    let mut found_specifier = false;
-    for specifier in import_clause.named_bindings.iter().flatten() {
-        if specifier.name == specifier.name {
-            found_specifier = true;
-            break;
-        }
-    }
-    if found_specifier {
-        return;
-    }
-
-    let mut named_bindings = import_clause.named_bindings.take();
-    if let Some(ref mut vec) = named_bindings {
-        vec.push(specifier);
-    } else {
-        named_bindings = Some(vec![specifier]);
-    }
-    import_clause.named_bindings = named_bindings;
-}
-
-fn get_relative_import(
-    mut from: &[TsPathComponent],
-    mut to: &[TsPathComponent],
-) -> ast::ImportDeclaration {
-    assert!(to.last().unwrap().is_declaration());
-    while from.len() > 0 && to.len() > 0 && from[0] == to[0] {
-        from = &from[1..];
-        to = &to[1..];
-    }
-    assert!(from.len() > 0);
-    assert!(to.len() > 0);
-    let imported_component = to.last().unwrap();
-    assert!(imported_component.is_declaration());
-    let imported_name: String = imported_component.into();
-    if from.first().unwrap().is_file() {
-        let mut file_string = format!(".");
-        for component in to.iter() {
-            if component.is_declaration() {
-                break;
-            }
-            file_string.push('/');
-            let component_name: String = component.into();
-            file_string.push_str(&component_name);
-        }
-
-        return ast::ImportDeclaration {
-            import_clause: ast::ImportClause {
-                name: None,
-                named_bindings: Some(vec![ast::ImportSpecifier::new(
-                    ast::Identifier::new(&imported_name).into(),
-                )]),
-            }
-            .into(),
-            string_literal: file_string.into(),
-        };
-    }
-
-    let mut import_string = String::new();
-
-    while from.len() > 0 && from[0].is_folder() {
-        import_string.push_str("../");
-        from = &from[1..];
-    }
-
-    while to.len() > 0 && to[0].is_folder() {
-        let ref folder = to[0];
-        let folder_name: String = folder.into();
-        import_string.push_str(&folder_name);
-        import_string.push('/');
-        to = &to[1..];
-    }
-    let ref file_component = to[0];
-    assert!(file_component.is_file());
-    let file_name: String = file_component.into();
-    import_string.push_str(&file_name);
-    ast::ImportDeclaration {
-        import_clause: ast::ImportClause {
-            name: None,
-            named_bindings: Some(vec![ast::ImportSpecifier::new(
-                ast::Identifier::new(&imported_name).into(),
-            )]),
-        }
-        .into(),
-        string_literal: import_string.into(),
-    }
-}
-
-#[cfg(test)]
-mod test_get_relative_import {
-    use super::get_relative_import;
-    use super::TsPathComponent::*;
-    #[test]
-    #[should_panic]
-    fn same_file_import_panics() {
-        let from = &[File("types".into())];
-        let to = &[File("types".into()), Enum("Test".into())];
-        let _ = get_relative_import(from, to);
-    }
-    #[test]
-    #[should_panic]
-    fn same_file_import_panics_2() {
-        let from = &[Folder("Hello".into()), File("types".into())];
-        let to = &[
-            Folder("Hello".into()),
-            File("types".into()),
-            Enum("Test".into()),
-        ];
-        let _ = get_relative_import(from, to);
-    }
-    #[test]
-    fn same_folder_file() {
-        let from = &[Folder("Hello".into()), File("types".into())];
-        let to = &[
-            Folder("Hello".into()),
-            File("defs".into()),
-            Enum("Test".into()),
-        ];
-        let decl = get_relative_import(from, to);
-        let decl_str: String = (&decl).into();
-        assert_eq!(decl_str, "import { Test } from \"./defs\"")
-    }
-    #[test]
-    fn parent_folder_path() {
-        let from = &[Folder("Goodbye".into()), File("types".into())];
-        let to = &[
-            Folder("Hello".into()),
-            File("defs".into()),
-            Enum("Test".into()),
-        ];
-        let decl = get_relative_import(from, to);
-        let decl_str: String = (&decl).into();
-        assert_eq!(decl_str, "import { Test } from \"../Hello/defs\"")
-    }
-    #[test]
-    fn parent_folder_path_2() {
-        let from = &[
-            Folder("Goodbye".into()),
-            Folder("World".into()),
-            File("types".into()),
-        ];
-        let to = &[
-            Folder("Hello".into()),
-            File("defs".into()),
-            Enum("Test".into()),
-        ];
-        let decl = get_relative_import(from, to);
-        let decl_str: String = (&decl).into();
-        assert_eq!(decl_str, "import { Test } from \"../../Hello/defs\"")
-    }
-    #[test]
-    fn parent_folder_path_3() {
-        let from = &[
-            Folder("Goodbye".into()),
-            Folder("World".into()),
-            File("types".into()),
-        ];
-        let to = &[
-            Folder("Goodbye".into()),
-            File("defs".into()),
-            Enum("Test".into()),
-        ];
-        let decl = get_relative_import(from, to);
-        let decl_str: String = (&decl).into();
-        assert_eq!(decl_str, "import { Test } from \"../defs\"")
     }
 }
 
