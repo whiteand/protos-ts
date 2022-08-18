@@ -299,7 +299,18 @@ impl From<&FunctionDeclaration> for String {
         res.push_str("function ");
         res.push_str(name.text.as_str());
         res.push_str("(");
-        assert!(parameters.len() == 0);
+        for (ind, param) in parameters.iter().enumerate() {
+            if (ind > 0) {
+                res.push_str(", ");
+            }
+            res.push_str(param.name.text.as_str());
+            if param.optional {
+                res.push_str("?");
+            }
+            res.push_str(": ");
+            let type_str: String = (&param.parameter_type).into();
+            res.push_str(type_str.as_str());
+        }
         res.push_str(")");
         res.push_str(": ");
         let type_str: String = return_type.into();
@@ -308,8 +319,29 @@ impl From<&FunctionDeclaration> for String {
             res.push_str(" {}");
             return res;
         }
-        todo!();
+        res.push_str(" {\n");
+        for s in body.iter() {
+            let expression_str: String = s.into();
+            for line in expression_str.lines() {
+                res.push_str("  ");
+                res.push_str(line);
+                res.push_str("\n");
+            }
+        }
+        res.push_str("}");
         res
+    }
+}
+
+impl From<&Expression> for String {
+    fn from(expr: &Expression) -> Self {
+        match expr {
+            Expression::Identifier(id) => id.text.clone(),
+            Expression::Null => "null".to_string(),
+            Expression::Undefined => "undefined".to_string(),
+            Expression::False => "false".to_string(),
+            Expression::True => "true".to_string(),
+        }
     }
 }
 
@@ -322,6 +354,14 @@ impl From<&Statement> for String {
                 (interface_declaration.deref()).into()
             }
             Statement::FunctionDeclaration(func_decl) => func_decl.deref().into(),
+            Statement::ReturnStatement(Some(expression)) => {
+                let mut res = String::new();
+                res.push_str("return ");
+                let expr_str: String = expression.into();
+                res.push_str(expr_str.as_str());
+                res
+            }
+            &Statement::ReturnStatement(None) => "return".to_string(),
         }
     }
 }
@@ -339,6 +379,8 @@ impl From<&File> for String {
                 (Statement::ImportDeclaration(_), Some(Statement::ImportDeclaration(_))) => {}
                 (Statement::ImportDeclaration(_), _) => res.push_str("\n"),
                 (Statement::FunctionDeclaration(_), _) => res.push_str("\n"),
+                (_, Some(Statement::ReturnStatement(_))) => res.push_str("\n"),
+                (&Statement::ReturnStatement(_), _) => {}
             }
             let statement_string: String = statement.into();
             res.push_str(&statement_string);

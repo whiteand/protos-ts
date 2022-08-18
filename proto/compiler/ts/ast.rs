@@ -330,7 +330,28 @@ impl InterfaceDeclaration {
     }
 }
 #[derive(Debug)]
-pub(crate) struct Parameter {}
+pub(crate) struct Parameter {
+    pub name: Identifier,
+    pub parameter_type: Type,
+    pub optional: bool,
+}
+
+impl Parameter {
+    pub fn new(name: &str, _type: Type) -> Self {
+        Self {
+            name: name.into(),
+            parameter_type: _type,
+            optional: false,
+        }
+    }
+    pub fn new_optional(name: &str, _type: Type) -> Self {
+        Self {
+            name: name.into(),
+            parameter_type: _type,
+            optional: true,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct FunctionDeclaration {
@@ -359,11 +380,32 @@ impl FunctionDeclaration {
     pub fn add_param(&mut self, param: Parameter) {
         self.parameters.push(param);
     }
-    pub fn add_statement(&mut self, statement: Statement) {
+    pub fn push_statement(&mut self, statement: Statement) {
         self.body.push(statement);
     }
     pub fn returns(&mut self, return_type: Type) {
         self.return_type = return_type;
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum Expression {
+    Identifier(Identifier),
+    Null,
+    Undefined,
+    False,
+    True,
+}
+
+impl Expression {
+    pub fn ret(self) -> Statement {
+        Statement::ReturnStatement(Some(self))
+    }
+}
+
+impl From<Identifier> for Expression {
+    fn from(identifier: Identifier) -> Self {
+        Self::Identifier(identifier)
     }
 }
 
@@ -373,6 +415,7 @@ pub(crate) enum Statement {
     EnumDeclaration(Box<EnumDeclaration>),
     InterfaceDeclaration(Box<InterfaceDeclaration>),
     FunctionDeclaration(Box<FunctionDeclaration>),
+    ReturnStatement(Option<Expression>),
 }
 
 impl From<EnumDeclaration> for Statement {

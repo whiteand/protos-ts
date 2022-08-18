@@ -51,15 +51,15 @@ out
 
 ## Roadmap
 
-| Development Task                 | Progress |
-| :------------------------------- | :------- |
-| Lexical Analyzer                 | **Done** |
-| Syntactical Analyzer             | **Done** |
-| Proto Packages -> Package Tree   | **Done** |
-| Create name resolution mechanism | **Done** |
-| Generation of interfaces         | **Done** |
-| Generation of encode             | Open     |
-| Generation of decode             | Open     |
-| Full Coverage Tests              | Blocked  |
+| Development Task                 | Progress        |
+| :------------------------------- | :-------------- |
+| Lexical Analyzer                 | **Done**        |
+| Syntactical Analyzer             | **Done**        |
+| Proto Packages -> Package Tree   | **Done**        |
+| Create name resolution mechanism | **Done**        |
+| Generation of interfaces         | **Done**        |
+| Generation of encode             | **In Progress** |
+| Generation of decode             | Open            |
+| Full Coverage Tests              | Blocked         |
 
 

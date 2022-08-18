@@ -879,6 +879,28 @@ fn insert_encode(
 
     let mut encode_declaration = FunctionDeclaration::new_exported("encode");
 
+    let message_encode_input_type_id: Identifier =
+        message_name_to_encode_type_name(&message_declaration.name).into();
+
+    let encode_type_import = ImportDeclaration::import(
+        vec![ImportSpecifier::new(message_encode_input_type_id.clone())],
+        "./types".into(),
+    );
+    ensure_import(&mut file, encode_type_import);
+
+    encode_declaration.add_param(Parameter::new(
+        "message",
+        Type::TypeReference(message_encode_input_type_id.clone()),
+    ));
+    encode_declaration.add_param(Parameter::new_optional(
+        "writer",
+        Type::TypeReference("Writer".into()),
+    ));
+
+    encode_declaration.returns(Type::TypeReference("Writer".into()));
+
+    encode_declaration.push_statement(Expression::Identifier("Writer".into()).ret());
+
     file.push_statement(encode_declaration.into());
 
     message_folder.entries.push(file.into());
