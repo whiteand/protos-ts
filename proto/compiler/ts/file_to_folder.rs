@@ -860,12 +860,26 @@ fn insert_decode_result_interface(
     Ok(())
 }
 
+const PROTOBUF_MODULE: &'static str = "protobufjs/minimal";
+
 fn insert_encode(
     message_folder: &mut Folder,
     scope: &BlockScope,
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
-    let file = super::ast::File::new("encode".into());
+    let mut file = super::ast::File::new("encode".into());
+
+    file.push_statement(
+        ImportDeclaration::import(
+            vec![ImportSpecifier::new("Writer".into())],
+            PROTOBUF_MODULE.into(),
+        )
+        .into(),
+    );
+
+    let mut encode_declaration = FunctionDeclaration::new_exported("encode");
+
+    file.push_statement(encode_declaration.into());
 
     message_folder.entries.push(file.into());
 

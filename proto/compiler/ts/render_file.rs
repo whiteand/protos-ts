@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use super::ast::*;
 
 impl From<&ImportDeclaration> for String {
@@ -129,6 +131,7 @@ impl From<&Type> for String {
             Type::Number => "number".into(),
             Type::String => "string".into(),
             Type::Null => "null".into(),
+            Type::Void => "void".into(),
             Type::Never => "never".into(),
             Type::Undefined => "undefined".into(),
             Type::UnionType(UnionType { types }) => {
@@ -276,14 +279,49 @@ mod test_interface_declaration {
     }
 }
 
+impl From<&FunctionDeclaration> for String {
+    fn from(f: &FunctionDeclaration) -> Self {
+        let mut res = String::new();
+        let FunctionDeclaration {
+            modifiers,
+            name,
+            parameters,
+            body,
+            return_type,
+            ..
+        } = f;
+
+        for modifier in modifiers {
+            match modifier {
+                Modifier::Export => res.push_str("export "),
+            }
+        }
+        res.push_str("function ");
+        res.push_str(name.text.as_str());
+        res.push_str("(");
+        assert!(parameters.len() == 0);
+        res.push_str(")");
+        res.push_str(": ");
+        let type_str: String = return_type.into();
+        res.push_str(type_str.as_str());
+        if body.len() <= 0 {
+            res.push_str(" {}");
+            return res;
+        }
+        todo!();
+        res
+    }
+}
+
 impl From<&Statement> for String {
     fn from(statement: &Statement) -> Self {
         match statement {
-            Statement::ImportDeclaration(import_declaration) => (&**import_declaration).into(),
-            Statement::EnumDeclaration(enum_declaration) => (&**enum_declaration).into(),
+            Statement::ImportDeclaration(import_declaration) => (import_declaration.deref()).into(),
+            Statement::EnumDeclaration(enum_declaration) => (enum_declaration.deref()).into(),
             Statement::InterfaceDeclaration(interface_declaration) => {
-                (&**interface_declaration).into()
+                (interface_declaration.deref()).into()
             }
+            Statement::FunctionDeclaration(func_decl) => func_decl.deref().into(),
         }
     }
 }
@@ -300,6 +338,7 @@ impl From<&File> for String {
                 (Statement::InterfaceDeclaration(_), _) => res.push_str("\n"),
                 (Statement::ImportDeclaration(_), Some(Statement::ImportDeclaration(_))) => {}
                 (Statement::ImportDeclaration(_), _) => res.push_str("\n"),
+                (Statement::FunctionDeclaration(_), _) => res.push_str("\n"),
             }
             let statement_string: String = statement.into();
             res.push_str(&statement_string);

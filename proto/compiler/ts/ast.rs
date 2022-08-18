@@ -94,10 +94,28 @@ pub(crate) struct ImportClause {
     pub named_bindings: Option<Vec<ImportSpecifier>>,
 }
 
+impl From<Vec<ImportSpecifier>> for ImportClause {
+    fn from(named_bindings: Vec<ImportSpecifier>) -> Self {
+        Self {
+            name: None,
+            named_bindings: Some(named_bindings),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct ImportDeclaration {
     pub import_clause: Box<ImportClause>,
     pub string_literal: StringLiteral,
+}
+
+impl ImportDeclaration {
+    pub fn import(specifiers: Vec<ImportSpecifier>, file_path: StringLiteral) -> Self {
+        Self {
+            import_clause: Box::new(specifiers.into()),
+            string_literal: file_path,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -168,6 +186,7 @@ impl UnionType {
     }
     fn push(&mut self, t: Type) {
         match t {
+            Type::Never => return,
             Type::UnionType(u) => {
                 for x in u.types.into_iter() {
                     self.push(x);
@@ -197,6 +216,7 @@ pub(crate) enum Type {
     Null,
     Undefined,
     Never,
+    Void,
     Boolean,
     String,
     UnionType(UnionType),
@@ -231,6 +251,7 @@ impl Type {
             Type::String => false,
             Type::TypeReference(_) => false,
             Type::Record(_, _) => false,
+            Type::Void => false,
         }
     }
 
@@ -308,12 +329,50 @@ impl InterfaceDeclaration {
         r
     }
 }
+#[derive(Debug)]
+pub(crate) struct Parameter {}
+
+#[derive(Debug)]
+pub(crate) struct FunctionDeclaration {
+    pub modifiers: Vec<Modifier>,
+    pub name: Identifier,
+    pub parameters: Vec<Parameter>,
+    pub return_type: Type,
+    pub body: Vec<Statement>,
+}
+
+impl FunctionDeclaration {
+    pub fn new(name: &str) -> Self {
+        Self {
+            modifiers: Vec::new(),
+            name: name.into(),
+            parameters: Vec::new(),
+            return_type: Type::Never,
+            body: Vec::new(),
+        }
+    }
+    pub fn new_exported(name: &str) -> Self {
+        let mut res = FunctionDeclaration::new(name);
+        res.modifiers.push(Modifier::Export);
+        res
+    }
+    pub fn add_param(&mut self, param: Parameter) {
+        self.parameters.push(param);
+    }
+    pub fn add_statement(&mut self, statement: Statement) {
+        self.body.push(statement);
+    }
+    pub fn returns(&mut self, return_type: Type) {
+        self.return_type = return_type;
+    }
+}
 
 #[derive(Debug)]
 pub(crate) enum Statement {
     ImportDeclaration(Box<ImportDeclaration>),
     EnumDeclaration(Box<EnumDeclaration>),
     InterfaceDeclaration(Box<InterfaceDeclaration>),
+    FunctionDeclaration(Box<FunctionDeclaration>),
 }
 
 impl From<EnumDeclaration> for Statement {
@@ -331,6 +390,11 @@ impl From<InterfaceDeclaration> for Statement {
         Statement::InterfaceDeclaration(Box::new(interface_declaration))
     }
 }
+impl From<FunctionDeclaration> for Statement {
+    fn from(interface_declaration: FunctionDeclaration) -> Self {
+        Statement::FunctionDeclaration(Box::new(interface_declaration))
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct File {
@@ -346,6 +410,9 @@ impl File {
                 statements: Vec::new(),
             }),
         }
+    }
+    pub fn push_statement(&mut self, statement: Statement) {
+        self.ast.statements.push(statement);
     }
 }
 
