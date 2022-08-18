@@ -9,6 +9,7 @@ use crate::proto::package_tree::PackageTree;
 use package_tree_to_folder::root_tree_to_folder;
 mod protopath;
 mod ts_path;
+mod block_scope;
 
 use self::ast::Folder;
 
