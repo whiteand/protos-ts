@@ -51,15 +51,19 @@ out
 
 ## Roadmap
 
-| Development Task                 | Progress        |
-| :------------------------------- | :-------------- |
-| Lexical Analyzer                 | **Done**        |
-| Syntactical Analyzer             | **Done**        |
-| Proto Packages -> Package Tree   | **Done**        |
-| Create name resolution mechanism | **Done**        |
-| Generation of interfaces         | **Done**        |
-| Generation of encode             | **In Progress** |
-| Generation of decode             | Open            |
-| Full Coverage Tests              | Blocked         |
+| Development Task                  | Progress        |
+| :-------------------------------- | :-------------- |
+| Lexical Analyzer                  | **Done**        |
+| Syntactical Analyzer              | **Done**        |
+| Proto Packages -> Package Tree    | **Done**        |
+| Create name resolution mechanism  | **Done**        |
+| Generation of interfaces          | **Done**        |
+| Encoding of basic types           | **In Progress** |
+| Decoding of basic types           | Open            |
+| Encoding of enums                 | Open            |
+| Encoding of user defined messages | Open            |
+| Decoding of enums                 | Open            |
+| Decoding of user defined messages | Open            |
+| Full Coverage Tests               | Open            |
 
 
