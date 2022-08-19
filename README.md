@@ -58,9 +58,9 @@ out
 | Proto Packages -> Package Tree    | **Done**        |
 | Create name resolution mechanism  | **Done**        |
 | Generation of interfaces          | **Done**        |
-| Encoding of basic types           | **In Progress** |
+| Encoding of basic types           | **Done**        |
+| Encoding of enums                 | **In Progress** |
 | Decoding of basic types           | Open            |
-| Encoding of enums                 | Open            |
 | Encoding of user defined messages | Open            |
 | Decoding of enums                 | Open            |
 | Decoding of user defined messages | Open            |
