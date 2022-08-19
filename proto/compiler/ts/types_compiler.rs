@@ -7,7 +7,7 @@ use crate::proto::{
 };
 
 use super::{
-    ast::{Folder, Identifier, ImportDeclaration},
+    ast::Folder,
     block_scope::BlockScope,
     constants::PROTOBUF_MODULE,
     defined_id::IdType,
@@ -154,7 +154,7 @@ fn import_encoding_input_type(
         FieldType::Int32 => Ok(Type::Number),
         FieldType::Int64 | FieldType::Sfixed64 | FieldType::Sint64 | FieldType::Uint64 => {
             let util_id: Rc<ast::Identifier> = Rc::new("util".into());
-            let util_import = ImportDeclaration::import(
+            let util_import = ast::ImportDeclaration::import(
                 vec![ast::ImportSpecifier::new(Rc::clone(&util_id))],
                 PROTOBUF_MODULE.into(),
             );
@@ -233,7 +233,7 @@ fn import_decode_result_type(
         FieldType::Int32 => Ok(Type::Number),
         FieldType::Int64 | FieldType::Sfixed64 | FieldType::Sint64 | FieldType::Uint64 => {
             let util_id: Rc<ast::Identifier> = Rc::new("util".into());
-            let util_import = ImportDeclaration::import(
+            let util_import = ast::ImportDeclaration::import(
                 vec![ast::ImportSpecifier::new(Rc::clone(&util_id))],
                 PROTOBUF_MODULE.into(),
             );
