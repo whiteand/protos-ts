@@ -11,6 +11,7 @@ mod block_scope;
 mod constants;
 mod decode_compiler;
 mod defined_id;
+mod encode_basic_type_field;
 mod encode_compiler;
 mod ensure_import;
 mod enum_compiler;
