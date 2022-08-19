@@ -418,7 +418,7 @@ impl From<&Expression> for String {
             Expression::ArrayLiteralExpression(_) => todo!(),
             Expression::ObjectLiteralExpression(_) => todo!(),
             Expression::NewExpression(_) => todo!(),
-            Expression::NumericLiteral(_) => todo!(),
+            Expression::NumericLiteral(f64) => f64.to_string(),
             Expression::StringLiteral(str) => to_js_string(str),
         }
     }

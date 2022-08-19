@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
 use crate::proto::{
-    compiler::ts::{constants::get_basic_wire_type, has_property::has_property},
+    compiler::ts::{ast::Expression, constants::get_basic_wire_type, has_property::has_property},
     error::ProtoError,
     package::{FieldType, MessageDeclaration},
 };
 
 use super::{
-    ast::{self, Folder, Type},
+    ast::{self, Folder, Identifier, Type},
     block_scope::BlockScope,
     constants::PROTOBUF_MODULE,
     ensure_import::ensure_import,
@@ -110,59 +110,33 @@ pub(super) fn compile_encode(
                 }),
             },
         ));
-        println!("{}", field);
         match &field.field_type {
             FieldType::IdPath(_) => {
-                println!("not implemented");
+                println!("{}", field);
+                println!("not implemented\n");
             }
             FieldType::Repeated(_) => {
-                println!("not implemented");
+                println!("{}", field);
+                println!("not implemented\n");
             }
             FieldType::Map(_, _) => {
-                println!("not implemented");
+                println!("{}", field);
+                println!("not implemented\n");
             }
             t => {
                 assert!(t.is_basic());
-                let wire_type = get_basic_wire_type(&t);
-                let tag = field.tag;
-                let field_prefix = (tag << 3) | (wire_type as i64);
 
                 encode_func.push_statement(
-                    ast::Statement::IfStatement(ast::IfStatement {
-                        expression: Rc::new(ast::Expression::BinaryExpression(
-                            ast::BinaryExpression {
-                                operator: ast::BinaryOperator::LogicalAnd,
-                                left: ast::Expression::BinaryExpression(ast::BinaryExpression {
-                                    operator: ast::BinaryOperator::WeakNotEqual,
-                                    left: Rc::clone(&field_value),
-                                    right: Rc::new(ast::Expression::Null),
-                                })
-                                .into(),
-                                right: has_property(
-                                    ast::Expression::Identifier(Rc::clone(&message_parameter_id))
-                                        .into(),
-                                    Rc::clone(&js_name_id),
-                                )
-                                .into(),
-                            },
-                        )),
-                        then_statement: ast::Statement::from(ast::Block {
-                            statements: vec![ast::Expression::Identifier(
-                                ast::Identifier::new("w").into(),
-                            )
-                            .ret()
-                            .into()],
-                        })
-                        .into(),
-                        else_statement: None,
-                    })
+                    parse_basic_type_field(
+                        &field_value,
+                        &message_parameter_id,
+                        &js_name_id,
+                        &writer_var,
+                        t,
+                        field.tag,
+                    )
                     .into(),
                 );
-                
-
-                // ("w.uint32(%i).%s(%s)", (field.id << 3 | wireType) >>> 0, type, ref);
-                // https://github.com/protobufjs/protobuf.js/blob/master/src/encoder.js
-                println!("field prefix {}", field_prefix);
             }
         }
     }
@@ -175,4 +149,65 @@ pub(super) fn compile_encode(
 
     ///! TODO: Implement this
     Ok(())
+}
+
+pub(crate) fn parse_basic_type_field(
+    field_value: &Rc<ast::Expression>,
+    message_parameter_id: &Rc<Identifier>,
+    js_name_id: &Rc<Identifier>,
+    writer_var: &Rc<Identifier>,
+    field_type: &FieldType,
+    field_tag: i64,
+) -> ast::Statement {
+    let wire_type = get_basic_wire_type(field_type);
+    let field_prefix = (field_tag << 3) | (wire_type as i64);
+    ast::Statement::IfStatement(ast::IfStatement {
+        expression: Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
+            operator: ast::BinaryOperator::LogicalAnd,
+            left: ast::Expression::BinaryExpression(ast::BinaryExpression {
+                operator: ast::BinaryOperator::WeakNotEqual,
+                left: Rc::clone(&field_value),
+                right: Rc::new(ast::Expression::Null),
+            })
+            .into(),
+            right: has_property(
+                ast::Expression::Identifier(Rc::clone(message_parameter_id)).into(),
+                Rc::clone(js_name_id),
+            )
+            .into(),
+        })),
+        then_statement: ast::Statement::from(ast::Block {
+            statements: vec![ast::Statement::Expression(
+                (ast::Expression::CallExpression(ast::CallExpression {
+                    expression: ast::Expression::PropertyAccessExpression(
+                        ast::PropertyAccessExpression {
+                            expression: (ast::Expression::CallExpression(ast::CallExpression {
+                                expression: ast::Expression::PropertyAccessExpression(
+                                    ast::PropertyAccessExpression {
+                                        expression: ast::Expression::Identifier(Rc::clone(
+                                            writer_var,
+                                        ))
+                                        .into(),
+                                        name: Rc::new(ast::Identifier::from("uint32")),
+                                    },
+                                )
+                                .into(),
+                                arguments: vec![Rc::new(ast::Expression::NumericLiteral(
+                                    field_prefix as f64,
+                                ))],
+                            }))
+                            .into(),
+                            name: Rc::new(ast::Identifier::from(format!("{}", field_type))),
+                        },
+                    )
+                    .into(),
+                    arguments: vec![Rc::clone(&field_value)],
+                }))
+                .into(),
+            )
+            .into()],
+        })
+        .into(),
+        else_statement: None,
+    })
 }
