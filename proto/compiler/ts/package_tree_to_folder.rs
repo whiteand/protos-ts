@@ -20,6 +20,6 @@ fn package_tree_to_folder(
     Ok(folder)
 }
 
-pub(super) fn root_tree_to_folder(root: &PackageTree) -> Result<Folder, ProtoError> {
+pub(crate) fn root_tree_to_folder(root: &PackageTree) -> Result<Folder, ProtoError> {
     package_tree_to_folder(root, root)
 }

@@ -8,6 +8,7 @@ authors = ["Andrii Biletskyi <andrewbeletskiy@gmail.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 # cargo watch -x 'run -- ./test-folder --out ./out'
 # RUSTFLAGS=-Awarnings cargo watch -x 'run -- ./test-folder --out ./out'
+# ./target/release/protobufts.exe ./test-folder --out out
 
 
 [dependencies]

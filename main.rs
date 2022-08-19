@@ -5,21 +5,29 @@ use std::process;
 
 use args::get_proto_folder_path;
 use args::CliArguments;
-use proto::compiler::ts::compile;
+use proto::compiler::ts::ast::Folder;
+use proto::compiler::ts::commit_folder::commit_folder;
+use proto::compiler::ts::package_tree_to_folder::root_tree_to_folder;
 use proto::folder::read_proto_folder;
 use proto::package::read_package_tree;
 
 fn main() -> () {
-    let CliArguments {
-        proto_folder_path,
-        out_folder_path,
-    } = match get_proto_folder_path() {
+    let args = match get_proto_folder_path() {
         Err(e) => {
             eprintln!("{}", e);
             process::exit(1);
         }
         Ok(r) => r,
     };
+
+    run(args);
+}
+
+fn run(args: CliArguments) {
+    let CliArguments {
+        proto_folder_path,
+        out_folder_path,
+    } = args;
 
     let proto_folder = match read_proto_folder(proto_folder_path) {
         Err(e) => {
@@ -29,7 +37,7 @@ fn main() -> () {
         Ok(r) => r,
     };
 
-    let mut package_tree = match read_package_tree(&proto_folder.files) {
+    let mut root_tree = match read_package_tree(&proto_folder.files) {
         Err(e) => {
             eprintln!("{}", e);
             process::exit(3);
@@ -37,17 +45,25 @@ fn main() -> () {
         Ok(r) => r,
     };
 
-    package_tree.name = out_folder_path
+    root_tree.name = out_folder_path
         .file_name()
         .map(|s| s.to_string_lossy())
         .unwrap()
         .into();
 
-    match compile(&package_tree) {
+    let folder: Folder = match root_tree_to_folder(&root_tree) {
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(4);
+        }
+        Ok(r) => r,
+    };
+
+    match commit_folder(&folder) {
         Ok(_) => {}
         Err(e) => {
             eprintln!("{}", e);
             process::exit(4);
         }
-    };
+    }
 }
