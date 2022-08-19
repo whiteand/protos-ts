@@ -1,7 +1,9 @@
 mod ast;
 mod commit_folder;
+mod encode_basic_repeated_type_field;
 mod file_name_to_folder_name;
 mod file_to_folder;
+mod is_safe_id;
 mod package_tree_to_folder;
 mod render_file;
 use crate::proto::error::ProtoError;

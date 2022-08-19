@@ -1,16 +1,16 @@
-use std::rc::Rc;
+use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
-    compiler::ts::{ast::Expression, constants::get_basic_wire_type, has_property::has_property},
     error::ProtoError,
     package::{FieldType, MessageDeclaration},
 };
 
+use super::encode_basic_repeated_type_field::encode_basic_repeated_type_field;
 use super::{
-    ast::{self, Folder, Identifier, Type},
+    ast::{self, Folder, Type},
     block_scope::BlockScope,
-    encode_basic_type_field::encode_basic_type_field,
     constants::PROTOBUF_MODULE,
+    encode_basic_type_field::encode_basic_type_field,
     ensure_import::ensure_import,
     message_name_to_encode_type_name::message_name_to_encode_type_name,
 };
@@ -116,10 +116,33 @@ pub(super) fn compile_encode(
                 println!("{}", field);
                 println!("not implemented\n");
             }
-            FieldType::Repeated(_) => {
-                println!("{}", field);
-                println!("not implemented\n");
-            }
+            FieldType::Repeated(element_type) => match element_type.deref() {
+                FieldType::IdPath(_) => {
+                    println!("{}", field);
+                    println!("Not implemented yet");
+                }
+                FieldType::Repeated(_) => {
+                    println!("{}", field);
+                    println!("Not implemented yet");
+                }
+                FieldType::Map(_, _) => {
+                    println!("{}", field);
+                    println!("Not implemented yet");
+                }
+                basic => {
+                    assert!(basic.is_basic());
+
+                    encode_func.push_statement(
+                        encode_basic_repeated_type_field(
+                            &field_value,
+                            basic,
+                            field.tag,
+                            &writer_var,
+                        )
+                        .into(),
+                    )
+                }
+            },
             FieldType::Map(_, _) => {
                 println!("{}", field);
                 println!("not implemented\n");
@@ -151,5 +174,3 @@ pub(super) fn compile_encode(
     ///! TODO: Implement this
     Ok(())
 }
-
-

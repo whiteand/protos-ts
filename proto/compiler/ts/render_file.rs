@@ -1,7 +1,6 @@
-use regex::Regex;
 use std::ops::Deref;
 
-use super::{ast::*, is_reserved::is_reserved, to_js_string::to_js_string};
+use super::{ast::*, is_reserved::is_reserved, is_safe_id::is_safe_id, to_js_string::to_js_string};
 
 impl From<&ImportDeclaration> for String {
     fn from(import_declaration: &ImportDeclaration) -> Self {
@@ -342,8 +341,8 @@ impl From<&PropertyAccessExpression> for String {
         if wrapped {
             res.push(')');
         }
-        let safe_name = Regex::new(r"^[$\w_]+$").unwrap();
-        if !safe_name.is_match(&decl.name.text) || is_reserved(&decl.name.text) {
+
+        if !is_safe_id(&decl.name.text) || is_reserved(&decl.name.text) {
             res.push('[');
             let prop_str = to_js_string(&decl.name.text);
             res.push_str(&prop_str);
@@ -397,7 +396,27 @@ impl From<&CallExpression> for String {
         res
     }
 }
+impl From<&ElementAccessExpression> for String {
+    fn from(expr: &ElementAccessExpression) -> Self {
+        let mut res = String::new();
+        let obj_str: String = expr.expression.deref().into();
+        res.push_str(&obj_str);
+        res.push('[');
+        let prop_str: String = expr.argumentExpression.deref().into();
+        res.push_str(&prop_str);
+        res.push(']');
+        res
+    }
+}
 
+impl From<&PrefixUnaryExpression> for String {
+    fn from(unary_expr: &PrefixUnaryExpression) -> Self {
+        let mut res = String::new();
+        res.push_str((&unary_expr.operator).into());
+        res.push_str(&unary_expr.operand.deref().text);
+        res
+    }
+}
 impl From<&Expression> for String {
     fn from(expr: &Expression) -> Self {
         match expr {
@@ -420,6 +439,10 @@ impl From<&Expression> for String {
             Expression::NewExpression(_) => todo!(),
             Expression::NumericLiteral(f64) => f64.to_string(),
             Expression::StringLiteral(str) => to_js_string(str),
+            Expression::ElementAccessExpression(element_access_expr) => {
+                element_access_expr.deref().into()
+            }
+            Expression::PrefixUnaryExpression(unary_expr) => unary_expr.deref().into(),
         }
     }
 }
@@ -481,6 +504,44 @@ impl From<&Block> for String {
     }
 }
 
+impl From<&ForStatement> for String {
+    fn from(for_stmt: &ForStatement) -> Self {
+        let ForStatement {
+            initializer,
+            condition,
+            incrementor,
+            statement,
+        } = for_stmt;
+        let mut res = String::new();
+
+        res.push_str("for (");
+        let init_str: String = initializer.deref().into();
+        res.push_str(&init_str);
+        res.push(';');
+        res.push(' ');
+        let condition_str: String = condition.deref().into();
+        res.push_str(&condition_str);
+        res.push(';');
+        res.push(' ');
+        let incrementor_str: String = incrementor.deref().into();
+        res.push_str(&incrementor_str);
+        res.push(')');
+        match statement.deref() {
+            Statement::Empty => {
+                res.push(';');
+                return res;
+            },
+            _ => {
+                res.push(' ');
+            }
+        }
+        let stmt_str: String = statement.deref().into();
+
+        res.push_str(&stmt_str);
+
+        res
+    }
+}
 impl From<&Statement> for String {
     fn from(statement: &Statement) -> Self {
         match statement {
@@ -502,6 +563,8 @@ impl From<&Statement> for String {
             Statement::IfStatement(if_stmt) => if_stmt.deref().into(),
             Statement::Block(block) => block.deref().into(),
             Statement::Expression(expr) => expr.deref().into(),
+            Statement::Empty => ";".into(),
+            Statement::For(for_stmt) => for_stmt.deref().into(),
         }
     }
 }

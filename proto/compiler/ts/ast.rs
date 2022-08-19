@@ -1,4 +1,4 @@
-use std::{ops::Deref, rc::Rc};
+use std::{mem, ops::Deref, rc::Rc};
 
 #[derive(Debug)]
 pub(crate) struct SourceFile {
@@ -500,6 +500,8 @@ impl PropertyAccessExpression {
             Expression::NewExpression(_) => false,
             Expression::NumericLiteral(_) => true,
             Expression::StringLiteral(_) => false,
+            Expression::ElementAccessExpression(_) => false,
+            Expression::PrefixUnaryExpression(_) => true,
         }
     }
 }
@@ -526,6 +528,39 @@ impl NewExpression {
 }
 
 #[derive(Debug)]
+pub(crate) struct ElementAccessExpression {
+    pub expression: Rc<Expression>,
+    pub argumentExpression: Rc<Expression>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum UnaryOperator {
+    Increment,
+}
+
+impl From<&UnaryOperator> for &str {
+    fn from(unary_operator: &UnaryOperator) -> Self {
+        match unary_operator {
+            UnaryOperator::Increment => "++",
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct PrefixUnaryExpression {
+    pub operator: UnaryOperator,
+    pub operand: Rc<Identifier>,
+}
+
+impl PrefixUnaryExpression {
+    pub fn increment(operand: Rc<Identifier>) -> Self {
+        Self {
+            operator: UnaryOperator::Increment,
+            operand,
+        }
+    }
+}
+#[derive(Debug)]
 pub(crate) enum Expression {
     Identifier(Rc<Identifier>),
     Null,
@@ -541,6 +576,8 @@ pub(crate) enum Expression {
     NewExpression(NewExpression),
     NumericLiteral(f64),
     StringLiteral(StringLiteral),
+    ElementAccessExpression(ElementAccessExpression),
+    PrefixUnaryExpression(PrefixUnaryExpression),
 }
 
 impl From<f64> for Expression {
@@ -666,7 +703,73 @@ impl Block {
 }
 
 #[derive(Debug)]
+pub(crate) struct ForStatement {
+    pub initializer: Rc<VariableDeclarationList>,
+    pub condition: Rc<Expression>,
+    pub incrementor: Rc<Expression>,
+    pub statement: Box<Statement>,
+}
+
+impl ForStatement {
+    pub fn for_each(iter_var: Rc<Identifier>, arr_expr: Rc<Expression>) -> Self {
+        Self {
+            initializer: Rc::new(VariableDeclarationList {
+                kind: VariableKind::Let,
+                declarations: vec![VariableDeclaration {
+                    name: Rc::clone(&iter_var),
+                    initializer: Rc::new(0f64.into()),
+                }],
+            }),
+            condition: Rc::new(Expression::BinaryExpression(BinaryExpression {
+                operator: BinaryOperator::LessThan,
+                left: Expression::Identifier(Rc::clone(&iter_var)).into(),
+                right: Rc::new(Expression::PropertyAccessExpression(
+                    PropertyAccessExpression {
+                        expression: Rc::clone(&arr_expr),
+                        name: Rc::new("length".into()),
+                    },
+                )),
+            })),
+            incrementor: Expression::PrefixUnaryExpression(PrefixUnaryExpression {
+                operator: UnaryOperator::Increment,
+                operand: Rc::clone(&iter_var),
+            })
+            .into(),
+            statement: Default::default(),
+        }
+    }
+
+    pub fn push_statement(&mut self, statement: Statement) -> &mut Self {
+        let for_stmt_rc = mem::replace(&mut self.statement, Box::default());
+
+        match *for_stmt_rc {
+            Statement::Block(mut b) => {
+                b.add_statement(statement.into());
+                self.statement = Box::new(Statement::Block(b));
+                self
+            }
+            Statement::Empty => {
+                self.statement = statement.into();
+                self
+            }
+            Statement::ImportDeclaration(_) => unreachable!(),
+            Statement::EnumDeclaration(_) => unreachable!(),
+            Statement::InterfaceDeclaration(_) => unreachable!(),
+            Statement::FunctionDeclaration(_) => unreachable!(),
+            stmt => {
+                let mut block = Block::new();
+                block.add_statement(stmt.into());
+                block.add_statement(statement.into());
+                self.statement = Box::new(Statement::Block(block));
+                self
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum Statement {
+    Empty,
     ImportDeclaration(Box<ImportDeclaration>),
     EnumDeclaration(Box<EnumDeclaration>),
     InterfaceDeclaration(Box<InterfaceDeclaration>),
@@ -676,6 +779,25 @@ pub(crate) enum Statement {
     IfStatement(IfStatement),
     Block(Block),
     Expression(Rc<Expression>),
+    For(Rc<ForStatement>),
+}
+
+impl Default for Statement {
+    fn default() -> Self {
+        Self::Empty
+    }
+}
+
+impl From<Rc<ForStatement>> for Statement {
+    fn from(for_stmt: Rc<ForStatement>) -> Self {
+        Self::For(for_stmt)
+    }
+}
+
+impl From<ForStatement> for Statement {
+    fn from(for_stmt: ForStatement) -> Self {
+        Self::For(Rc::new(for_stmt))
+    }
 }
 
 impl From<Expression> for Statement {

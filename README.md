@@ -2,6 +2,8 @@
 
 This a CLI tool for transforming of .proto files into typescript modules.
 
+It will be at least 4 times faster than current best compiler.
+
 ## Rationale
 
 `protobufjs` is currently used as a main compiler. But there are several problems with this tool.

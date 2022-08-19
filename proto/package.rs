@@ -102,6 +102,30 @@ impl FieldType {
             _ => false,
         }
     }
+
+    pub fn packed_wire_type(&self) -> Option<u32>{
+        match self {
+            FieldType::Bool => Some(0),
+            FieldType::Double => Some(1),
+            FieldType::Fixed32 => Some(5),
+            FieldType::Fixed64 => Some(1),
+            FieldType::Float => Some(5),
+            FieldType::Int32 => Some(0),
+            FieldType::Int64 => Some(0),
+            FieldType::Sfixed32 => Some(5),
+            FieldType::Sfixed64 => Some(1),
+            FieldType::Sint32 => Some(0),
+            FieldType::Sint64 => Some(0),
+            FieldType::Uint32 => Some(0),
+            FieldType::Uint64 => Some(0),
+            FieldType::IdPath(_) => None,
+            FieldType::Repeated(_) => None,
+            FieldType::Map(_, _) => None,
+            FieldType::Bytes => None,
+            FieldType::String => None,
+            
+        }
+    }
 }
 
 impl From<Vec<Rc<str>>> for FieldType {
