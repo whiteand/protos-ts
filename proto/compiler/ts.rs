@@ -16,8 +16,10 @@ mod ensure_import;
 mod enum_compiler;
 mod get_relative_import;
 mod has_property;
+mod is_reserved;
 mod message_name_to_encode_type_name;
 mod protopath;
+mod to_js_string;
 mod ts_path;
 mod types_compiler;
 

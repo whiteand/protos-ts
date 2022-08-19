@@ -12,6 +12,7 @@ authors = ["Andrii Biletskyi <andrewbeletskiy@gmail.com>"]
 
 [dependencies]
 path-clean = "0.1.0"
+regex = "1"
 
 [[bin]]
 name = "protobufts"

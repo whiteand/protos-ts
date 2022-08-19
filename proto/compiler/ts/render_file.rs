@@ -1,6 +1,7 @@
+use regex::Regex;
 use std::ops::Deref;
 
-use super::ast::*;
+use super::{ast::*, is_reserved::is_reserved, to_js_string::to_js_string};
 
 impl From<&ImportDeclaration> for String {
     fn from(import_declaration: &ImportDeclaration) -> Self {
@@ -102,7 +103,7 @@ mod test_enum_declaration {
             members: vec![
                 EnumMember {
                     name: "A".into(),
-                    value: Some("A".to_string().into()),
+                    value: Some(EnumValue::String("A".into())),
                 },
                 EnumMember {
                     name: "B".into(),
@@ -337,6 +338,14 @@ impl From<&PropertyAccessExpression> for String {
         if wrapped {
             res.push(')');
         }
+        let safe_name = Regex::new(r"^[$\w_]+$").unwrap();
+        if !safe_name.is_match(&decl.name.text) || is_reserved(&decl.name.text) {
+            res.push('[');
+            let prop_str = to_js_string(&decl.name.text);
+            res.push_str(&prop_str);
+            res.push(']');
+            return res;
+        }
         res.push('.');
         res.push_str(&decl.name.text);
 
@@ -406,13 +415,7 @@ impl From<&Expression> for String {
             Expression::ObjectLiteralExpression(_) => todo!(),
             Expression::NewExpression(_) => todo!(),
             Expression::NumericLiteral(_) => todo!(),
-            Expression::StringLiteral(str) => {
-                let mut res = String::new();
-                res.push('"');
-                res.push_str(&str.text);
-                res.push('"');
-                res
-            }
+            Expression::StringLiteral(str) => to_js_string(str),
         }
     }
 }

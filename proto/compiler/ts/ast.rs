@@ -10,6 +10,14 @@ pub(crate) struct StringLiteral {
     pub text: Rc<str>,
 }
 
+impl Deref for StringLiteral {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.text
+    }
+}
+
 impl<T> From<T> for StringLiteral
 where
     T: std::fmt::Display,
