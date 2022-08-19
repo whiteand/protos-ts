@@ -123,11 +123,11 @@ pub(super) fn compile_encode(
                 }
                 FieldType::Repeated(_) => {
                     println!("{}", field);
-                    println!("Not implemented yet");
+                    todo!();
                 }
                 FieldType::Map(_, _) => {
                     println!("{}", field);
-                    println!("Not implemented yet");
+                    todo!();
                 }
                 basic => {
                     assert!(basic.is_basic());

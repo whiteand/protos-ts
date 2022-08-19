@@ -530,8 +530,13 @@ impl From<&ForStatement> for String {
             Statement::Empty => {
                 res.push(';');
                 return res;
-            },
+            }
+            Statement::Block(_) => {
+                res.push(' ');
+            }
             _ => {
+                res.push('\n');
+                res.push(' ');
                 res.push(' ');
             }
         }
