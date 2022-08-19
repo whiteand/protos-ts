@@ -56,6 +56,7 @@ fn encode_packed_elements(
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {
+    assert!(element_type.is_basic());
     let mut res = ast::Block::new();
 
     let field_prefix = field_tag << 3 | 2;
@@ -89,7 +90,31 @@ fn encode_packed_elements(
     res.add_statement(ast::Statement::Expression(fork_call.into()).into());
 
     let i_id = Rc::new(ast::Identifier::new("i"));
-    let for_stmt = ForStatement::for_each(i_id, Rc::clone(&field_value));
+    let i_id_expr = Rc::new(ast::Expression::Identifier(Rc::clone(&i_id)));
+    let mut for_stmt = ForStatement::for_each(i_id, Rc::clone(&field_value));
+
+    let element_value_expr: Rc<ast::Expression> =
+        ast::Expression::ElementAccessExpression(ast::ElementAccessExpression {
+            expression: Rc::clone(&field_value),
+            argumentExpression: i_id_expr,
+        })
+        .into();
+
+    let encoding_func_expr: Rc<ast::Expression> =
+        ast::Expression::PropertyAccessExpression(ast::PropertyAccessExpression {
+            expression: Rc::clone(&writer_expr),
+            name: Rc::new(ast::Identifier::from(format!("{}", element_type))),
+        })
+        .into();
+
+    let encode_element_expr: Rc<ast::Expression> =
+        ast::Expression::CallExpression(ast::CallExpression {
+            expression: encoding_func_expr,
+            arguments: vec![element_value_expr],
+        })
+        .into();
+
+    for_stmt.push_statement(ast::Statement::Expression(encode_element_expr));
 
     res.add_statement(Rc::new(ast::Statement::For(for_stmt.into())));
 
