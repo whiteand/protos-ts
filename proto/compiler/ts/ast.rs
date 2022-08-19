@@ -235,7 +235,7 @@ pub(crate) enum Type {
     UnionType(UnionType),
     ArrayType(Box<Type>),
     Record(Box<Type>, Box<Type>),
-    TypeReference(Rc<Identifier>),
+    TypeReference(Vec<Rc<Identifier>>),
 }
 
 impl From<UnionType> for Type {
@@ -268,6 +268,10 @@ impl Type {
         }
     }
 
+    pub fn reference(id: Rc<Identifier>) -> Self {
+        return Type::TypeReference(vec![id]);
+    }
+
     pub fn or(&self, another: &Self) -> Self {
         let mut res = UnionType::new();
         res.push(self.clone());
@@ -283,7 +287,7 @@ impl From<Identifier> for Type {
 }
 impl From<Rc<Identifier>> for Type {
     fn from(identifier: Rc<Identifier>) -> Self {
-        Self::TypeReference(identifier)
+        Self::reference(identifier)
     }
 }
 
@@ -671,6 +675,19 @@ pub(crate) enum Statement {
     VariableStatement(Rc<VariableDeclarationList>),
     IfStatement(IfStatement),
     Block(Block),
+    Expression(Rc<Expression>),
+}
+
+impl From<Expression> for Statement {
+    fn from(expression: Expression) -> Self {
+        Self::Expression(Rc::new(expression))
+    }
+}
+
+impl From<Rc<Expression>> for Statement {
+    fn from(expression: Rc<Expression>) -> Self {
+        Self::Expression(expression)
+    }
 }
 
 impl From<IfStatement> for Statement {

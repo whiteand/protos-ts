@@ -157,7 +157,11 @@ impl From<&Type> for String {
             Type::Record(key, value) => {
                 format!("Record<{}, {}>", key, value)
             }
-            Type::TypeReference(id) => id.text.to_string(),
+            Type::TypeReference(ids) => ids
+                .iter()
+                .map(|id| id.text.to_string())
+                .collect::<Vec<_>>()
+                .join("."),
         }
     }
 }
@@ -497,6 +501,7 @@ impl From<&Statement> for String {
             Statement::VariableStatement(var_decl) => var_decl.deref().into(),
             Statement::IfStatement(if_stmt) => if_stmt.deref().into(),
             Statement::Block(block) => block.deref().into(),
+            Statement::Expression(expr) => expr.deref().into(),
         }
     }
 }

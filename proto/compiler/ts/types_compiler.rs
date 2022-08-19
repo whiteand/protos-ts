@@ -7,8 +7,9 @@ use crate::proto::{
 };
 
 use super::{
-    ast::Folder,
+    ast::{Folder, Identifier, ImportDeclaration},
     block_scope::BlockScope,
+    constants::PROTOBUF_MODULE,
     defined_id::IdType,
     ensure_import::ensure_import,
     get_relative_import::get_relative_import,
@@ -128,7 +129,7 @@ fn import_encoding_input_type(
 
             ensure_import(types_file, import_declaration);
 
-            return Ok(Type::TypeReference(
+            return Ok(Type::reference(
                 ast::Identifier {
                     text: imported_type_name,
                 }
@@ -145,22 +146,29 @@ fn import_encoding_input_type(
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
         FieldType::Bool => Ok(Type::Boolean),
-        FieldType::Bytes => Ok(Type::TypeReference(
-            ast::Identifier::new("Uint8Array").into(),
-        )),
+        FieldType::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
         FieldType::Double => Ok(Type::Number),
         FieldType::Fixed32 => Ok(Type::Number),
         FieldType::Fixed64 => Ok(Type::Number),
         FieldType::Float => Ok(Type::Number),
         FieldType::Int32 => Ok(Type::Number),
-        FieldType::Int64 => todo!(),
+        FieldType::Int64 | FieldType::Sfixed64 | FieldType::Sint64 | FieldType::Uint64 => {
+            let util_id: Rc<ast::Identifier> = Rc::new("util".into());
+            let util_import = ImportDeclaration::import(
+                vec![ast::ImportSpecifier::new(Rc::clone(&util_id))],
+                PROTOBUF_MODULE.into(),
+            );
+            ensure_import(types_file, util_import);
+            Ok(Type::TypeReference(vec![
+                Rc::clone(&util_id),
+                Rc::new(ast::Identifier::new("Long")),
+            ])
+            .or(&Type::Number))
+        }
         FieldType::Sfixed32 => Ok(Type::Number),
-        FieldType::Sfixed64 => todo!(),
         FieldType::Sint32 => Ok(Type::Number),
-        FieldType::Sint64 => todo!(),
         FieldType::String => Ok(Type::String),
-        FieldType::Uint32 => todo!(),
-        FieldType::Uint64 => todo!(),
+        FieldType::Uint32 => Ok(Type::Number),
     }
 }
 
@@ -203,7 +211,7 @@ fn import_decode_result_type(
 
             ensure_import(types_file, import_declaration);
 
-            return Ok(Type::TypeReference(
+            return Ok(Type::reference(
                 ast::Identifier::new(&imported_type_name).into(),
             ));
         }
@@ -217,21 +225,27 @@ fn import_decode_result_type(
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
         FieldType::Bool => Ok(Type::Boolean),
-        FieldType::Bytes => Ok(Type::TypeReference(
-            ast::Identifier::new("Uint8Array").into(),
-        )),
+        FieldType::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
         FieldType::Double => Ok(Type::Number),
         FieldType::Fixed32 => Ok(Type::Number),
         FieldType::Fixed64 => Ok(Type::Number),
         FieldType::Float => Ok(Type::Number),
         FieldType::Int32 => Ok(Type::Number),
-        FieldType::Int64 => todo!(),
+        FieldType::Int64 | FieldType::Sfixed64 | FieldType::Sint64 | FieldType::Uint64 => {
+            let util_id: Rc<ast::Identifier> = Rc::new("util".into());
+            let util_import = ImportDeclaration::import(
+                vec![ast::ImportSpecifier::new(Rc::clone(&util_id))],
+                PROTOBUF_MODULE.into(),
+            );
+            ensure_import(types_file, util_import);
+            Ok(Type::TypeReference(vec![
+                Rc::clone(&util_id),
+                Rc::new(ast::Identifier::new("Long")),
+            ]))
+        }
         FieldType::Sfixed32 => Ok(Type::Number),
-        FieldType::Sfixed64 => todo!(),
         FieldType::Sint32 => Ok(Type::Number),
-        FieldType::Sint64 => todo!(),
         FieldType::String => Ok(Type::String),
-        FieldType::Uint32 => todo!(),
-        FieldType::Uint64 => todo!(),
+        FieldType::Uint32 => Ok(Type::Number),
     }
 }

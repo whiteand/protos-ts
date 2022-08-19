@@ -49,16 +49,16 @@ pub(super) fn compile_encode(
 
     encode_func.add_param(ast::Parameter {
         name: Rc::clone(&message_parameter_id),
-        parameter_type: Type::TypeReference(Rc::clone(&message_encode_input_type_id)).into(),
+        parameter_type: Type::reference(Rc::clone(&message_encode_input_type_id)).into(),
         optional: false,
     });
     encode_func.add_param(ast::Parameter {
         name: Rc::clone(&writer_parameter_id),
-        parameter_type: Type::TypeReference(Rc::clone(&writer_type_id)).into(),
+        parameter_type: Type::reference(Rc::clone(&writer_type_id)).into(),
         optional: true,
     });
 
-    encode_func.returns(Type::TypeReference(Rc::clone(&message_encode_input_type_id)).into());
+    encode_func.returns(Type::reference(Rc::clone(&message_encode_input_type_id)).into());
 
     let writer_var = Rc::new(ast::Identifier { text: "w".into() });
 
@@ -99,7 +99,7 @@ pub(super) fn compile_encode(
 
     fields.sort_by_key(|x| x.tag);
 
-    for (index, field) in fields.into_iter().enumerate() {
+    for (_, field) in fields.into_iter().enumerate() {
         let js_name = field.json_name();
         let js_name_id: Rc<ast::Identifier> = ast::Identifier::new(&js_name).into();
         let field_value = Rc::new(ast::Expression::PropertyAccessExpression(
@@ -123,7 +123,10 @@ pub(super) fn compile_encode(
             }
             t => {
                 assert!(t.is_basic());
-                //  ("if(%s!=null&&Object.hasOwnProperty.call(m,%j))", ref, field.name); // !== undefined && !== null
+                let wire_type = get_basic_wire_type(&t);
+                let tag = field.tag;
+                let field_prefix = (tag << 3) | (wire_type as i64);
+
                 encode_func.push_statement(
                     ast::Statement::IfStatement(ast::IfStatement {
                         expression: Rc::new(ast::Expression::BinaryExpression(
@@ -155,10 +158,9 @@ pub(super) fn compile_encode(
                     })
                     .into(),
                 );
-                let wire_type = get_basic_wire_type(&t);
-                let tag = field.tag;
-                let field_prefix = (tag << 3) | (wire_type as i64);
+                
 
+                // ("w.uint32(%i).%s(%s)", (field.id << 3 | wireType) >>> 0, type, ref);
                 // https://github.com/protobufjs/protobuf.js/blob/master/src/encoder.js
                 println!("field prefix {}", field_prefix);
             }
