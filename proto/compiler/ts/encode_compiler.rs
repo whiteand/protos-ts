@@ -69,7 +69,17 @@ pub(super) fn compile_encode(
                 initializer: ast::Expression::from(ast::BinaryExpression {
                     operator: ast::BinaryOperator::LogicalOr,
                     left: ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
-                    right: ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
+                    right: Rc::new(ast::Expression::CallExpression(ast::CallExpression {
+                        expression: Rc::new(ast::Expression::PropertyAccessExpression(
+                            ast::PropertyAccessExpression {
+                                expression: Rc::new(ast::Expression::from(Rc::clone(
+                                    &writer_type_id,
+                                ))),
+                                name: ast::Identifier::new("create").into(),
+                            },
+                        )),
+                        arguments: vec![],
+                    })),
                 })
                 .into(),
             },
