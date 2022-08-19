@@ -2,15 +2,17 @@ use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
     error::ProtoError,
-    package::{FieldType, MessageDeclaration},
+    package::{Declaration, FieldType, MessageDeclaration},
 };
 
-use super::encode_basic_repeated_type_field::encode_basic_repeated_type_field;
 use super::{
     ast::{self, Folder, Type},
     block_scope::BlockScope,
     constants::PROTOBUF_MODULE,
+    defined_id::IdType,
+    encode_basic_repeated_type_field::encode_basic_repeated_type_field,
     encode_basic_type_field::encode_basic_type_field,
+    encode_enum_field::encode_enum_field,
     ensure_import::ensure_import,
     message_name_to_encode_type_name::message_name_to_encode_type_name,
 };
@@ -59,7 +61,7 @@ pub(super) fn compile_encode(
         optional: true,
     });
 
-    encode_func.returns(Type::reference(Rc::clone(&message_encode_input_type_id)).into());
+    encode_func.returns(Type::reference(Rc::clone(&writer_type_id)).into());
 
     let writer_var = Rc::new(ast::Identifier { text: "w".into() });
 
@@ -112,23 +114,64 @@ pub(super) fn compile_encode(
             },
         ));
         match &field.field_type {
-            FieldType::IdPath(_) => {
-                println!("{}", field);
-                println!("not implemented\n");
+            FieldType::IdPath(ids) => {
+                if ids.is_empty() {
+                    unreachable!();
+                }
+                let resolve_result = scope.resolve_path(ids)?;
+                let type_declaration = match resolve_result.declaration {
+                    IdType::DataType(decl) => decl,
+                    IdType::Package(_) => unreachable!(),
+                };
+                match type_declaration {
+                    Declaration::Enum(_) => {
+                        encode_func.push_statement(
+                            encode_enum_field(
+                                &message_parameter_id,
+                                &writer_var,
+                                &js_name_id,
+                                field_value,
+                                field.tag,
+                            )
+                            .into(),
+                        );
+                    }
+                    Declaration::Message(m) => {
+                        println!("Message: \n{}", m);
+                        println!("not implemented\n");
+                    }
+                }
             }
             FieldType::Repeated(element_type) => match element_type.deref() {
-                FieldType::IdPath(_) => {
-                    println!("{}", field);
-                    println!("Not implemented yet");
+                FieldType::IdPath(ids) => {
+                    if ids.is_empty() {
+                        unreachable!();
+                    }
+                    let resolve_result = scope.resolve_path(ids)?;
+                    let type_declaration = match resolve_result.declaration {
+                        IdType::DataType(decl) => decl,
+                        IdType::Package(_) => unreachable!(),
+                    };
+                    match type_declaration {
+                        Declaration::Enum(_) => {
+                            encode_func.push_statement(
+                                encode_basic_repeated_type_field(
+                                    &field_value,
+                                    &FieldType::Int32,
+                                    field.tag,
+                                    &writer_var,
+                                )
+                                .into(),
+                            );
+                        }
+                        Declaration::Message(m) => {
+                            println!("Repeated Message: \n{}", m);
+                            println!("not implemented\n");
+                        }
+                    }
                 }
-                FieldType::Repeated(_) => {
-                    println!("{}", field);
-                    todo!();
-                }
-                FieldType::Map(_, _) => {
-                    println!("{}", field);
-                    todo!();
-                }
+                FieldType::Repeated(_) => unreachable!(),
+                FieldType::Map(_, _) => unreachable!(),
                 basic => {
                     assert!(basic.is_basic());
 
