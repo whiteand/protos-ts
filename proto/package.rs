@@ -103,7 +103,7 @@ impl FieldType {
         }
     }
 
-    pub fn packed_wire_type(&self) -> Option<u32>{
+    pub fn packed_wire_type(&self) -> Option<u32> {
         match self {
             FieldType::Bool => Some(0),
             FieldType::Double => Some(1),
@@ -123,7 +123,24 @@ impl FieldType {
             FieldType::Map(_, _) => None,
             FieldType::Bytes => None,
             FieldType::String => None,
-            
+        }
+    }
+
+    pub fn map_key_wire_type(&self) -> Option<u32> {
+        match self {
+            FieldType::Bool => Some(0),
+            FieldType::Fixed32 => Some(5),
+            FieldType::Fixed64 => Some(1),
+            FieldType::Int32 => Some(0),
+            FieldType::Int64 => Some(0),
+            FieldType::Sfixed32 => Some(5),
+            FieldType::Sfixed64 => Some(1),
+            FieldType::Sint32 => Some(0),
+            FieldType::Sint64 => Some(0),
+            FieldType::String => Some(2),
+            FieldType::Uint32 => Some(0),
+            FieldType::Uint64 => Some(0),
+            _ => None,
         }
     }
 }

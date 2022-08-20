@@ -1,4 +1,4 @@
-use std::{ops::Deref, rc::Rc};
+use std::{ops::Deref, rc::Rc, thread::LocalKey};
 
 use crate::proto::package::FieldDeclaration;
 
@@ -44,6 +44,8 @@ enum Task {
     PushMessageEntry,
     PushMessageStatement,
     ParseIdPath,
+    /// FieldType -> FieldType
+    ExpectKeyTypeOnStack,
     /// Id -> Type
     WrapFieldType,
     /// [FieldType, FieldType] => Map<FieldType, FieldType>
@@ -182,6 +184,20 @@ pub(super) fn parse_package(
                 };
                 res.declarations.push(declaration);
                 continue;
+            }
+            ExpectKeyTypeOnStack => {
+                let key_type = match stack.pop() {
+                    Some(StackItem::FieldType(field_type)) => field_type,
+                    _ => unreachable!(),
+                };
+                if key_type.map_key_wire_type().is_none() {
+                    return Err(syntax_error(
+                        format!("Type {} cannot be used as key", key_type),
+                        &located_lexems[ind - 1],
+                    ));
+                }
+                stack.push(key_type.into());
+                continue
             }
             WrapMapType => {
                 let value_type = match stack.pop() {
@@ -680,6 +696,7 @@ pub(super) fn parse_package(
                         tasks.push(ExpectLexem(Lexem::Greater));
                         tasks.push(ParseFieldType);
                         tasks.push(ExpectLexem(Lexem::Comma));
+                        tasks.push(ExpectKeyTypeOnStack);
                         tasks.push(ParseFieldType);
                         tasks.push(ExpectLexem(Lexem::Less));
                         tasks.push(ExpectLexem(Lexem::Id("map".into())));
@@ -693,9 +710,7 @@ pub(super) fn parse_package(
             }
             WrapFieldType => {
                 let field_type = match stack.pop() {
-                    Some(StackItem::StringList(ids)) => {
-                        FieldType::from(ids)
-                    },
+                    Some(StackItem::StringList(ids)) => FieldType::from(ids),
                     _ => unreachable!(),
                 };
                 stack.push(field_type.into());
