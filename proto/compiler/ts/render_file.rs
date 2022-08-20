@@ -475,15 +475,30 @@ impl From<&IfStatement> for String {
         res.push_str("if (");
         let test_expr_str: String = expr.expression.deref().into();
         res.push_str(&test_expr_str);
-        res.push_str(") ");
-        let then_expr_str: String = expr.then_statement.deref().into();
-        res.push_str(&then_expr_str);
+        res.push(')');
+        match *expr.then_statement {
+            Statement::Empty => unreachable!(),
+            Statement::Block(_) => {
+                res.push(' ');
+                let then_expr_str: String = expr.then_statement.deref().into();
+                res.push_str(&then_expr_str);
+            }
+            _ => {
+                res.push_str("\n");
+                let then_expr_str: String = expr.then_statement.deref().into();
+                for line in then_expr_str.lines() {
+                    res.push_str("  ");
+                    res.push_str(line);
+                    res.push('\n');
+                }
+            }
+        }
         if let Some(else_statement) = &expr.else_statement {
             res.push_str(" else ");
             let else_expr_str: String = else_statement.deref().into();
             res.push_str(&else_expr_str);
         }
-        res
+        return res;
     }
 }
 

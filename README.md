@@ -51,22 +51,25 @@ out
     | index.ts
 ```
 
-## Roadmap
+## TODOs
 
-| Development Task                  | Progress        |
-| :-------------------------------- | :-------------- |
-| Lexical Analyzer                  | **Done**        |
-| Syntactical Analyzer              | **Done**        |
-| Proto Packages -> Package Tree    | **Done**        |
-| Create name resolution mechanism  | **Done**        |
-| Generation of interfaces          | **Done**        |
-| Encoding of basic types           | **Done**        |
-| Encoding of repeated basic types  | **Done**        |
-| Encoding of enums                 | **Done**        |
-| Encoding of user defined messages | **In Progress** |
-| Decoding of basic types           | Open            |
-| Decoding of enums                 | Open            |
-| Decoding of user defined messages | Open            |
-| Full Coverage Tests               | Open            |
+| Development Task                  | Progress      |
+| :-------------------------------- | :------------ |
+| Lexical Analyzer                  | **Done**      |
+| Syntactical Analyzer              | **Done**      |
+| Proto Packages -> Package Tree    | **Done**      |
+| Create name resolution mechanism  | **Done**      |
+| Generation of interfaces          | **Done**      |
+| Encoding of basic types           | **Done**      |
+| Encoding of repeated basic types  | **Done**      |
+| Encoding of enums                 | **Done**      |
+| Encoding of user defined messages | **Done**      |
+| Fix resolving algorithm           | *In Progress* |
+| Encoding of google defined        | Open          |
+| Encoding of oneof messages        | Open          |
+| Decoding of basic types           | Open          |
+| Decoding of enums                 | Open          |
+| Decoding of user defined messages | Open          |
+| Full Coverage Tests               | Open          |
 
 

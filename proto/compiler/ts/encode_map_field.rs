@@ -1,26 +1,23 @@
 use std::rc::Rc;
 
 use crate::proto::{
-    compiler::ts::{
-        ast::ElementAccess, constants::ENCODE_FUNCTION_NAME,
-        get_relative_import::get_relative_import_string, ts_path::TsPathComponent,
-    },
+    compiler::ts::ast::ElementAccess,
     error::ProtoError,
-    package::{Declaration, FieldType},
+    package::{Declaration, FieldType, MessageDeclaration},
 };
 
 use super::{
-    ast::{self, ImportSpecifier, MethodCall, MethodChain},
+    ast::{self, MethodCall, MethodChain},
     block_scope::BlockScope,
     constants,
-    ensure_import::ensure_import,
+    encode_message_expr::encode_message_expr,
     has_property::has_property,
-    ts_path::TsPath,
 };
 
 pub(super) fn encode_map_field(
+    field_scope: &BlockScope,
+    message_declaration: &MessageDeclaration,
     encode_file: &mut ast::File,
-    scope: &BlockScope,
     message_parameter_id: &Rc<ast::Identifier>,
     writer_var: &Rc<ast::Identifier>,
     js_name_id: &Rc<ast::Identifier>,
@@ -94,7 +91,7 @@ pub(super) fn encode_map_field(
 
     match value_type {
         FieldType::IdPath(ids) => {
-            let defined = scope.resolve_path(ids)?;
+            let defined = field_scope.resolve_path(ids)?;
             let decl = match defined.declaration {
                 super::defined_id::IdType::DataType(decl) => decl,
                 super::defined_id::IdType::Package(_) => unreachable!(),
@@ -106,29 +103,12 @@ pub(super) fn encode_map_field(
                     for_stmt.push_statement(key_value_expr.into());
                 }
                 Declaration::Message(m) => {
-                    let mut encode_func_path = TsPath::from(defined.path());
-                    encode_func_path.push(TsPathComponent::File("encode".into()));
-                    encode_func_path.push(TsPathComponent::Function("encode".into()));
-                    let message_scope = scope.push(m);
-                    let mut current_path = TsPath::from(message_scope.path());
-                    current_path.push(TsPathComponent::File("encode".into()));
-                    let encode_func_expr =
-                        match get_relative_import_string(&current_path, &encode_func_path) {
-                            Some(import_string) => {
-                                let imported_name =
-                                    Rc::new(ast::Identifier::from(format!("e{}", m.id)));
-                                let import_stmt = ast::ImportDeclaration::import(
-                                    vec![ImportSpecifier {
-                                        name: Rc::clone(&imported_name),
-                                        property_name: Some(Rc::new(ENCODE_FUNCTION_NAME.into())),
-                                    }],
-                                    import_string.into(),
-                                );
-                                ensure_import(encode_file, import_stmt);
-                                ast::Expression::from(imported_name)
-                            }
-                            None => ast::Expression::from(ENCODE_FUNCTION_NAME),
-                        };
+                    let encode_func_expr = encode_message_expr(
+                        &field_scope,
+                        message_declaration,
+                        encode_file,
+                        &defined,
+                    );
 
                     for_stmt.push_statement(encode_key_expr.into());
 

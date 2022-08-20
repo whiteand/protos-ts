@@ -92,7 +92,7 @@ fn insert_decode_result_interface(
 
 fn import_encoding_input_type(
     types_file: &mut ast::File,
-    scope: &BlockScope,
+    type_scope: &BlockScope,
     field_type: &FieldType,
 ) -> Result<Type, ProtoError> {
     match field_type {
@@ -100,7 +100,7 @@ fn import_encoding_input_type(
             if ids.is_empty() {
                 unreachable!();
             }
-            let resolve_result = scope.resolve_path(ids)?;
+            let resolve_result = type_scope.resolve_path(ids)?;
             let requested_path = resolve_result.path();
             let mut requested_ts_path = TsPath::from(requested_path);
 
@@ -122,7 +122,7 @@ fn import_encoding_input_type(
                 IdType::Package(_) => unreachable!(),
             };
 
-            let mut current_file_path = TsPath::from(scope.path());
+            let mut current_file_path = TsPath::from(type_scope.path());
             current_file_path.push(TsPathComponent::File("types".into()));
 
             match get_relative_import(&current_file_path, &requested_ts_path) {
@@ -140,12 +140,12 @@ fn import_encoding_input_type(
             ));
         }
         FieldType::Repeated(field_type) => {
-            let element_type = import_encoding_input_type(types_file, scope, field_type)?;
+            let element_type = import_encoding_input_type(types_file, type_scope, field_type)?;
             return Ok(Type::array(element_type));
         }
         FieldType::Map(key, value) => {
-            let key_type = import_encoding_input_type(types_file, scope, key)?;
-            let value_type = import_encoding_input_type(types_file, scope, value)?;
+            let key_type = import_encoding_input_type(types_file, type_scope, key)?;
+            let value_type = import_encoding_input_type(types_file, type_scope, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
         FieldType::Bool => Ok(Type::Boolean),

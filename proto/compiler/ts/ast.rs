@@ -402,8 +402,8 @@ impl FunctionDeclaration {
     pub fn add_param(&mut self, param: Parameter) {
         self.parameters.push(param);
     }
-    pub fn push_statement(&mut self, statement: Rc<Statement>) {
-        self.body.statements.push(statement);
+    pub fn push_statement(&mut self, statement: Statement) {
+        self.body.statements.push(statement.into());
     }
     pub fn returns(&mut self, return_type: Type) {
         self.return_type = return_type;

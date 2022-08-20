@@ -1,12 +1,13 @@
 use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
+    compiler::ts::{encode_call::encode_call, encode_message_expr::encode_message_expr},
     error::ProtoError,
     package::{Declaration, FieldType, MessageDeclaration},
 };
 
 use super::{
-    ast::{self, Folder, MethodCall, Prop, Type},
+    ast::{self, ElementAccess, Folder, MethodCall, Prop, Type},
     block_scope::BlockScope,
     constants::{ENCODE_FUNCTION_NAME, PROTOBUF_MODULE},
     defined_id::IdType,
@@ -15,6 +16,7 @@ use super::{
     encode_enum_field::encode_enum_field,
     encode_map_field::encode_map_field,
     ensure_import::ensure_import,
+    has_property::has_property,
     message_name_to_encode_type_name::message_name_to_encode_type_name,
 };
 
@@ -24,6 +26,7 @@ pub(super) fn compile_encode(
     message_declaration: &MessageDeclaration,
 ) -> Result<(), ProtoError> {
     let mut file = super::ast::File::new("encode".into());
+    let field_scope = scope.push(message_declaration);
 
     let writer_type_id: Rc<ast::Identifier> = ast::Identifier::new("Writer").into();
 
@@ -65,6 +68,7 @@ pub(super) fn compile_encode(
     encode_func.returns(Type::reference(Rc::clone(&writer_type_id)).into());
 
     let writer_var = Rc::new(ast::Identifier { text: "w".into() });
+    let writer_var_expr = Rc::new(ast::Expression::Identifier(Rc::clone(&writer_var)));
 
     encode_func.push_statement(
         ast::Statement::from(ast::VariableDeclarationList::declare_const(
@@ -103,7 +107,7 @@ pub(super) fn compile_encode(
                 if ids.is_empty() {
                     unreachable!();
                 }
-                let resolve_result = scope.resolve_path(ids)?;
+                let resolve_result = field_scope.resolve_path(ids)?;
                 let type_declaration = match resolve_result.declaration {
                     IdType::DataType(decl) => decl,
                     IdType::Package(_) => unreachable!(),
@@ -121,9 +125,44 @@ pub(super) fn compile_encode(
                             .into(),
                         );
                     }
-                    Declaration::Message(m) => {
-                        println!("Message: \n{}", m);
-                        println!("not implemented\n");
+                    Declaration::Message(_) => {
+                        let field_exists_expression =
+                            Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
+                                operator: ast::BinaryOperator::LogicalAnd,
+                                left: ast::Expression::BinaryExpression(ast::BinaryExpression {
+                                    operator: ast::BinaryOperator::WeakNotEqual,
+                                    left: Rc::clone(&field_value),
+                                    right: Rc::new(ast::Expression::Null),
+                                })
+                                .into(),
+                                right: has_property(
+                                    ast::Expression::Identifier(Rc::clone(&message_parameter_id))
+                                        .into(),
+                                    Rc::clone(&js_name_id),
+                                )
+                                .into(),
+                            }));
+                        let message_encode_expr = encode_message_expr(
+                            &field_scope,
+                            &message_declaration,
+                            &mut file,
+                            &resolve_result,
+                        );
+                        let expr = encode_call(
+                            message_encode_expr,
+                            Rc::clone(&writer_var_expr),
+                            field.tag,
+                            field_value,
+                        );
+
+                        encode_func.push_statement(ast::Statement::IfStatement(ast::IfStatement {
+                            expression: field_exists_expression,
+                            then_statement: ast::Statement::Block(ast::Block {
+                                statements: vec![ast::Statement::Expression(expr.into()).into()],
+                            })
+                            .into(),
+                            else_statement: None,
+                        }));
                     }
                 }
             }
@@ -132,7 +171,7 @@ pub(super) fn compile_encode(
                     if ids.is_empty() {
                         unreachable!();
                     }
-                    let resolve_result = scope.resolve_path(ids)?;
+                    let resolve_result = field_scope.resolve_path(ids)?;
                     let type_declaration = match resolve_result.declaration {
                         IdType::DataType(decl) => decl,
                         IdType::Package(_) => unreachable!(),
@@ -150,8 +189,51 @@ pub(super) fn compile_encode(
                             );
                         }
                         Declaration::Message(m) => {
-                            println!("Repeated Message: \n{}", m);
-                            println!("not implemented\n");
+                            let message_encode_expr = encode_message_expr(
+                                &field_scope,
+                                &message_declaration,
+                                &mut file,
+                                &resolve_result,
+                            );
+
+                            let array_is_not_empty =
+                                Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
+                                    operator: ast::BinaryOperator::LogicalAnd,
+                                    left: ast::Expression::BinaryExpression(
+                                        ast::BinaryExpression {
+                                            operator: ast::BinaryOperator::WeakNotEqual,
+                                            left: Rc::clone(&field_value),
+                                            right: Rc::new(ast::Expression::Null),
+                                        },
+                                    )
+                                    .into(),
+                                    right: field_value.prop("length").into(),
+                                }));
+
+                            let i_id = ast::Identifier::from("i").into();
+                            let i_id_expr = ast::Expression::from(Rc::clone(&i_id));
+
+                            let mut for_stmt = ast::ForStatement::for_each(
+                                Rc::clone(&i_id),
+                                Rc::clone(&field_value),
+                            );
+
+                            let expr = encode_call(
+                                message_encode_expr,
+                                Rc::clone(&writer_var_expr),
+                                field.tag,
+                                field_value.element(i_id_expr.into()).into(),
+                            );
+
+                            for_stmt.push_statement(ast::Statement::from(expr));
+
+                            encode_func.push_statement(ast::Statement::IfStatement(
+                                ast::IfStatement {
+                                    expression: array_is_not_empty,
+                                    then_statement: ast::Statement::from(for_stmt).into(),
+                                    else_statement: None,
+                                },
+                            ));
                         }
                     }
                 }
@@ -173,8 +255,9 @@ pub(super) fn compile_encode(
             },
             FieldType::Map(kt, vt) => encode_func.push_statement(
                 encode_map_field(
+                    &field_scope,
+                    &message_declaration,
                     &mut file,
-                    &scope,
                     &message_parameter_id,
                     &writer_var,
                     &js_name_id,
