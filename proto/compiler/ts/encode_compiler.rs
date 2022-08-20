@@ -6,13 +6,14 @@ use crate::proto::{
 };
 
 use super::{
-    ast::{self, Folder, Type},
+    ast::{self, Folder, MethodCall, Prop, Type},
     block_scope::BlockScope,
-    constants::PROTOBUF_MODULE,
+    constants::{ENCODE_FUNCTION_NAME, PROTOBUF_MODULE},
     defined_id::IdType,
     encode_basic_repeated_type_field::encode_basic_repeated_type_field,
     encode_basic_type_field::encode_basic_type_field,
     encode_enum_field::encode_enum_field,
+    encode_map_field::encode_map_field,
     ensure_import::ensure_import,
     message_name_to_encode_type_name::message_name_to_encode_type_name,
 };
@@ -34,7 +35,7 @@ pub(super) fn compile_encode(
         .into(),
     );
 
-    let mut encode_func = ast::FunctionDeclaration::new_exported("encode");
+    let mut encode_func = ast::FunctionDeclaration::new_exported(ENCODE_FUNCTION_NAME);
 
     let message_encode_input_type_id: Rc<ast::Identifier> =
         ast::Identifier::new(&message_name_to_encode_type_name(&message_declaration.name)).into();
@@ -66,27 +67,17 @@ pub(super) fn compile_encode(
     let writer_var = Rc::new(ast::Identifier { text: "w".into() });
 
     encode_func.push_statement(
-        ast::Statement::from(Rc::from(ast::VariableDeclarationList::constants(vec![
-            ast::VariableDeclaration {
-                name: Rc::clone(&writer_var),
-                initializer: ast::Expression::from(ast::BinaryExpression {
-                    operator: ast::BinaryOperator::LogicalOr,
-                    left: ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
-                    right: Rc::new(ast::Expression::CallExpression(ast::CallExpression {
-                        expression: Rc::new(ast::Expression::PropertyAccessExpression(
-                            ast::PropertyAccessExpression {
-                                expression: Rc::new(ast::Expression::from(Rc::clone(
-                                    &writer_type_id,
-                                ))),
-                                name: ast::Identifier::new("create").into(),
-                            },
-                        )),
-                        arguments: vec![],
-                    })),
-                })
-                .into(),
-            },
-        ])))
+        ast::Statement::from(ast::VariableDeclarationList::declare_const(
+            Rc::clone(&writer_var),
+            ast::BinaryExpression {
+                operator: ast::BinaryOperator::LogicalOr,
+                left: ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
+                right: Rc::new(ast::Expression::from(Rc::clone(&writer_type_id)))
+                    .method_call("create", vec![])
+                    .into(),
+            }
+            .into(),
+        ))
         .into(),
     );
 
@@ -105,14 +96,8 @@ pub(super) fn compile_encode(
     for (_, field) in fields.into_iter().enumerate() {
         let js_name = field.json_name();
         let js_name_id: Rc<ast::Identifier> = ast::Identifier::new(&js_name).into();
-        let field_value = Rc::new(ast::Expression::PropertyAccessExpression(
-            ast::PropertyAccessExpression {
-                expression: ast::Expression::Identifier(Rc::clone(&message_parameter_id)).into(),
-                name: Rc::new(ast::Identifier {
-                    text: Rc::clone(&js_name),
-                }),
-            },
-        ));
+        let message_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&message_parameter_id).into());
+        let field_value = Rc::new(message_expr.prop(&js_name));
         match &field.field_type {
             FieldType::IdPath(ids) => {
                 if ids.is_empty() {
@@ -186,10 +171,19 @@ pub(super) fn compile_encode(
                     )
                 }
             },
-            FieldType::Map(_, _) => {
-                println!("{}", field);
-                println!("not implemented\n");
-            }
+            FieldType::Map(kt, vt) => encode_func.push_statement(
+                encode_map_field(
+                    &scope,
+                    &message_parameter_id,
+                    &writer_var,
+                    &js_name_id,
+                    &field_value,
+                    field.tag,
+                    kt,
+                    vt,
+                )?
+                .into(),
+            ),
             t => {
                 assert!(t.is_basic());
 
@@ -208,7 +202,11 @@ pub(super) fn compile_encode(
         }
     }
 
-    encode_func.push_statement(ast::Expression::Identifier(writer_var).ret().into());
+    encode_func.push_statement(
+        ast::Expression::from(writer_var)
+            .into_return_statement()
+            .into(),
+    );
 
     file.push_statement(encode_func.into());
 

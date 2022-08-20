@@ -5,6 +5,7 @@ use crate::proto::package::FieldType;
 use super::ast;
 
 pub(super) const PROTOBUF_MODULE: &'static str = "protobufjs/minimal";
+pub(super) const ENCODE_FUNCTION_NAME: &'static str = "encode";
 
 pub(super) fn get_basic_wire_type(field_type: &FieldType) -> u32 {
     match field_type {
@@ -36,9 +37,7 @@ pub(super) fn get_default_value(field_type: FieldType) -> ast::Expression {
         FieldType::Map(_, _) => ast::Expression::ObjectLiteralExpression(vec![]),
         FieldType::Bool => ast::Expression::False,
         FieldType::Bytes => ast::Expression::NewExpression(ast::NewExpression {
-            expression: Rc::new(ast::Expression::Identifier(
-                ast::Identifier::new("Uint8Array").into(),
-            )),
+            expression: Rc::new("Uint8Array".into()),
             arguments: vec![],
         }),
         FieldType::Double => 0f64.into(),

@@ -5,7 +5,7 @@ use crate::proto::{
     package::FieldType,
 };
 
-use super::ast::{self, Identifier};
+use super::ast::{self, Identifier, MethodCall};
 
 pub(crate) fn encode_basic_type_field(
     field_value: &Rc<ast::Expression>,
@@ -27,37 +27,26 @@ pub(crate) fn encode_basic_type_field(
             })
             .into(),
             right: has_property(
-                ast::Expression::Identifier(Rc::clone(message_parameter_id)).into(),
+                ast::Expression::from(Rc::clone(message_parameter_id)).into(),
                 Rc::clone(js_name_id),
             )
             .into(),
         }));
-    let tag_encoding_expr = (ast::Expression::CallExpression(ast::CallExpression {
-        expression: ast::Expression::PropertyAccessExpression(ast::PropertyAccessExpression {
-            expression: ast::Expression::Identifier(Rc::clone(writer_var)).into(),
-            name: Rc::new(ast::Identifier::from("uint32")),
-        })
-        .into(),
-        arguments: vec![Rc::new(ast::Expression::NumericLiteral(
+    let writer_var_expr = Rc::new(ast::Expression::Identifier(Rc::clone(writer_var)));
+    let tag_encoding_expr = writer_var_expr.method_call(
+        "uint32",
+        vec![Rc::new(ast::Expression::NumericLiteral(
             field_prefix as f64,
         ))],
-    }));
-    let encode_field_stmt = ast::Statement::Expression(
-        (ast::Expression::CallExpression(ast::CallExpression {
-            expression: ast::Expression::PropertyAccessExpression(ast::PropertyAccessExpression {
-                expression: tag_encoding_expr.into(),
-                name: Rc::new(ast::Identifier::from(format!("{}", field_type))),
-            })
-            .into(),
-            arguments: vec![Rc::clone(&field_value)],
-        }))
-        .into(),
     );
 
+    let type_str = format!("{}", field_type);
+    let encode_field_stmt =
+        Rc::new(tag_encoding_expr).method_call(&type_str, vec![Rc::clone(&field_value)]);
     ast::Statement::IfStatement(ast::IfStatement {
         expression: field_exists_expression,
         then_statement: ast::Statement::from(ast::Block {
-            statements: vec![encode_field_stmt.into()],
+            statements: vec![ast::Statement::Expression(encode_field_stmt.into()).into()],
         })
         .into(),
         else_statement: None,

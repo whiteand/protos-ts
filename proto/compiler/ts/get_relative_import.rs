@@ -2,20 +2,22 @@ use crate::proto::compiler::ts::ast;
 
 use super::ts_path::TsPathComponent;
 
-pub(super) fn get_relative_import(
+pub(super) fn get_relative_import_string(
     mut from: &[TsPathComponent],
     mut to: &[TsPathComponent],
-) -> ast::ImportDeclaration {
+) -> Option<String> {
     assert!(to.last().unwrap().is_declaration());
     while from.len() > 0 && to.len() > 0 && from[0] == to[0] {
         from = &from[1..];
         to = &to[1..];
     }
+
+    if from.len() <= 0 {
+        return None;
+    }
     assert!(from.len() > 0);
     assert!(to.len() > 0);
-    let imported_component = to.last().unwrap();
-    assert!(imported_component.is_declaration());
-    let imported_name: String = imported_component.into();
+
     if from.first().unwrap().is_file() {
         let mut file_string = format!(".");
         for component in to.iter() {
@@ -27,16 +29,7 @@ pub(super) fn get_relative_import(
             file_string.push_str(&component_name);
         }
 
-        return ast::ImportDeclaration {
-            import_clause: ast::ImportClause {
-                name: None,
-                named_bindings: Some(vec![ast::ImportSpecifier::new(
-                    ast::Identifier::new(&imported_name).into(),
-                )]),
-            }
-            .into(),
-            string_literal: file_string.into(),
-        };
+        return Some(file_string);
     }
 
     let mut import_string = String::new();
@@ -57,7 +50,35 @@ pub(super) fn get_relative_import(
     assert!(file_component.is_file());
     let file_name: String = file_component.into();
     import_string.push_str(&file_name);
-    ast::ImportDeclaration {
+    Some(import_string)
+}
+
+pub(super) fn get_named_relative_import(
+    from: &[TsPathComponent],
+    to: &[TsPathComponent],
+    name: &str,
+) -> Option<ast::ImportDeclaration> {
+    let imported_name: String = to.last().unwrap().into();
+    let import_string = get_relative_import_string(from, to);
+    import_string.map(|import_string| ast::ImportDeclaration {
+        import_clause: ast::ImportClause {
+            name: None,
+            named_bindings: Some(vec![ast::ImportSpecifier::new_full(
+                ast::Identifier::new(&imported_name).into(),
+                Some(ast::Identifier::new(name).into()),
+            )]),
+        }
+        .into(),
+        string_literal: import_string.into(),
+    })
+}
+pub(super) fn get_relative_import(
+    from: &[TsPathComponent],
+    to: &[TsPathComponent],
+) -> Option<ast::ImportDeclaration> {
+    let imported_name: String = to.last().unwrap().into();
+    let import_string = get_relative_import_string(from, to);
+    import_string.map(|import_string| ast::ImportDeclaration {
         import_clause: ast::ImportClause {
             name: None,
             named_bindings: Some(vec![ast::ImportSpecifier::new(
@@ -66,5 +87,5 @@ pub(super) fn get_relative_import(
         }
         .into(),
         string_literal: import_string.into(),
-    }
+    })
 }

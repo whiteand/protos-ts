@@ -125,9 +125,12 @@ fn import_encoding_input_type(
             let mut current_file_path = TsPath::from(scope.path());
             current_file_path.push(TsPathComponent::File("types".into()));
 
-            let import_declaration = get_relative_import(&current_file_path, &requested_ts_path);
-
-            ensure_import(types_file, import_declaration);
+            match get_relative_import(&current_file_path, &requested_ts_path) {
+                Some(import_declaration) => {
+                    ensure_import(types_file, import_declaration);
+                }
+                _ => {}
+            }
 
             return Ok(Type::reference(
                 ast::Identifier {
@@ -207,9 +210,12 @@ fn import_decode_result_type(
             let mut current_file_path = TsPath::from(scope.path());
             current_file_path.push(TsPathComponent::File("types".into()));
 
-            let import_declaration = get_relative_import(&current_file_path, &requested_ts_path);
-
-            ensure_import(types_file, import_declaration);
+            match get_relative_import(&current_file_path, &requested_ts_path) {
+                Some(import_declaration) => {
+                    ensure_import(types_file, import_declaration);
+                }
+                _ => {}
+            }
 
             return Ok(Type::reference(
                 ast::Identifier::new(&imported_type_name).into(),

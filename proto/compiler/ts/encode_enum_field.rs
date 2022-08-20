@@ -5,7 +5,7 @@ use crate::proto::package::FieldType;
 
 use super::constants::get_basic_wire_type;
 
-use super::ast;
+use super::ast::{self, MethodChain};
 
 pub(super) fn encode_enum_field(
     message_parameter_id: &Rc<ast::Identifier>,
@@ -32,27 +32,19 @@ pub(super) fn encode_enum_field(
             .into(),
         }));
 
-    let tag_encoding_expr = (ast::Expression::CallExpression(ast::CallExpression {
-        expression: ast::Expression::PropertyAccessExpression(ast::PropertyAccessExpression {
-            expression: ast::Expression::Identifier(Rc::clone(writer_var)).into(),
-            name: Rc::new(ast::Identifier::from("uint32")),
-        })
-        .into(),
-        arguments: vec![Rc::new(ast::Expression::NumericLiteral(
-            field_prefix as f64,
-        ))],
-    }));
-
+    let writer_var_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&writer_var).into());
     let encode_field_stmt = ast::Statement::Expression(
-        (ast::Expression::CallExpression(ast::CallExpression {
-            expression: ast::Expression::PropertyAccessExpression(ast::PropertyAccessExpression {
-                expression: tag_encoding_expr.into(),
-                name: Rc::new(ast::Identifier::from("int32")),
-            })
+        writer_var_expr
+            .method_chain(vec![
+                (
+                    "uint32",
+                    vec![Rc::new(ast::Expression::NumericLiteral(
+                        field_prefix as f64,
+                    ))],
+                ),
+                ("int32", vec![Rc::clone(&field_value)]),
+            ])
             .into(),
-            arguments: vec![Rc::clone(&field_value)],
-        }))
-        .into(),
     );
 
     ast::Statement::IfStatement(ast::IfStatement {

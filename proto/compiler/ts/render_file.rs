@@ -402,7 +402,7 @@ impl From<&ElementAccessExpression> for String {
         let obj_str: String = expr.expression.deref().into();
         res.push_str(&obj_str);
         res.push('[');
-        let prop_str: String = expr.argumentExpression.deref().into();
+        let prop_str: String = expr.argument.deref().into();
         res.push_str(&prop_str);
         res.push(']');
         res

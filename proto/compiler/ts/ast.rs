@@ -530,7 +530,7 @@ impl NewExpression {
 #[derive(Debug)]
 pub(crate) struct ElementAccessExpression {
     pub expression: Rc<Expression>,
-    pub argumentExpression: Rc<Expression>,
+    pub argument: Rc<Expression>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -580,9 +580,113 @@ pub(crate) enum Expression {
     PrefixUnaryExpression(PrefixUnaryExpression),
 }
 
+impl Expression {
+    pub fn into_return_statement(self) -> Statement {
+        Statement::ReturnStatement(Some(self))
+    }
+    pub fn into_prop(self, name: &str) -> Self {
+        Expression::PropertyAccessExpression(PropertyAccessExpression {
+            expression: Rc::new(self),
+            name: Rc::new(Identifier::new(name)),
+        })
+    }
+    pub fn into_method_call(self, name: &str, args: Vec<Rc<Expression>>) -> Expression {
+        self.into_prop(name).into_call(args)
+    }
+    pub fn into_call(self, args: Vec<Rc<Expression>>) -> Expression {
+        Expression::CallExpression(CallExpression {
+            expression: Rc::new(self),
+            arguments: args,
+        })
+    }
+    pub fn into_element(self, argument: Rc<Expression>) -> Expression {
+        Expression::ElementAccessExpression(ElementAccessExpression {
+            expression: Rc::new(self),
+            argument,
+        })
+    }
+}
+
+pub(crate) trait Prop {
+    fn prop(&self, name: &str) -> Expression;
+}
+
+pub(crate) trait MethodCall {
+    fn method_call(&self, name: &str, args: Vec<Rc<Expression>>) -> Expression;
+}
+
+pub(crate) trait MethodChain {
+    fn method_chain(&self, method_calls: Vec<(&str, Vec<Rc<Expression>>)>) -> Expression;
+}
+pub(crate) trait ElementAccess {
+    fn element(&self, argument: Rc<Expression>) -> Expression;
+}
+
+pub(crate) trait Call {
+    fn call(&self, args: Vec<Rc<Expression>>) -> Expression;
+}
+
+impl<T: MethodCall> MethodChain for T {
+    fn method_chain(&self, mut method_calls: Vec<(&str, Vec<Rc<Expression>>)>) -> Expression {
+        if method_calls.is_empty() {
+            unreachable!()
+        }
+
+        method_calls.reverse();
+
+        let first_call = method_calls.pop().unwrap();
+        let mut current = self.method_call(first_call.0, first_call.1);
+
+        while !method_calls.is_empty() {
+            let (method, args) = method_calls.pop().unwrap();
+            current = Rc::new(current).method_call(method, args);
+        }
+        current
+    }
+}
+
+impl ElementAccess for Rc<Expression> {
+    fn element(&self, argument: Rc<Expression>) -> Expression {
+        Expression::ElementAccessExpression(ElementAccessExpression {
+            expression: Rc::clone(self),
+            argument,
+        })
+    }
+}
+
+impl MethodCall for Rc<Expression> {
+    fn method_call(&self, name: &str, args: Vec<Rc<Expression>>) -> Expression {
+        Rc::new(self.prop(name)).call(args)
+    }
+}
+
+impl Call for Rc<Expression> {
+    fn call(&self, args: Vec<Rc<Expression>>) -> Expression {
+        Expression::CallExpression(CallExpression {
+            expression: Rc::clone(self),
+            arguments: args,
+        })
+    }
+}
+
+impl Prop for Rc<Expression> {
+    fn prop(&self, name: &str) -> Expression {
+        Expression::PropertyAccessExpression(PropertyAccessExpression {
+            expression: Rc::clone(&self),
+            name: Rc::new(Identifier::new(name)),
+        })
+    }
+}
+
 impl From<f64> for Expression {
     fn from(f: f64) -> Self {
         Self::NumericLiteral(f)
+    }
+}
+
+impl From<&str> for Expression {
+    fn from(s: &str) -> Self {
+        Self::Identifier(Rc::new(Identifier::new(s)))
     }
 }
 
@@ -601,12 +705,6 @@ impl From<NewExpression> for Expression {
 impl From<Vec<Rc<Expression>>> for Expression {
     fn from(expressions: Vec<Rc<Expression>>) -> Self {
         Self::ArrayLiteralExpression(expressions)
-    }
-}
-
-impl Expression {
-    pub fn ret(self) -> Statement {
-        Statement::ReturnStatement(Some(self))
     }
 }
 
@@ -664,16 +762,22 @@ pub(crate) struct VariableDeclarationList {
 }
 
 impl VariableDeclarationList {
-    pub fn constants(declarations: Vec<VariableDeclaration>) -> Self {
-        Self {
+    pub fn declare_const(name: Rc<Identifier>, initializer: Expression) -> Self {
+        VariableDeclarationList {
             kind: VariableKind::Const,
-            declarations,
+            declarations: vec![VariableDeclaration {
+                name,
+                initializer: initializer.into(),
+            }],
         }
     }
-    pub fn vars(declarations: Vec<VariableDeclaration>) -> Self {
-        Self {
+    pub fn declare_let(name: Rc<Identifier>, initializer: Expression) -> Self {
+        VariableDeclarationList {
             kind: VariableKind::Let,
-            declarations,
+            declarations: vec![VariableDeclaration {
+                name,
+                initializer: initializer.into(),
+            }],
         }
     }
 }
@@ -696,8 +800,8 @@ impl Block {
             statements: Vec::new(),
         }
     }
-    pub fn add_statement(&mut self, statement: Rc<Statement>) -> &mut Self {
-        self.statements.push(statement);
+    pub fn push_statement(&mut self, statement: Statement) -> &mut Self {
+        self.statements.push(Rc::new(statement));
         self
     }
 }
@@ -713,13 +817,8 @@ pub(crate) struct ForStatement {
 impl ForStatement {
     pub fn for_each(iter_var: Rc<Identifier>, arr_expr: Rc<Expression>) -> Self {
         Self {
-            initializer: Rc::new(VariableDeclarationList {
-                kind: VariableKind::Let,
-                declarations: vec![VariableDeclaration {
-                    name: Rc::clone(&iter_var),
-                    initializer: Rc::new(0f64.into()),
-                }],
-            }),
+            initializer: VariableDeclarationList::declare_let(Rc::clone(&iter_var), 0f64.into())
+                .into(),
             condition: Rc::new(Expression::BinaryExpression(BinaryExpression {
                 operator: BinaryOperator::LessThan,
                 left: Expression::Identifier(Rc::clone(&iter_var)).into(),
@@ -744,7 +843,7 @@ impl ForStatement {
 
         match *for_stmt_rc {
             Statement::Block(mut b) => {
-                b.add_statement(statement.into());
+                b.push_statement(statement);
                 self.statement = Box::new(Statement::Block(b));
                 self
             }
@@ -758,8 +857,8 @@ impl ForStatement {
             Statement::FunctionDeclaration(_) => unreachable!(),
             stmt => {
                 let mut block = Block::new();
-                block.add_statement(stmt.into());
-                block.add_statement(statement.into());
+                block.push_statement(stmt);
+                block.push_statement(statement);
                 self.statement = Box::new(Statement::Block(block));
                 self
             }
@@ -824,9 +923,9 @@ impl From<Block> for Statement {
     }
 }
 
-impl From<Rc<VariableDeclarationList>> for Statement {
-    fn from(list: Rc<VariableDeclarationList>) -> Self {
-        Self::VariableStatement(list)
+impl From<VariableDeclarationList> for Statement {
+    fn from(list: VariableDeclarationList) -> Self {
+        Self::VariableStatement(Rc::new(list))
     }
 }
 
