@@ -4,6 +4,7 @@ use crate::proto::package::FieldDeclaration;
 
 use super::{
     error::{syntax_error, ProtoError},
+    id_generator::IdGenerator,
     lexems::{Lexem, LocatedLexem},
     package::{
         Declaration, EnumDeclaration, EnumEntry, FieldType, ImportPath, MessageDeclaration,
@@ -116,6 +117,7 @@ pub(super) fn parse_package(
     let mut ind = 0;
     let mut tasks: Vec<Task> = vec![ParseStatements];
     let mut stack: Vec<StackItem> = Vec::new();
+    let mut id_gen = IdGenerator::new();
     while let Some(task) = tasks.pop() {
         match task {
             ParseStatements => {
@@ -197,7 +199,7 @@ pub(super) fn parse_package(
                     ));
                 }
                 stack.push(key_type.into());
-                continue
+                continue;
             }
             WrapMapType => {
                 let value_type = match stack.pop() {
@@ -468,6 +470,7 @@ pub(super) fn parse_package(
                         match (list_item, enum_name_item) {
                             (StackItem::EnumEntriesList(entries), StackItem::String(name)) => {
                                 let enum_declaration = EnumDeclaration {
+                                    id: id_gen.next().unwrap(),
                                     name,
                                     entries: entries,
                                 };
@@ -553,6 +556,7 @@ pub(super) fn parse_package(
                     _ => unreachable!(),
                 };
                 let message_declaration = MessageDeclaration {
+                    id: id_gen.next().unwrap(),
                     name: message_name,
                     entries,
                 };

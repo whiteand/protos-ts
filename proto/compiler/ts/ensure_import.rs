@@ -1,10 +1,10 @@
 use super::ast;
 
-pub(super) fn ensure_import(types_file: &mut ast::File, new_import: ast::ImportDeclaration) {
+pub(super) fn ensure_import(file: &mut ast::File, new_import: ast::ImportDeclaration) {
     let mut import_statement_index = 0;
     let mut found_import_statement_to_the_same_file = false;
-    while import_statement_index < types_file.ast.statements.len() {
-        let statement = &mut types_file.ast.statements[import_statement_index];
+    while import_statement_index < file.ast.statements.len() {
+        let statement = &mut file.ast.statements[import_statement_index];
         match statement {
             ast::Statement::ImportDeclaration(import) => {
                 if import.string_literal.text != new_import.string_literal.text {
@@ -20,13 +20,12 @@ pub(super) fn ensure_import(types_file: &mut ast::File, new_import: ast::ImportD
         }
     }
     if !found_import_statement_to_the_same_file {
-        types_file
-            .ast
+        file.ast
             .statements
             .insert(import_statement_index, new_import.into());
         return;
     }
-    let actual_import_declaration = match &mut types_file.ast.statements[import_statement_index] {
+    let actual_import_declaration = match &mut file.ast.statements[import_statement_index] {
         ast::Statement::ImportDeclaration(imprt) => imprt,
         _ => unreachable!(),
     };
@@ -41,14 +40,9 @@ pub(super) fn ensure_import(types_file: &mut ast::File, new_import: ast::ImportD
 }
 
 fn ensure_import_specifier(import_clause: &mut ast::ImportClause, specifier: ast::ImportSpecifier) {
-    match specifier.property_name {
-        Some(_) => todo!(),
-        None => {}
-    }
-
     let mut found_specifier = false;
-    for specifier in import_clause.named_bindings.iter().flatten() {
-        if specifier.name == specifier.name {
+    for sp in import_clause.named_bindings.iter().flatten() {
+        if *sp == specifier {
             found_specifier = true;
             break;
         }

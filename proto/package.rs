@@ -39,6 +39,7 @@ impl std::fmt::Display for EnumEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EnumDeclaration {
+    pub id: usize,
     pub name: Rc<str>,
     pub entries: Vec<EnumEntry>,
 }
@@ -292,6 +293,7 @@ impl From<Declaration> for MessageEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MessageDeclaration {
+    pub id: usize,
     pub name: Rc<str>,
     pub entries: Vec<MessageEntry>,
 }

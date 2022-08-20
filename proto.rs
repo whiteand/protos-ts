@@ -6,3 +6,4 @@ pub(super) mod package_tree;
 mod syntax;
 mod scope;
 mod lexems;
+mod id_generator;

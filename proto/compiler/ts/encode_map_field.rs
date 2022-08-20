@@ -10,14 +10,16 @@ use crate::proto::{
 };
 
 use super::{
-    ast::{self, MethodCall, MethodChain},
+    ast::{self, ImportSpecifier, MethodCall, MethodChain},
     block_scope::BlockScope,
     constants,
+    ensure_import::ensure_import,
     has_property::has_property,
     ts_path::TsPath,
 };
 
 pub(super) fn encode_map_field(
+    encode_file: &mut ast::File,
     scope: &BlockScope,
     message_parameter_id: &Rc<ast::Identifier>,
     writer_var: &Rc<ast::Identifier>,
@@ -113,8 +115,17 @@ pub(super) fn encode_map_field(
                     let encode_func_expr =
                         match get_relative_import_string(&current_path, &encode_func_path) {
                             Some(import_string) => {
-                                println!("Import string {}", import_string);
-                                todo!();
+                                let imported_name =
+                                    Rc::new(ast::Identifier::from(format!("e{}", m.id)));
+                                let import_stmt = ast::ImportDeclaration::import(
+                                    vec![ImportSpecifier {
+                                        name: Rc::clone(&imported_name),
+                                        property_name: Some(Rc::new(ENCODE_FUNCTION_NAME.into())),
+                                    }],
+                                    import_string.into(),
+                                );
+                                ensure_import(encode_file, import_stmt);
+                                ast::Expression::from(imported_name)
                             }
                             None => ast::Expression::from(ENCODE_FUNCTION_NAME),
                         };

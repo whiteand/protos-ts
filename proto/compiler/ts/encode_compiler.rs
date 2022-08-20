@@ -173,6 +173,7 @@ pub(super) fn compile_encode(
             },
             FieldType::Map(kt, vt) => encode_func.push_statement(
                 encode_map_field(
+                    &mut file,
                     &scope,
                     &message_parameter_id,
                     &writer_var,
