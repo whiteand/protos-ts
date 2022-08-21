@@ -1,12 +1,16 @@
-use super::{error::ProtoError, lexems, package_tree::PackageTree, scope::Scope, syntax};
-use lexems::read_lexems;
-use std::{
-    fmt::Display,
-    io::Read,
-    ops::{Deref, Index},
-    path::PathBuf,
-    rc::Rc,
+use super::{
+    error::ProtoError,
+    lexems,
+    package_tree::PackageTree,
+    proto_scope::{
+        builder::{ScopeBuilder, ScopeBuilderTrait},
+        root_scope::RootScope,
+    },
+    scope::Scope,
+    syntax,
 };
+use lexems::read_lexems;
+use std::{fmt::Display, io::Read, ops::Deref, path::PathBuf, rc::Rc};
 use syntax::parse_package;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -474,6 +478,15 @@ pub(crate) fn read_package_tree(files: &[PathBuf]) -> Result<PackageTree, ProtoE
         packages.push(proto_file);
     }
     packages.try_into()
+}
+pub(crate) fn read_root_scope(files: &[PathBuf]) -> Result<RootScope, ProtoError> {
+    let builder = ScopeBuilder::new_ref();
+
+    for file in files {
+        let proto_file = read_proto_file(file)?;
+        builder.load(proto_file)?;
+    }
+    builder.finish()
 }
 
 fn read_proto_file(file_path: &PathBuf) -> Result<ProtoFile, ProtoError> {

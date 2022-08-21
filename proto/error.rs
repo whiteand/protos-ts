@@ -41,8 +41,8 @@ pub(crate) enum ProtoError {
 }
 
 impl ProtoError {
-    pub fn new(value: String) -> Self {
-        ProtoError::Default(value)
+    pub fn new(value: &str) -> Self {
+        ProtoError::Default(value.to_string())
     }
 }
 

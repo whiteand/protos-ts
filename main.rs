@@ -10,6 +10,7 @@ use proto::compiler::ts::commit_folder::commit_folder;
 use proto::compiler::ts::package_tree_to_folder::root_tree_to_folder;
 use proto::folder::read_proto_folder;
 use proto::package::read_package_tree;
+use proto::package::read_root_scope;
 
 fn main() -> () {
     let args = match get_proto_folder_path() {
@@ -36,6 +37,16 @@ fn run(args: CliArguments) {
         }
         Ok(r) => r,
     };
+
+    let root_scope = match read_root_scope(&proto_folder.files) {
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(3);
+        }
+        Ok(r) => r,
+    };
+
+    dbg!(root_scope);
 
     let mut root_tree = match read_package_tree(&proto_folder.files) {
         Err(e) => {

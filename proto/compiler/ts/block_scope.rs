@@ -159,6 +159,6 @@ impl<'context> BlockScope<'context> {
         for location in self.stack_trace() {
             error_message.push_str(format!("\n  in {}", location).as_str());
         }
-        return ProtoError::new(error_message);
+        return ProtoError::new(&error_message);
     }
 }
