@@ -134,6 +134,33 @@ pub(crate) enum FieldTypeReference {
 }
 
 impl FieldTypeReference {
+    pub fn trivial_resolve(&self) -> Option<Type> {
+        match self {
+            FieldTypeReference::IdPath(_) => None,
+            FieldTypeReference::Repeated(t) => {
+                t.trivial_resolve().map(|t| Type::Repeated(t.into()))
+            }
+            FieldTypeReference::Map(k, v) => k.trivial_resolve().and_then(|resolved_k| {
+                v.trivial_resolve()
+                    .map(|resolved_v| Type::Map(resolved_k.into(), resolved_v.into()))
+            }),
+            FieldTypeReference::Bool => Some(Type::Bool),
+            FieldTypeReference::Bytes => Some(Type::Bytes),
+            FieldTypeReference::Double => Some(Type::Double),
+            FieldTypeReference::Fixed32 => Some(Type::Fixed32),
+            FieldTypeReference::Fixed64 => Some(Type::Fixed64),
+            FieldTypeReference::Float => Some(Type::Float),
+            FieldTypeReference::Int32 => Some(Type::Int32),
+            FieldTypeReference::Int64 => Some(Type::Int64),
+            FieldTypeReference::Sfixed32 => Some(Type::Sfixed32),
+            FieldTypeReference::Sfixed64 => Some(Type::Sfixed64),
+            FieldTypeReference::Sint32 => Some(Type::Sint32),
+            FieldTypeReference::Sint64 => Some(Type::Sint64),
+            FieldTypeReference::String => Some(Type::String),
+            FieldTypeReference::Uint32 => Some(Type::Uint32),
+            FieldTypeReference::Uint64 => Some(Type::Uint64),
+        }
+    }
     pub fn repeated(t: Self) -> Self {
         FieldTypeReference::Repeated(Box::new(t))
     }
@@ -278,6 +305,14 @@ pub(crate) struct FieldDeclaration {
     pub attributes: Vec<(Rc<str>, Rc<str>)>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Field {
+    pub name: Rc<str>,
+    pub field_type: Type,
+    pub tag: i64,
+    pub attributes: Vec<(Rc<str>, Rc<str>)>,
+}
+
 impl FieldDeclaration {
     pub fn json_name(&self) -> Rc<str> {
         for (key, value) in &self.attributes {
@@ -307,6 +342,12 @@ impl std::fmt::Display for FieldDeclaration {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OneOfGroup {
+    pub name: Rc<str>,
+    pub options: Vec<Field>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OneOfDeclaration {
     pub name: Rc<str>,
     pub options: Vec<FieldDeclaration>,
@@ -324,8 +365,8 @@ impl std::fmt::Display for OneOfDeclaration {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MessageEntry {
-    Field(FieldDeclaration),
-    OneOf(OneOfDeclaration),
+    Field(Field),
+    OneOf(OneOfGroup),
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MessageDeclarationEntry {

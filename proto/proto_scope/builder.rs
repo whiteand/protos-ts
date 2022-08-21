@@ -171,10 +171,12 @@ fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, Prot
             enum_scope
         }
         ScopeData::Message(m) => {
+            let entries = vec![];
             let message_scope = Rc::new(ProtoScope::Message(MessageScope {
                 id: m.id,
                 name: m.name,
                 children,
+                entries,
             }));
             declaration_paths.push((m.id, vec![]));
             message_scope
