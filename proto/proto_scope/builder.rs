@@ -8,8 +8,9 @@ use std::{
 use crate::proto::{
     error::ProtoError,
     package::{
-        Declaration, EnumDeclaration, FieldDeclaration, ImportPath, MessageDeclaration,
-        MessageDeclarationEntry, OneOfDeclaration, ProtoFile,
+        Declaration, EnumDeclaration, Field, FieldDeclaration, FieldTypeReference, ImportPath,
+        MessageDeclaration, MessageDeclarationEntry, MessageEntry, OneOfDeclaration, ProtoFile,
+        Type,
     },
 };
 
@@ -50,6 +51,42 @@ enum ScopeData {
     Message(MessageData),
 }
 
+impl ScopeData {
+    fn name(&self) -> Option<Rc<str>> {
+        match self {
+            ScopeData::Root => unreachable!(),
+            ScopeData::Package(p) => Some(Rc::clone(&p.name)),
+            ScopeData::File(p) => Some(Rc::clone(&p.name)),
+            ScopeData::Enum(p) => Some(Rc::clone(&p.name)),
+            ScopeData::Message(p) => Some(Rc::clone(&p.name)),
+        }
+    }
+    fn id(&self) -> Option<usize> {
+        match self {
+            ScopeData::Root => None,
+            ScopeData::Package(_) => None,
+            ScopeData::File(_) => None,
+            ScopeData::Enum(e) => Some(e.id),
+            ScopeData::Message(m) => Some(m.id),
+        }
+    }
+    fn is_root(&self) -> bool {
+        return matches!(self, ScopeData::Root);
+    }
+    fn is_package(&self) -> bool {
+        return matches!(self, ScopeData::Package(_));
+    }
+    fn is_file(&self) -> bool {
+        return matches!(self, ScopeData::File(_));
+    }
+    fn is_enum(&self) -> bool {
+        return matches!(self, ScopeData::Enum(_));
+    }
+    fn is_message(&self) -> bool {
+        return matches!(self, ScopeData::Message(_));
+    }
+}
+
 impl std::fmt::Display for ScopeData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -79,6 +116,167 @@ pub(in super::super) struct ScopeBuilder {
     data: ScopeData,
     parent: Option<Weak<RefCell<ScopeBuilder>>>,
     children: Vec<Rc<RefCell<ScopeBuilder>>>,
+}
+
+enum ResolvedName {
+    Package,
+    Enum,
+    Message,
+    Absent,
+}
+
+impl ScopeBuilder {
+    fn is_root(&self) -> bool {
+        self.data.is_root()
+    }
+    fn has_name(&self, name: &str) -> bool {
+        let current_name = self.name();
+        if let Some(current_name) = current_name {
+            return current_name.deref() == name;
+        }
+        return false;
+    }
+    fn id(&self) -> Option<usize> {
+        self.data.id()
+    }
+    fn get_type(&self) -> Option<Type> {
+        match self.id() {
+            Some(id) => {
+                if self.is_enum() {
+                    return Some(Type::Enum(id));
+                }
+                if self.is_message() {
+                    return Some(Type::Message(id));
+                }
+                unreachable!()
+            }
+            _ => return None,
+        }
+    }
+    fn is_package(&self) -> bool {
+        self.data.is_package()
+    }
+    fn is_file(&self) -> bool {
+        self.data.is_file()
+    }
+    fn is_enum(&self) -> bool {
+        self.data.is_enum()
+    }
+    fn is_message(&self) -> bool {
+        self.data.is_message()
+    }
+    fn name(&self) -> Option<Rc<str>> {
+        self.data.name()
+    }
+    fn path(&self) -> Vec<Rc<str>> {
+        match &self.parent {
+            Some(parent_weak) => match &parent_weak.upgrade() {
+                Some(parent_ref) => {
+                    let mut res = {
+                        let parent = parent_ref.borrow();
+                        parent.path()
+                    };
+                    match self.name() {
+                        Some(name) => res.push(name),
+                        None => {}
+                    }
+                    res
+                }
+                None => vec![],
+            },
+            None => vec![],
+        }
+    }
+    fn resolve_child_by_name(&self, searched_name: &str) -> Vec<Rc<RefCell<ScopeBuilder>>> {
+        let mut res: Vec<Rc<RefCell<ScopeBuilder>>> = Vec::new();
+        for child_ref in &self.children {
+            let child = child_ref.borrow();
+            match child.data.name() {
+                Some(name) => {
+                    if name.deref() == searched_name {
+                        res.push(Rc::clone(&child_ref));
+                    }
+                }
+                _ => {}
+            }
+        }
+        res
+    }
+    pub(in super::super) fn new() -> Self {
+        Self {
+            data: ScopeData::Root,
+            children: Vec::new(),
+            parent: None,
+        }
+    }
+    pub(in super::super) fn new_ref() -> Rc<RefCell<Self>> {
+        return Rc::new(RefCell::new(Self::new()));
+    }
+
+    fn print_level(&self, level: usize) {
+        for _ in 0..level {
+            print!("  ");
+        }
+        println!("{}", self.data);
+        for child_ref in &self.children {
+            let child = child_ref.borrow();
+            child.print_level(level + 1);
+        }
+    }
+
+    fn is_package_with_name(&self, package_name: &str) -> bool {
+        match self.data {
+            ScopeData::Package(PackageData { ref name }) => (*name).deref() == package_name,
+            _ => false,
+        }
+    }
+
+    fn new_package(name: Rc<str>, parent: Rc<RefCell<ScopeBuilder>>) -> Self {
+        Self {
+            data: ScopeData::Package(PackageData { name }),
+            children: Vec::new(),
+            parent: Some(Rc::downgrade(&parent)),
+        }
+    }
+    fn new_file(
+        name: Rc<str>,
+        imports: Vec<ImportPath>,
+        parent: Rc<RefCell<ScopeBuilder>>,
+    ) -> Self {
+        Self {
+            data: ScopeData::File(FileData { name, imports }),
+            children: Vec::new(),
+            parent: Some(Rc::downgrade(&parent)),
+        }
+    }
+
+    fn new_message(
+        id: usize,
+        name: Rc<str>,
+        fields: Vec<FieldOrOneOf>,
+        parent: Rc<RefCell<ScopeBuilder>>,
+    ) -> Self {
+        Self {
+            data: ScopeData::Message(MessageData { name, fields, id }),
+            children: Vec::new(),
+            parent: Some(Rc::downgrade(&parent)),
+        }
+    }
+
+    fn new_enum(e: EnumDeclaration, parent: Rc<RefCell<ScopeBuilder>>) -> Self {
+        Self {
+            data: ScopeData::Enum(e),
+            children: Vec::new(),
+            parent: Some(Rc::downgrade(&parent)),
+        }
+    }
+
+    pub(crate) fn is_file_with_name(&self, name: &str) -> bool {
+        match &self.data {
+            ScopeData::File(f) => f.name.deref() == name,
+            _ => false,
+        }
+    }
 }
 
 pub(in super::super) trait ScopeBuilderTrait {
@@ -133,14 +331,14 @@ struct ResolveResult {
 }
 
 fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, ProtoError> {
-    let builder = builder_ref.take();
+    let builder = builder_ref.borrow();
     let mut children: Vec<Rc<ProtoScope>> = Vec::new();
     let mut declaration_paths: Vec<(usize, Vec<Rc<str>>)> = Vec::new();
-    for child in builder.children {
+    for child in &builder.children {
         let ResolveResult {
             scope,
             declaration_paths: declaration_scopes,
-        } = resolve(child)?;
+        } = resolve(Rc::clone(child))?;
         let name = scope.name();
         children.push(scope);
         for (id, mut path) in declaration_scopes {
@@ -149,21 +347,21 @@ fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, Prot
         }
     }
 
-    let scope = match builder.data {
+    let scope = match &builder.data {
         ScopeData::Root => unreachable!(),
         ScopeData::Package(p) => Rc::new(ProtoScope::Package(PackageScope {
             children,
-            name: p.name,
+            name: Rc::clone(&p.name),
         })),
         ScopeData::File(f) => Rc::new(ProtoScope::File(FileScope {
             children,
-            name: f.name,
+            name: Rc::clone(&f.name),
         })),
         ScopeData::Enum(e) => {
             let enum_scope = Rc::new(ProtoScope::Enum(EnumScope {
                 id: e.id,
-                name: e.name,
-                entries: e.entries,
+                name: Rc::clone(&e.name),
+                entries: e.entries.clone(),
             }));
 
             declaration_paths.push((e.id, vec![]));
@@ -171,10 +369,31 @@ fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, Prot
             enum_scope
         }
         ScopeData::Message(m) => {
-            let entries = vec![];
+            let mut entries: Vec<MessageEntry> = vec![];
+            for field in m.fields.iter() {
+                match field {
+                    FieldOrOneOf::Field(f) => {
+                        let field_type =
+                            resolve_type(&builder, &f.field_type_ref).ok_or(ProtoError::new(
+                                format!("Cannot resolve field type: {}", &f.field_type_ref)
+                                    .as_str(),
+                            ))?;
+
+                        let entry = MessageEntry::Field(Field {
+                            name: Rc::clone(&f.name),
+                            field_type: field_type,
+                            tag: f.tag,
+                            attributes: f.attributes.clone(),
+                        });
+
+                        entries.push(entry);
+                    }
+                    FieldOrOneOf::OneOf(_) => todo!(),
+                }
+            }
             let message_scope = Rc::new(ProtoScope::Message(MessageScope {
                 id: m.id,
-                name: m.name,
+                name: Rc::clone(&m.name),
                 children,
                 entries,
             }));
@@ -187,6 +406,92 @@ fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, Prot
         scope: scope,
         declaration_paths,
     })
+}
+
+fn resolve_type(builder: &ScopeBuilder, field_type_ref: &FieldTypeReference) -> Option<Type> {
+    let trivial = field_type_ref.trivial_resolve();
+    if trivial.is_some() {
+        return trivial;
+    }
+    match field_type_ref {
+        FieldTypeReference::IdPath(ids) => resolve_full_path(builder, ids),
+        FieldTypeReference::Repeated(v) => {
+            let value_type = resolve_type(builder, v)?;
+            return Some(Type::Repeated(Rc::new(value_type)));
+        }
+        FieldTypeReference::Map(k, v) => {
+            let key_type = resolve_type(builder, k)?;
+            let value_type = resolve_type(builder, v)?;
+            return Some(Type::Map(Rc::new(key_type), Rc::new(value_type)));
+        }
+        _ => None,
+    }
+}
+
+fn resolve_full_path(builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Option<Type> {
+    println!("resolve_full_path");
+    if full_path.is_empty() {
+        return None;
+    }
+    let in_file_resolution = resolve_in_file(&builder, &full_path);
+    if in_file_resolution.is_some() {
+        return in_file_resolution;
+    }
+    dbg!(builder, full_path);
+    todo!();
+}
+
+fn resolve_in_file(builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Option<Type> {
+    println!("resolve_in_file");
+    let resolved = resolve_in_direct_children(builder, full_path);
+    if resolved.is_some() {
+        return resolved;
+    }
+    let resolved = resolve_in_itself(&builder, full_path);
+    if resolved.is_some() {
+        return resolved;
+    }
+    resolve_in_parents_until_file(&builder, full_path)
+}
+
+fn resolve_in_direct_children(builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Option<Type> {
+    println!("resolve_in_direct_children");
+    assert!(full_path.len() > 0);
+    if full_path.len() == 1 {
+        let id = Rc::clone(&full_path[0]);
+        if !builder.has_name(&id) {
+            return None;
+        }
+        return builder.get_type();
+    }
+    None
+}
+
+fn resolve_in_itself(_: &ScopeBuilder, _: &[Rc<str>]) -> Option<Type> {
+    println!("resolve_in_itself");
+    None
+}
+
+fn resolve_in_parents_until_file(builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Option<Type> {
+    println!("resolve_in_parents_until_file");
+    if builder.is_root() {
+        return None;
+    }
+    if builder.is_package() {
+        return None;
+    }
+    if builder.is_file() {
+        return resolve_in_direct_children(builder, full_path);
+    }
+    let resolved = resolve_in_direct_children(builder, full_path);
+    if resolved.is_some() {
+        return resolved;
+    }
+    let resolved = resolve_in_itself(builder, full_path);
+    if resolved.is_some() {
+        return resolved;
+    }
+    resolve_in_parents_until_file(builder, full_path)
 }
 
 impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
@@ -296,94 +601,6 @@ impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
 
     fn resolve(self) -> Result<ProtoScope, ProtoError> {
         todo!()
-    }
-}
-
-impl ScopeBuilder {
-    pub(in super::super) fn new() -> Self {
-        Self {
-            data: ScopeData::Root,
-            children: Vec::new(),
-            parent: None,
-        }
-    }
-    pub(in super::super) fn new_ref() -> Rc<RefCell<Self>> {
-        return Rc::new(RefCell::new(Self::new()));
-    }
-
-    fn print_level(&self, level: usize) {
-        for _ in 0..level {
-            print!("  ");
-        }
-        println!("{}", self.data);
-        for child_ref in &self.children {
-            let child = child_ref.borrow();
-            child.print_level(level + 1);
-        }
-    }
-
-    fn is_root(&self) -> bool {
-        return matches!(
-            self,
-            ScopeBuilder {
-                data: ScopeData::Root,
-                ..
-            }
-        );
-    }
-
-    fn is_package_with_name(&self, package_name: &str) -> bool {
-        match self.data {
-            ScopeData::Package(PackageData { ref name }) => (*name).deref() == package_name,
-            _ => false,
-        }
-    }
-
-    fn new_package(name: Rc<str>, parent: Rc<RefCell<ScopeBuilder>>) -> Self {
-        Self {
-            data: ScopeData::Package(PackageData { name }),
-            children: Vec::new(),
-            parent: Some(Rc::downgrade(&parent)),
-        }
-    }
-    fn new_file(
-        name: Rc<str>,
-        imports: Vec<ImportPath>,
-        parent: Rc<RefCell<ScopeBuilder>>,
-    ) -> Self {
-        Self {
-            data: ScopeData::File(FileData { name, imports }),
-            children: Vec::new(),
-            parent: Some(Rc::downgrade(&parent)),
-        }
-    }
-
-    fn new_message(
-        id: usize,
-        name: Rc<str>,
-        fields: Vec<FieldOrOneOf>,
-        parent: Rc<RefCell<ScopeBuilder>>,
-    ) -> Self {
-        Self {
-            data: ScopeData::Message(MessageData { name, fields, id }),
-            children: Vec::new(),
-            parent: Some(Rc::downgrade(&parent)),
-        }
-    }
-
-    fn new_enum(e: EnumDeclaration, parent: Rc<RefCell<ScopeBuilder>>) -> Self {
-        Self {
-            data: ScopeData::Enum(e),
-            children: Vec::new(),
-            parent: Some(Rc::downgrade(&parent)),
-        }
-    }
-
-    pub(crate) fn is_file_with_name(&self, name: &str) -> bool {
-        match &self.data {
-            ScopeData::File(f) => f.name.deref() == name,
-            _ => false,
-        }
     }
 }
 

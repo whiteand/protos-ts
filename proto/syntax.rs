@@ -371,7 +371,7 @@ pub(super) fn parse_package(
                 let field_declaration = FieldDeclaration {
                     name,
                     tag,
-                    field_type,
+                    field_type_ref: field_type,
                     attributes,
                 };
                 let mut message_entries = match stack.pop() {

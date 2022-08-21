@@ -102,7 +102,7 @@ pub(super) fn compile_encode(
         let js_name_id: Rc<ast::Identifier> = ast::Identifier::new(&js_name).into();
         let message_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&message_parameter_id).into());
         let field_value = Rc::new(message_expr.prop(&js_name));
-        match &field.field_type {
+        match &field.field_type_ref {
             FieldTypeReference::IdPath(ids) => {
                 if ids.is_empty() {
                     unreachable!();

@@ -300,7 +300,7 @@ impl std::fmt::Display for FieldTypeReference {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FieldDeclaration {
     pub name: Rc<str>,
-    pub field_type: FieldTypeReference,
+    pub field_type_ref: FieldTypeReference,
     pub tag: i64,
     pub attributes: Vec<(Rc<str>, Rc<str>)>,
 }
@@ -326,7 +326,7 @@ impl FieldDeclaration {
 
 impl std::fmt::Display for FieldDeclaration {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} {} = {}", self.field_type, self.name, self.tag)?;
+        write!(f, "{} {} = {}", self.field_type_ref, self.name, self.tag)?;
         if !self.attributes.is_empty() {
             write!(f, " [")?;
             for (i, (name, value)) in self.attributes.iter().enumerate() {

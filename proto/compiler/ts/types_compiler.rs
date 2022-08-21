@@ -47,7 +47,7 @@ fn insert_encoded_input_interface(
             Field(f) => {
                 let type_scope = scope.push(message_declaration);
                 let property_type =
-                    import_encoding_input_type(types_file, &type_scope, &f.field_type)?
+                    import_encoding_input_type(types_file, &type_scope, &f.field_type_ref)?
                         .or(&Type::Null);
                 interface.members.push(
                     ast::PropertySignature::new_optional(f.json_name(), property_type).into(),
@@ -75,7 +75,7 @@ fn insert_decode_result_interface(
             Field(f) => {
                 let type_scope = scope.push(message_declaration);
                 let property_type =
-                    import_decode_result_type(types_file, &type_scope, &f.field_type)?
+                    import_decode_result_type(types_file, &type_scope, &f.field_type_ref)?
                         .or(&Type::Null);
                 interface
                     .members
