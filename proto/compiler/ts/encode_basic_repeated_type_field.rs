@@ -5,14 +5,14 @@ use crate::proto::{
         ast::{ElementAccess, MethodCall, MethodChain},
         constants::get_basic_wire_type,
     },
-    package::FieldType,
+    package::FieldTypeReference,
 };
 
 use super::ast::{self, ForStatement, Prop};
 
 pub(super) fn encode_basic_repeated_type_field(
     field_value: &Rc<ast::Expression>,
-    field_type: &FieldType,
+    field_type: &FieldTypeReference,
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {
@@ -29,9 +29,9 @@ pub(super) fn encode_basic_repeated_type_field(
         }));
 
     let encode_elements_stmt = match field_type {
-        FieldType::IdPath(_) => unreachable!(),
-        FieldType::Repeated(_) => unreachable!(),
-        FieldType::Map(_, _) => unreachable!(),
+        FieldTypeReference::IdPath(_) => unreachable!(),
+        FieldTypeReference::Repeated(_) => unreachable!(),
+        FieldTypeReference::Map(_, _) => unreachable!(),
         basic => match basic.packed_wire_type() {
             Some(_) => encode_packed_elements(&field_value, basic, field_tag, &writer_var),
             None => encode_non_packed_elements(&field_value, basic, field_tag, &writer_var),
@@ -47,7 +47,7 @@ pub(super) fn encode_basic_repeated_type_field(
 
 fn encode_non_packed_elements(
     field_value: &Rc<ast::Expression>,
-    element_type: &FieldType,
+    element_type: &FieldTypeReference,
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {
@@ -87,7 +87,7 @@ fn encode_non_packed_elements(
 }
 fn encode_packed_elements(
     field_value: &Rc<ast::Expression>,
-    element_type: &FieldType,
+    element_type: &FieldTypeReference,
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {

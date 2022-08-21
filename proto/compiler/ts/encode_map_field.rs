@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::proto::{
     compiler::ts::ast::ElementAccess,
     error::ProtoError,
-    package::{Declaration, FieldType, MessageDeclaration},
+    package::{Declaration, FieldTypeReference, MessageDeclaration},
 };
 
 use super::{
@@ -23,8 +23,8 @@ pub(super) fn encode_map_field(
     js_name_id: &Rc<ast::Identifier>,
     field_value: &Rc<ast::Expression>,
     field_tag: i64,
-    key_type: &FieldType,
-    value_type: &FieldType,
+    key_type: &FieldTypeReference,
+    value_type: &FieldTypeReference,
 ) -> Result<ast::Statement, ProtoError> {
     let field_exists_expression =
         Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
@@ -90,7 +90,7 @@ pub(super) fn encode_map_field(
     ));
 
     match value_type {
-        FieldType::IdPath(ids) => {
+        FieldTypeReference::IdPath(ids) => {
             let defined = field_scope.resolve_path(ids)?;
             let decl = match defined.declaration {
                 super::defined_id::IdType::DataType(decl) => decl,
@@ -99,7 +99,7 @@ pub(super) fn encode_map_field(
             match decl {
                 Declaration::Enum(_) => {
                     let key_value_expr =
-                        encode_basic_key_value(&FieldType::Int32, encode_key_expr, value_expr);
+                        encode_basic_key_value(&FieldTypeReference::Int32, encode_key_expr, value_expr);
                     for_stmt.push_statement(key_value_expr.into());
                 }
                 Declaration::Message(m) => {
@@ -131,8 +131,8 @@ pub(super) fn encode_map_field(
                 }
             }
         }
-        FieldType::Repeated(_) => unreachable!(),
-        FieldType::Map(_, _) => unreachable!(),
+        FieldTypeReference::Repeated(_) => unreachable!(),
+        FieldTypeReference::Map(_, _) => unreachable!(),
         basic => {
             for_stmt
                 .push_statement(encode_basic_key_value(basic, encode_key_expr, value_expr).into());
@@ -151,7 +151,7 @@ pub(super) fn encode_map_field(
 }
 
 fn encode_basic_key_value(
-    basic: &FieldType,
+    basic: &FieldTypeReference,
     encode_key_expr: Rc<ast::Expression>,
     value_expr: Rc<ast::Expression>,
 ) -> ast::Expression {
@@ -169,7 +169,7 @@ fn encode_basic_key_value(
 fn encode_key(
     writer_var_expr: Rc<ast::Expression>,
     field_tag: i64,
-    key_type: &FieldType,
+    key_type: &FieldTypeReference,
     key_expr: Rc<ast::Expression>,
 ) -> ast::Expression {
     let key_prefix = field_tag << 3 | 2;

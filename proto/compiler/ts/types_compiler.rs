@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::proto::{
     compiler::ts::ast::{self, Type},
     error::ProtoError,
-    package::{Declaration, FieldType, MessageDeclaration},
+    package::{Declaration, FieldTypeReference, MessageDeclaration},
 };
 
 use super::{
@@ -42,7 +42,7 @@ fn insert_encoded_input_interface(
         message_name_to_encode_type_name(&message_declaration.name).into(),
     );
     for entry in &message_declaration.entries {
-        use crate::proto::package::MessageEntry::*;
+        use crate::proto::package::MessageDeclarationEntry::*;
         match entry {
             Field(f) => {
                 let type_scope = scope.push(message_declaration);
@@ -70,7 +70,7 @@ fn insert_decode_result_interface(
     let mut interface =
         ast::InterfaceDeclaration::new_exported(Rc::clone(&message_declaration.name).into());
     for entry in &message_declaration.entries {
-        use crate::proto::package::MessageEntry::*;
+        use crate::proto::package::MessageDeclarationEntry::*;
         match entry {
             Field(f) => {
                 let type_scope = scope.push(message_declaration);
@@ -93,10 +93,10 @@ fn insert_decode_result_interface(
 fn import_encoding_input_type(
     types_file: &mut ast::File,
     type_scope: &BlockScope,
-    field_type: &FieldType,
+    field_type: &FieldTypeReference,
 ) -> Result<Type, ProtoError> {
     match field_type {
-        FieldType::IdPath(ids) => {
+        FieldTypeReference::IdPath(ids) => {
             if ids.is_empty() {
                 unreachable!();
             }
@@ -139,23 +139,23 @@ fn import_encoding_input_type(
                 .into(),
             ));
         }
-        FieldType::Repeated(field_type) => {
+        FieldTypeReference::Repeated(field_type) => {
             let element_type = import_encoding_input_type(types_file, type_scope, field_type)?;
             return Ok(Type::array(element_type));
         }
-        FieldType::Map(key, value) => {
+        FieldTypeReference::Map(key, value) => {
             let key_type = import_encoding_input_type(types_file, type_scope, key)?;
             let value_type = import_encoding_input_type(types_file, type_scope, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
-        FieldType::Bool => Ok(Type::Boolean),
-        FieldType::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
-        FieldType::Double => Ok(Type::Number),
-        FieldType::Fixed32 => Ok(Type::Number),
-        FieldType::Fixed64 => Ok(Type::Number),
-        FieldType::Float => Ok(Type::Number),
-        FieldType::Int32 => Ok(Type::Number),
-        FieldType::Int64 | FieldType::Sfixed64 | FieldType::Sint64 | FieldType::Uint64 => {
+        FieldTypeReference::Bool => Ok(Type::Boolean),
+        FieldTypeReference::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
+        FieldTypeReference::Double => Ok(Type::Number),
+        FieldTypeReference::Fixed32 => Ok(Type::Number),
+        FieldTypeReference::Fixed64 => Ok(Type::Number),
+        FieldTypeReference::Float => Ok(Type::Number),
+        FieldTypeReference::Int32 => Ok(Type::Number),
+        FieldTypeReference::Int64 | FieldTypeReference::Sfixed64 | FieldTypeReference::Sint64 | FieldTypeReference::Uint64 => {
             let util_id: Rc<ast::Identifier> = Rc::new("util".into());
             let util_import = ast::ImportDeclaration::import(
                 vec![ast::ImportSpecifier::new(Rc::clone(&util_id))],
@@ -168,20 +168,20 @@ fn import_encoding_input_type(
             ])
             .or(&Type::Number))
         }
-        FieldType::Sfixed32 => Ok(Type::Number),
-        FieldType::Sint32 => Ok(Type::Number),
-        FieldType::String => Ok(Type::String),
-        FieldType::Uint32 => Ok(Type::Number),
+        FieldTypeReference::Sfixed32 => Ok(Type::Number),
+        FieldTypeReference::Sint32 => Ok(Type::Number),
+        FieldTypeReference::String => Ok(Type::String),
+        FieldTypeReference::Uint32 => Ok(Type::Number),
     }
 }
 
 fn import_decode_result_type(
     types_file: &mut ast::File,
     scope: &BlockScope,
-    field_type: &FieldType,
+    field_type: &FieldTypeReference,
 ) -> Result<Type, ProtoError> {
     match field_type {
-        FieldType::IdPath(ids) => {
+        FieldTypeReference::IdPath(ids) => {
             if ids.is_empty() {
                 unreachable!();
             }
@@ -221,23 +221,23 @@ fn import_decode_result_type(
                 ast::Identifier::new(&imported_type_name).into(),
             ));
         }
-        FieldType::Repeated(field_type) => {
+        FieldTypeReference::Repeated(field_type) => {
             let element_type = import_decode_result_type(types_file, scope, field_type)?;
             return Ok(Type::array(element_type));
         }
-        FieldType::Map(key, value) => {
+        FieldTypeReference::Map(key, value) => {
             let key_type = import_decode_result_type(types_file, scope, key)?;
             let value_type = import_decode_result_type(types_file, scope, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
-        FieldType::Bool => Ok(Type::Boolean),
-        FieldType::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
-        FieldType::Double => Ok(Type::Number),
-        FieldType::Fixed32 => Ok(Type::Number),
-        FieldType::Fixed64 => Ok(Type::Number),
-        FieldType::Float => Ok(Type::Number),
-        FieldType::Int32 => Ok(Type::Number),
-        FieldType::Int64 | FieldType::Sfixed64 | FieldType::Sint64 | FieldType::Uint64 => {
+        FieldTypeReference::Bool => Ok(Type::Boolean),
+        FieldTypeReference::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
+        FieldTypeReference::Double => Ok(Type::Number),
+        FieldTypeReference::Fixed32 => Ok(Type::Number),
+        FieldTypeReference::Fixed64 => Ok(Type::Number),
+        FieldTypeReference::Float => Ok(Type::Number),
+        FieldTypeReference::Int32 => Ok(Type::Number),
+        FieldTypeReference::Int64 | FieldTypeReference::Sfixed64 | FieldTypeReference::Sint64 | FieldTypeReference::Uint64 => {
             let util_id: Rc<ast::Identifier> = Rc::new("util".into());
             let util_import = ast::ImportDeclaration::import(
                 vec![ast::ImportSpecifier::new(Rc::clone(&util_id))],
@@ -249,9 +249,9 @@ fn import_decode_result_type(
                 Rc::new(ast::Identifier::new("Long")),
             ]))
         }
-        FieldType::Sfixed32 => Ok(Type::Number),
-        FieldType::Sint32 => Ok(Type::Number),
-        FieldType::String => Ok(Type::String),
-        FieldType::Uint32 => Ok(Type::Number),
+        FieldTypeReference::Sfixed32 => Ok(Type::Number),
+        FieldTypeReference::Sint32 => Ok(Type::Number),
+        FieldTypeReference::String => Ok(Type::String),
+        FieldTypeReference::Uint32 => Ok(Type::Number),
     }
 }

@@ -7,8 +7,8 @@ use super::{
     id_generator::IdGenerator,
     lexems::{Lexem, LocatedLexem},
     package::{
-        Declaration, EnumDeclaration, EnumEntry, FieldType, ImportPath, MessageDeclaration,
-        MessageEntry, OneOfDeclaration, ProtoFile,
+        Declaration, EnumDeclaration, EnumEntry, FieldTypeReference, ImportPath, MessageDeclaration,
+        MessageDeclarationEntry, OneOfDeclaration, ProtoFile,
     },
 };
 
@@ -64,9 +64,9 @@ enum StackItem {
     String(Rc<str>),
     StringList(Vec<Rc<str>>),
     EnumEntriesList(Vec<EnumEntry>),
-    MessageEntriesList(Vec<MessageEntry>),
-    MessageEntry(MessageEntry),
-    FieldType(FieldType),
+    MessageEntriesList(Vec<MessageDeclarationEntry>),
+    MessageEntry(MessageDeclarationEntry),
+    FieldType(FieldTypeReference),
     Int64(i64),
     Message(MessageDeclaration),
     OptionalAttributes(Option<Vec<(Rc<str>, Rc<str>)>>),
@@ -99,13 +99,13 @@ impl From<MessageDeclaration> for StackItem {
         StackItem::Message(m)
     }
 }
-impl From<MessageEntry> for StackItem {
-    fn from(m: MessageEntry) -> Self {
+impl From<MessageDeclarationEntry> for StackItem {
+    fn from(m: MessageDeclarationEntry) -> Self {
         StackItem::MessageEntry(m)
     }
 }
-impl From<FieldType> for StackItem {
-    fn from(f: FieldType) -> Self {
+impl From<FieldTypeReference> for StackItem {
+    fn from(f: FieldTypeReference) -> Self {
         StackItem::FieldType(f)
     }
 }
@@ -210,7 +210,7 @@ pub(super) fn parse_package(
                     Some(StackItem::FieldType(field_type)) => field_type,
                     _ => unreachable!(),
                 };
-                let map_type = FieldType::Map(Box::new(key_type), Box::new(value_type));
+                let map_type = FieldTypeReference::Map(Box::new(key_type), Box::new(value_type));
                 stack.push(map_type.into());
                 continue;
             }
@@ -378,7 +378,7 @@ pub(super) fn parse_package(
                     Some(StackItem::MessageEntriesList(list)) => list,
                     _ => unreachable!(),
                 };
-                message_entries.push(MessageEntry::Field(field_declaration));
+                message_entries.push(MessageDeclarationEntry::Field(field_declaration));
                 stack.push(StackItem::MessageEntriesList(message_entries));
                 continue;
             }
@@ -567,15 +567,15 @@ pub(super) fn parse_package(
                 let entry = match stack.pop() {
                     Some(StackItem::Message(message_declaration)) => {
                         let decl: Declaration = message_declaration.into();
-                        let message_entry: MessageEntry = decl.into();
+                        let message_entry: MessageDeclarationEntry = decl.into();
                         message_entry
                     }
                     Some(StackItem::Enum(enum_declaration)) => {
                         let decl: Declaration = enum_declaration.into();
-                        let message_entry: MessageEntry = decl.into();
+                        let message_entry: MessageDeclarationEntry = decl.into();
                         message_entry
                     }
-                    Some(StackItem::OneOf(decl)) => MessageEntry::OneOf(decl),
+                    Some(StackItem::OneOf(decl)) => MessageDeclarationEntry::OneOf(decl),
                     _ => unreachable!(),
                 };
                 stack.push(entry.into());
@@ -664,7 +664,7 @@ pub(super) fn parse_package(
                     _ => unreachable!(),
                 };
                 if message_entries.iter().any(|entry| match entry {
-                    MessageEntry::Field(_) => false,
+                    MessageDeclarationEntry::Field(_) => false,
                     _ => true,
                 }) {
                     return Err(syntax_error(
@@ -677,7 +677,7 @@ pub(super) fn parse_package(
                     options: message_entries
                         .iter()
                         .filter_map(|entry| match entry {
-                            MessageEntry::Field(field_decl) => Some(field_decl.to_owned()),
+                            MessageDeclarationEntry::Field(field_decl) => Some(field_decl.to_owned()),
                             _ => None,
                         })
                         .collect::<Vec<FieldDeclaration>>(),
@@ -714,7 +714,7 @@ pub(super) fn parse_package(
             }
             WrapFieldType => {
                 let field_type = match stack.pop() {
-                    Some(StackItem::StringList(ids)) => FieldType::from(ids),
+                    Some(StackItem::StringList(ids)) => FieldTypeReference::from(ids),
                     _ => unreachable!(),
                 };
                 stack.push(field_type.into());
@@ -753,7 +753,7 @@ pub(super) fn parse_package(
                 let item = stack.pop();
                 match item {
                     Some(StackItem::FieldType(field_type)) => {
-                        stack.push(FieldType::repeated(field_type).into());
+                        stack.push(FieldTypeReference::repeated(field_type).into());
                         continue;
                     }
                     _ => {

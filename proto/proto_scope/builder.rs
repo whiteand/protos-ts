@@ -8,7 +8,7 @@ use crate::proto::{
     error::ProtoError,
     package::{
         Declaration, EnumDeclaration, FieldDeclaration, ImportPath, MessageDeclaration,
-        MessageEntry, OneOfDeclaration, ProtoFile,
+        MessageDeclarationEntry, OneOfDeclaration, ProtoFile,
     },
 };
 
@@ -177,12 +177,12 @@ impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
         let mut sub_enums: Vec<EnumDeclaration> = Vec::new();
         for entry in message_declaration.entries {
             match entry {
-                MessageEntry::Field(f) => fields.push(FieldOrOneOf::Field(f)),
-                MessageEntry::Declaration(decl) => match decl {
+                MessageDeclarationEntry::Field(f) => fields.push(FieldOrOneOf::Field(f)),
+                MessageDeclarationEntry::Declaration(decl) => match decl {
                     Declaration::Enum(e) => sub_enums.push(e),
                     Declaration::Message(m) => sub_messages.push(m),
                 },
-                MessageEntry::OneOf(o) => fields.push(FieldOrOneOf::OneOf(o)),
+                MessageDeclarationEntry::OneOf(o) => fields.push(FieldOrOneOf::OneOf(o)),
             }
         }
 

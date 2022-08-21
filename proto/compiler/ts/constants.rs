@@ -1,58 +1,58 @@
 use std::rc::Rc;
 
-use crate::proto::package::FieldType;
+use crate::proto::package::FieldTypeReference;
 
 use super::ast;
 
 pub(super) const PROTOBUF_MODULE: &'static str = "protobufjs/minimal";
 pub(super) const ENCODE_FUNCTION_NAME: &'static str = "encode";
 
-pub(super) fn get_basic_wire_type(field_type: &FieldType) -> u32 {
+pub(super) fn get_basic_wire_type(field_type: &FieldTypeReference) -> u32 {
     match field_type {
-        FieldType::Bool => 0,
-        FieldType::Bytes => 2,
-        FieldType::Double => 1,
-        FieldType::Fixed32 => 5,
-        FieldType::Fixed64 => 1,
-        FieldType::Float => 5,
-        FieldType::Int32 => 0,
-        FieldType::Int64 => 0,
-        FieldType::Sfixed32 => 5,
-        FieldType::Sfixed64 => 1,
-        FieldType::Sint32 => 0,
-        FieldType::Sint64 => 0,
-        FieldType::String => 2,
-        FieldType::Uint32 => 0,
-        FieldType::Uint64 => 0,
-        FieldType::IdPath(_) => unreachable!(),
-        FieldType::Repeated(_) => unreachable!(),
-        FieldType::Map(_, _) => unreachable!(),
+        FieldTypeReference::Bool => 0,
+        FieldTypeReference::Bytes => 2,
+        FieldTypeReference::Double => 1,
+        FieldTypeReference::Fixed32 => 5,
+        FieldTypeReference::Fixed64 => 1,
+        FieldTypeReference::Float => 5,
+        FieldTypeReference::Int32 => 0,
+        FieldTypeReference::Int64 => 0,
+        FieldTypeReference::Sfixed32 => 5,
+        FieldTypeReference::Sfixed64 => 1,
+        FieldTypeReference::Sint32 => 0,
+        FieldTypeReference::Sint64 => 0,
+        FieldTypeReference::String => 2,
+        FieldTypeReference::Uint32 => 0,
+        FieldTypeReference::Uint64 => 0,
+        FieldTypeReference::IdPath(_) => unreachable!(),
+        FieldTypeReference::Repeated(_) => unreachable!(),
+        FieldTypeReference::Map(_, _) => unreachable!(),
     }
 }
 
-pub(super) fn get_default_value(field_type: FieldType) -> ast::Expression {
+pub(super) fn get_default_value(field_type: FieldTypeReference) -> ast::Expression {
     match field_type {
-        FieldType::IdPath(_) => ast::Expression::Null,
-        FieldType::Repeated(_) => Vec::new().into(),
-        FieldType::Map(_, _) => ast::Expression::ObjectLiteralExpression(vec![]),
-        FieldType::Bool => ast::Expression::False,
-        FieldType::Bytes => ast::Expression::NewExpression(ast::NewExpression {
+        FieldTypeReference::IdPath(_) => ast::Expression::Null,
+        FieldTypeReference::Repeated(_) => Vec::new().into(),
+        FieldTypeReference::Map(_, _) => ast::Expression::ObjectLiteralExpression(vec![]),
+        FieldTypeReference::Bool => ast::Expression::False,
+        FieldTypeReference::Bytes => ast::Expression::NewExpression(ast::NewExpression {
             expression: Rc::new("Uint8Array".into()),
             arguments: vec![],
         }),
-        FieldType::Double => 0f64.into(),
-        FieldType::Fixed32 => 0f64.into(),
-        FieldType::Fixed64 => 0f64.into(),
-        FieldType::Float => 0f64.into(),
-        FieldType::Int32 => 0f64.into(),
-        FieldType::Int64 => 0f64.into(),
-        FieldType::Sfixed32 => 0f64.into(),
-        FieldType::Sfixed64 => 0f64.into(),
-        FieldType::Sint32 => 0f64.into(),
-        FieldType::Sint64 => 0f64.into(),
-        FieldType::String => ast::StringLiteral::from("").into(),
-        FieldType::Uint32 => 0f64.into(),
-        FieldType::Uint64 => 0f64.into(),
+        FieldTypeReference::Double => 0f64.into(),
+        FieldTypeReference::Fixed32 => 0f64.into(),
+        FieldTypeReference::Fixed64 => 0f64.into(),
+        FieldTypeReference::Float => 0f64.into(),
+        FieldTypeReference::Int32 => 0f64.into(),
+        FieldTypeReference::Int64 => 0f64.into(),
+        FieldTypeReference::Sfixed32 => 0f64.into(),
+        FieldTypeReference::Sfixed64 => 0f64.into(),
+        FieldTypeReference::Sint32 => 0f64.into(),
+        FieldTypeReference::Sint64 => 0f64.into(),
+        FieldTypeReference::String => ast::StringLiteral::from("").into(),
+        FieldTypeReference::Uint32 => 0f64.into(),
+        FieldTypeReference::Uint64 => 0f64.into(),
     }
 }
 

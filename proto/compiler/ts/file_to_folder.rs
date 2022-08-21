@@ -5,7 +5,7 @@ use super::{
 };
 use crate::proto::{
     error::ProtoError,
-    package::{Declaration, MessageDeclaration, MessageEntry, ProtoFile},
+    package::{Declaration, MessageDeclaration, MessageDeclarationEntry, ProtoFile},
     package_tree::PackageTree,
 };
 
@@ -48,9 +48,9 @@ fn insert_children(
 ) -> Result<(), ProtoError> {
     for entry in message_declaration.entries.iter() {
         match entry {
-            MessageEntry::Field(_) => {}
-            MessageEntry::OneOf(_) => {}
-            MessageEntry::Declaration(decl) => match decl {
+            MessageDeclarationEntry::Field(_) => {}
+            MessageDeclarationEntry::OneOf(_) => {}
+            MessageDeclarationEntry::Declaration(decl) => match decl {
                 Declaration::Enum(e) => {
                     insert_enum_declaration(message_folder, e);
                 }

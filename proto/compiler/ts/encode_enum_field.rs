@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use super::has_property::has_property;
-use crate::proto::package::FieldType;
+use crate::proto::package::FieldTypeReference;
 
 use super::constants::get_basic_wire_type;
 
@@ -14,7 +14,7 @@ pub(super) fn encode_enum_field(
     field_value: Rc<ast::Expression>,
     field_tag: i64,
 ) -> ast::Statement {
-    let wire_type = get_basic_wire_type(&FieldType::Int32);
+    let wire_type = get_basic_wire_type(&FieldTypeReference::Int32);
     let field_prefix = (field_tag << 3) | (wire_type as i64);
     let field_exists_expression =
         Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {

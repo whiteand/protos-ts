@@ -61,11 +61,12 @@ impl std::fmt::Display for EnumDeclaration {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum FieldType {
-    IdPath(Vec<Rc<str>>),
-    Repeated(Box<FieldType>),
-    Map(Box<FieldType>, Box<FieldType>),
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Type {
+    Enum(usize),
+    Message(usize),
+    Repeated(Rc<Type>),
+    Map(Rc<Type>, Rc<Type>),
     Bool,     // bool
     Bytes,    // bytes
     Double,   // double
@@ -83,120 +84,168 @@ pub(crate) enum FieldType {
     Uint64,   // uint64
 }
 
-impl FieldType {
+impl Clone for Type {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Enum(enum_id) => Self::Enum(*enum_id),
+            Self::Message(message_id) => Self::Message(*message_id),
+            Self::Repeated(rc_type) => Self::Repeated(Rc::clone(rc_type)),
+            Self::Map(rc_key, rc_value) => Self::Map(Rc::clone(rc_key), Rc::clone(rc_value)),
+            Self::Bool => Self::Bool,
+            Self::Bytes => Self::Bytes,
+            Self::Double => Self::Double,
+            Self::Fixed32 => Self::Fixed32,
+            Self::Fixed64 => Self::Fixed64,
+            Self::Float => Self::Float,
+            Self::Int32 => Self::Int32,
+            Self::Int64 => Self::Int64,
+            Self::Sfixed32 => Self::Sfixed32,
+            Self::Sfixed64 => Self::Sfixed64,
+            Self::Sint32 => Self::Sint32,
+            Self::Sint64 => Self::Sint64,
+            Self::String => Self::String,
+            Self::Uint32 => Self::Uint32,
+            Self::Uint64 => Self::Uint64,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FieldTypeReference {
+    IdPath(Vec<Rc<str>>),
+    Repeated(Box<FieldTypeReference>),
+    Map(Box<FieldTypeReference>, Box<FieldTypeReference>),
+    Bool,     // bool
+    Bytes,    // bytes
+    Double,   // double
+    Fixed32,  // fixed32
+    Fixed64,  // fixed64
+    Float,    // float
+    Int32,    // int32
+    Int64,    // int64
+    Sfixed32, // sfixed32
+    Sfixed64, // sfixed64
+    Sint32,   // sint32
+    Sint64,   // sint64
+    String,   // string
+    Uint32,   // uint32
+    Uint64,   // uint64
+}
+
+impl FieldTypeReference {
     pub fn repeated(t: Self) -> Self {
-        FieldType::Repeated(Box::new(t))
+        FieldTypeReference::Repeated(Box::new(t))
     }
     pub fn is_basic(&self) -> bool {
         match self {
-            FieldType::Bool => true,
-            FieldType::Bytes => true,
-            FieldType::Double => true,
-            FieldType::Fixed32 => true,
-            FieldType::Fixed64 => true,
-            FieldType::Float => true,
-            FieldType::Int32 => true,
-            FieldType::Int64 => true,
-            FieldType::Sfixed32 => true,
-            FieldType::Sfixed64 => true,
-            FieldType::Sint32 => true,
-            FieldType::Sint64 => true,
-            FieldType::String => true,
-            FieldType::Uint32 => true,
-            FieldType::Uint64 => true,
+            FieldTypeReference::Bool => true,
+            FieldTypeReference::Bytes => true,
+            FieldTypeReference::Double => true,
+            FieldTypeReference::Fixed32 => true,
+            FieldTypeReference::Fixed64 => true,
+            FieldTypeReference::Float => true,
+            FieldTypeReference::Int32 => true,
+            FieldTypeReference::Int64 => true,
+            FieldTypeReference::Sfixed32 => true,
+            FieldTypeReference::Sfixed64 => true,
+            FieldTypeReference::Sint32 => true,
+            FieldTypeReference::Sint64 => true,
+            FieldTypeReference::String => true,
+            FieldTypeReference::Uint32 => true,
+            FieldTypeReference::Uint64 => true,
             _ => false,
         }
     }
 
     pub fn packed_wire_type(&self) -> Option<u32> {
         match self {
-            FieldType::Bool => Some(0),
-            FieldType::Double => Some(1),
-            FieldType::Fixed32 => Some(5),
-            FieldType::Fixed64 => Some(1),
-            FieldType::Float => Some(5),
-            FieldType::Int32 => Some(0),
-            FieldType::Int64 => Some(0),
-            FieldType::Sfixed32 => Some(5),
-            FieldType::Sfixed64 => Some(1),
-            FieldType::Sint32 => Some(0),
-            FieldType::Sint64 => Some(0),
-            FieldType::Uint32 => Some(0),
-            FieldType::Uint64 => Some(0),
-            FieldType::IdPath(_) => None,
-            FieldType::Repeated(_) => None,
-            FieldType::Map(_, _) => None,
-            FieldType::Bytes => None,
-            FieldType::String => None,
+            FieldTypeReference::Bool => Some(0),
+            FieldTypeReference::Double => Some(1),
+            FieldTypeReference::Fixed32 => Some(5),
+            FieldTypeReference::Fixed64 => Some(1),
+            FieldTypeReference::Float => Some(5),
+            FieldTypeReference::Int32 => Some(0),
+            FieldTypeReference::Int64 => Some(0),
+            FieldTypeReference::Sfixed32 => Some(5),
+            FieldTypeReference::Sfixed64 => Some(1),
+            FieldTypeReference::Sint32 => Some(0),
+            FieldTypeReference::Sint64 => Some(0),
+            FieldTypeReference::Uint32 => Some(0),
+            FieldTypeReference::Uint64 => Some(0),
+            FieldTypeReference::IdPath(_) => None,
+            FieldTypeReference::Repeated(_) => None,
+            FieldTypeReference::Map(_, _) => None,
+            FieldTypeReference::Bytes => None,
+            FieldTypeReference::String => None,
         }
     }
 
     pub fn map_key_wire_type(&self) -> Option<u32> {
         match self {
-            FieldType::Bool => Some(0),
-            FieldType::Fixed32 => Some(5),
-            FieldType::Fixed64 => Some(1),
-            FieldType::Int32 => Some(0),
-            FieldType::Int64 => Some(0),
-            FieldType::Sfixed32 => Some(5),
-            FieldType::Sfixed64 => Some(1),
-            FieldType::Sint32 => Some(0),
-            FieldType::Sint64 => Some(0),
-            FieldType::String => Some(2),
-            FieldType::Uint32 => Some(0),
-            FieldType::Uint64 => Some(0),
+            FieldTypeReference::Bool => Some(0),
+            FieldTypeReference::Fixed32 => Some(5),
+            FieldTypeReference::Fixed64 => Some(1),
+            FieldTypeReference::Int32 => Some(0),
+            FieldTypeReference::Int64 => Some(0),
+            FieldTypeReference::Sfixed32 => Some(5),
+            FieldTypeReference::Sfixed64 => Some(1),
+            FieldTypeReference::Sint32 => Some(0),
+            FieldTypeReference::Sint64 => Some(0),
+            FieldTypeReference::String => Some(2),
+            FieldTypeReference::Uint32 => Some(0),
+            FieldTypeReference::Uint64 => Some(0),
             _ => None,
         }
     }
 }
 
-impl From<Vec<Rc<str>>> for FieldType {
+impl From<Vec<Rc<str>>> for FieldTypeReference {
     fn from(id_path: Vec<Rc<str>>) -> Self {
         assert!(id_path.len() > 0);
         if id_path.len() == 1 {
             let id = Rc::clone(&id_path[0]);
             if id.deref() == "bool" {
-                return FieldType::Bool;
+                return FieldTypeReference::Bool;
             }
             if id.deref() == "bool" {
-                return FieldType::Bool;
+                return FieldTypeReference::Bool;
             } else if id.deref() == "bytes" {
-                return FieldType::Bytes;
+                return FieldTypeReference::Bytes;
             } else if id.deref() == "double" {
-                return FieldType::Double;
+                return FieldTypeReference::Double;
             } else if id.deref() == "fixed32" {
-                return FieldType::Fixed32;
+                return FieldTypeReference::Fixed32;
             } else if id.deref() == "fixed64" {
-                return FieldType::Fixed64;
+                return FieldTypeReference::Fixed64;
             } else if id.deref() == "float" {
-                return FieldType::Float;
+                return FieldTypeReference::Float;
             } else if id.deref() == "int32" {
-                return FieldType::Int32;
+                return FieldTypeReference::Int32;
             } else if id.deref() == "int64" {
-                return FieldType::Int64;
+                return FieldTypeReference::Int64;
             } else if id.deref() == "sfixed32" {
-                return FieldType::Sfixed32;
+                return FieldTypeReference::Sfixed32;
             } else if id.deref() == "sfixed64" {
-                return FieldType::Sfixed64;
+                return FieldTypeReference::Sfixed64;
             } else if id.deref() == "sint32" {
-                return FieldType::Sint32;
+                return FieldTypeReference::Sint32;
             } else if id.deref() == "sint64" {
-                return FieldType::Sint64;
+                return FieldTypeReference::Sint64;
             } else if id.deref() == "string" {
-                return FieldType::String;
+                return FieldTypeReference::String;
             } else if id.deref() == "uint32" {
-                return FieldType::Uint32;
+                return FieldTypeReference::Uint32;
             } else if id.deref() == "uint64" {
-                return FieldType::Uint64;
+                return FieldTypeReference::Uint64;
             }
         }
-        FieldType::IdPath(id_path)
+        FieldTypeReference::IdPath(id_path)
     }
 }
 
-impl std::fmt::Display for FieldType {
+impl std::fmt::Display for FieldTypeReference {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use FieldType::*;
+        use FieldTypeReference::*;
         match self {
             IdPath(path) => write!(f, "{}", path.join(".")),
             Repeated(field_type) => write!(f, "repeated {}", field_type),
@@ -223,7 +272,7 @@ impl std::fmt::Display for FieldType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FieldDeclaration {
     pub name: Rc<str>,
-    pub field_type: FieldType,
+    pub field_type: FieldTypeReference,
     pub tag: i64,
     pub attributes: Vec<(Rc<str>, Rc<str>)>,
 }
@@ -275,12 +324,17 @@ impl std::fmt::Display for OneOfDeclaration {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MessageEntry {
     Field(FieldDeclaration),
+    OneOf(OneOfDeclaration),
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum MessageDeclarationEntry {
+    Field(FieldDeclaration),
     Declaration(Declaration),
     OneOf(OneOfDeclaration),
 }
-impl std::fmt::Display for MessageEntry {
+impl std::fmt::Display for MessageDeclarationEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use MessageEntry::*;
+        use MessageDeclarationEntry::*;
         match self {
             Field(field) => write!(f, "{};", field),
             Declaration(decl) => write!(f, "\n{}", decl),
@@ -289,9 +343,9 @@ impl std::fmt::Display for MessageEntry {
     }
 }
 
-impl From<Declaration> for MessageEntry {
+impl From<Declaration> for MessageDeclarationEntry {
     fn from(decl: Declaration) -> Self {
-        MessageEntry::Declaration(decl)
+        MessageDeclarationEntry::Declaration(decl)
     }
 }
 
@@ -299,7 +353,7 @@ impl From<Declaration> for MessageEntry {
 pub(crate) struct MessageDeclaration {
     pub id: usize,
     pub name: Rc<str>,
-    pub entries: Vec<MessageEntry>,
+    pub entries: Vec<MessageDeclarationEntry>,
 }
 
 impl std::fmt::Display for MessageDeclaration {
@@ -322,8 +376,8 @@ impl Scope for MessageDeclaration {
         for i in 0..self.entries.len() {
             let entry = &self.entries[i];
             match entry {
-                MessageEntry::Field(_) => {}
-                MessageEntry::Declaration(decl) => {
+                MessageDeclarationEntry::Field(_) => {}
+                MessageDeclarationEntry::Declaration(decl) => {
                     let matches = match decl {
                         Declaration::Enum(e) => e.name.deref() == name,
                         Declaration::Message(m) => m.name.deref() == name,
@@ -332,7 +386,7 @@ impl Scope for MessageDeclaration {
                         res = Some(&*decl);
                     }
                 }
-                MessageEntry::OneOf(_) => {}
+                MessageDeclarationEntry::OneOf(_) => {}
             }
         }
         res

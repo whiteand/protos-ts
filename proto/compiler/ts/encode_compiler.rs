@@ -3,7 +3,7 @@ use std::{ops::Deref, rc::Rc};
 use crate::proto::{
     compiler::ts::{encode_call::encode_call, encode_message_expr::encode_message_expr},
     error::ProtoError,
-    package::{Declaration, FieldType, MessageDeclaration},
+    package::{Declaration, FieldTypeReference, MessageDeclaration},
 };
 
 use super::{
@@ -89,9 +89,9 @@ pub(super) fn compile_encode(
         .entries
         .iter()
         .filter_map(|entry| match entry {
-            crate::proto::package::MessageEntry::Field(f) => Some(f),
-            crate::proto::package::MessageEntry::Declaration(_) => None,
-            crate::proto::package::MessageEntry::OneOf(_) => todo!(),
+            crate::proto::package::MessageDeclarationEntry::Field(f) => Some(f),
+            crate::proto::package::MessageDeclarationEntry::Declaration(_) => None,
+            crate::proto::package::MessageDeclarationEntry::OneOf(_) => todo!(),
         })
         .collect::<Vec<_>>();
 
@@ -103,7 +103,7 @@ pub(super) fn compile_encode(
         let message_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&message_parameter_id).into());
         let field_value = Rc::new(message_expr.prop(&js_name));
         match &field.field_type {
-            FieldType::IdPath(ids) => {
+            FieldTypeReference::IdPath(ids) => {
                 if ids.is_empty() {
                     unreachable!();
                 }
@@ -166,8 +166,8 @@ pub(super) fn compile_encode(
                     }
                 }
             }
-            FieldType::Repeated(element_type) => match element_type.deref() {
-                FieldType::IdPath(ids) => {
+            FieldTypeReference::Repeated(element_type) => match element_type.deref() {
+                FieldTypeReference::IdPath(ids) => {
                     if ids.is_empty() {
                         unreachable!();
                     }
@@ -181,7 +181,7 @@ pub(super) fn compile_encode(
                             encode_func.push_statement(
                                 encode_basic_repeated_type_field(
                                     &field_value,
-                                    &FieldType::Int32,
+                                    &FieldTypeReference::Int32,
                                     field.tag,
                                     &writer_var,
                                 )
@@ -237,8 +237,8 @@ pub(super) fn compile_encode(
                         }
                     }
                 }
-                FieldType::Repeated(_) => unreachable!(),
-                FieldType::Map(_, _) => unreachable!(),
+                FieldTypeReference::Repeated(_) => unreachable!(),
+                FieldTypeReference::Map(_, _) => unreachable!(),
                 basic => {
                     assert!(basic.is_basic());
 
@@ -253,7 +253,7 @@ pub(super) fn compile_encode(
                     )
                 }
             },
-            FieldType::Map(kt, vt) => encode_func.push_statement(
+            FieldTypeReference::Map(kt, vt) => encode_func.push_statement(
                 encode_map_field(
                     &field_scope,
                     &message_declaration,

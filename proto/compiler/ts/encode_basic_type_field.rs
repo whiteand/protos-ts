@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::proto::{
     compiler::ts::{constants::get_basic_wire_type, has_property::has_property},
-    package::FieldType,
+    package::FieldTypeReference,
 };
 
 use super::ast::{self, Identifier, MethodCall};
@@ -12,7 +12,7 @@ pub(crate) fn encode_basic_type_field(
     message_parameter_id: &Rc<Identifier>,
     js_name_id: &Rc<Identifier>,
     writer_var: &Rc<Identifier>,
-    field_type: &FieldType,
+    field_type: &FieldTypeReference,
     field_tag: i64,
 ) -> ast::Statement {
     let wire_type = get_basic_wire_type(field_type);
