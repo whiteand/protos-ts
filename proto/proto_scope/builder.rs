@@ -107,21 +107,19 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
         }
         let root_builder = self.take();
         let mut children: Vec<Rc<ProtoScope>> = Vec::new();
-        let mut types: HashMap<usize, Rc<ProtoScope>> = Default::default();
+        let mut types: HashMap<usize, Vec<Rc<str>>> = Default::default();
 
-        for child in root_builder.children {
+        for child_ref in root_builder.children {
             let ResolveResult {
                 scope,
-                declaration_scopes,
-            } = resolve(child)?;
+                declaration_paths,
+            } = resolve(child_ref)?;
+            let name = scope.name();
             children.push(scope);
-            for d in declaration_scopes {
-                match d.id() {
-                    Some(id) => {
-                        types.insert(id, d);
-                    }
-                    _ => {}
-                }
+            for (id, mut path) in declaration_paths {
+                path.push(Rc::clone(&name));
+                path.reverse();
+                types.insert(id, path);
             }
         }
 
@@ -131,20 +129,24 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
 
 struct ResolveResult {
     scope: Rc<ProtoScope>,
-    declaration_scopes: Vec<Rc<ProtoScope>>,
+    declaration_paths: Vec<(usize, Vec<Rc<str>>)>,
 }
 
 fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, ProtoError> {
     let builder = builder_ref.take();
     let mut children: Vec<Rc<ProtoScope>> = Vec::new();
-    let mut declarations: Vec<Rc<ProtoScope>> = Vec::new();
+    let mut declaration_paths: Vec<(usize, Vec<Rc<str>>)> = Vec::new();
     for child in builder.children {
         let ResolveResult {
             scope,
-            declaration_scopes,
+            declaration_paths: declaration_scopes,
         } = resolve(child)?;
+        let name = scope.name();
         children.push(scope);
-        declarations.extend(declaration_scopes);
+        for (id, mut path) in declaration_scopes {
+            path.push(Rc::clone(&name));
+            declaration_paths.push((id, path))
+        }
     }
 
     let scope = match builder.data {
@@ -164,20 +166,24 @@ fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, Prot
                 entries: e.entries,
             }));
 
-            declarations.push(Rc::clone(&enum_scope));
+            declaration_paths.push((e.id, vec![]));
 
             enum_scope
         }
         ScopeData::Message(m) => {
-            let message_scope = Rc::new(ProtoScope::Message(MessageScope { id: m.id, children }));
-            declarations.push(Rc::clone(&message_scope));
+            let message_scope = Rc::new(ProtoScope::Message(MessageScope {
+                id: m.id,
+                name: m.name,
+                children,
+            }));
+            declaration_paths.push((m.id, vec![]));
             message_scope
         }
     };
 
     Ok(ResolveResult {
         scope: scope,
-        declaration_scopes: declarations,
+        declaration_paths,
     })
 }
 

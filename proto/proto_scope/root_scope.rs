@@ -5,7 +5,7 @@ use super::{traits::ChildrenScopes, ProtoScope};
 #[derive(Debug)]
 pub(crate) struct RootScope {
     pub children: Vec<Rc<ProtoScope>>,
-    pub types: HashMap<usize, Rc<ProtoScope>>,
+    pub types: HashMap<usize, Vec<Rc<str>>>,
 }
 
 impl RootScope {

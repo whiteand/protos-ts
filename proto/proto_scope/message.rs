@@ -5,6 +5,7 @@ use super::{traits::ChildrenScopes, ProtoScope};
 #[derive(Debug)]
 pub(crate) struct MessageScope {
     pub id: usize,
+    pub name: Rc<str>,
     pub children: Vec<Rc<ProtoScope>>,
 }
 

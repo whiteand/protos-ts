@@ -32,6 +32,15 @@ impl ProtoScope {
             ProtoScope::Message(m) => Some(m.id),
         }
     }
+    fn name(&self) -> Rc<str> {
+        match self {
+            ProtoScope::Root(r) => unreachable!(),
+            ProtoScope::Package(p) => Rc::clone(&p.name),
+            ProtoScope::File(f) => Rc::clone(&f.name),
+            ProtoScope::Enum(e) => Rc::clone(&e.name),
+            ProtoScope::Message(m) => Rc::clone(&m.name),
+        }
+    }
 }
 
 impl Default for ProtoScope {
