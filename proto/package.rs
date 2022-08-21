@@ -5,6 +5,7 @@ use super::{
     proto_scope::{
         builder::{ScopeBuilder, ScopeBuilderTrait},
         root_scope::RootScope,
+        ProtoScope,
     },
     scope::Scope,
     syntax,

@@ -1,18 +1,14 @@
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use crate::proto::package::EnumEntry;
 
-use super::{
-    traits::{ChildrenScopes, ParentScope, SetParent},
-    ProtoScope,
-};
+use super::{traits::ChildrenScopes, ProtoScope};
 
 #[derive(Debug)]
-pub(in crate::proto) struct EnumScope {
-    pub parent: Weak<ProtoScope>,
+pub(crate) struct EnumScope {
     pub id: usize,
     pub name: Rc<str>,
-    pub entries: Vec<Rc<EnumEntry>>,
+    pub entries: Vec<EnumEntry>,
 }
 
 impl std::fmt::Display for EnumScope {
@@ -37,7 +33,6 @@ mod test_format {
     #[test]
     fn test_enum_format() {
         let enum_scope = EnumScope {
-            parent: Weak::default(),
             id: 32,
             name: "Hello".into(),
             entries: vec![
@@ -61,20 +56,8 @@ mod test_format {
     }
 }
 
-impl SetParent for EnumScope {
-    fn set_parent(&mut self, parent: std::rc::Weak<ProtoScope>) {
-        self.parent = parent;
-    }
-}
-
 impl ChildrenScopes for EnumScope {
     fn children(&self) -> &[Rc<ProtoScope>] {
         &[]
-    }
-}
-
-impl ParentScope for EnumScope {
-    fn parent(&self) -> Option<Rc<ProtoScope>> {
-        self.parent.upgrade()
     }
 }

@@ -1,30 +1,15 @@
 use std::rc::{Rc, Weak};
 
-use super::{
-    traits::{ChildrenScopes, ParentScope, SetParent},
-    ProtoScope,
-};
+use super::{traits::ChildrenScopes, ProtoScope};
 
 #[derive(Debug)]
-pub(in crate::proto) struct FileScope {
-    parent: Weak<ProtoScope>,
-    children: Vec<Rc<ProtoScope>>,
-}
-
-impl SetParent for FileScope {
-    fn set_parent(&mut self, parent: std::rc::Weak<ProtoScope>) {
-        self.parent = parent;
-    }
+pub(crate) struct FileScope {
+    pub name: Rc<str>,
+    pub children: Vec<Rc<ProtoScope>>,
 }
 
 impl ChildrenScopes for FileScope {
     fn children(&self) -> &[Rc<ProtoScope>] {
         &self.children
-    }
-}
-
-impl ParentScope for FileScope {
-    fn parent(&self) -> Option<Rc<ProtoScope>> {
-        self.parent.upgrade()
     }
 }

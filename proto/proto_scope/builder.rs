@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    collections::HashMap,
     ops::Deref,
     rc::{Rc, Weak},
 };
@@ -12,7 +13,10 @@ use crate::proto::{
     },
 };
 
-use super::root_scope::RootScope;
+use super::{
+    enum_scope::EnumScope, file::FileScope, message::MessageScope, package::PackageScope,
+    root_scope::RootScope, ProtoScope,
+};
 
 #[derive(Debug)]
 struct PackageData {
@@ -87,6 +91,7 @@ trait ScopeBuilderPrivate {
     fn load_declaration(&self, declaration: Declaration) -> Result<(), ProtoError>;
     fn load_enum(&self, enum_declaration: EnumDeclaration) -> Result<(), ProtoError>;
     fn load_message(&self, message_declaration: MessageDeclaration) -> Result<(), ProtoError>;
+    fn resolve(self) -> Result<ProtoScope, ProtoError>;
 }
 
 impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
@@ -96,9 +101,84 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
     }
 
     fn finish(self) -> Result<RootScope, ProtoError> {
-        self.borrow().print_level(0);
-        todo!()
+        {
+            let root_builder = self.borrow();
+            assert!(root_builder.is_root());
+        }
+        let root_builder = self.take();
+        let mut children: Vec<Rc<ProtoScope>> = Vec::new();
+        let mut types: HashMap<usize, Rc<ProtoScope>> = Default::default();
+
+        for child in root_builder.children {
+            let ResolveResult {
+                scope,
+                declaration_scopes,
+            } = resolve(child)?;
+            children.push(scope);
+            for d in declaration_scopes {
+                match d.id() {
+                    Some(id) => {
+                        types.insert(id, d);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(RootScope { children, types })
     }
+}
+
+struct ResolveResult {
+    scope: Rc<ProtoScope>,
+    declaration_scopes: Vec<Rc<ProtoScope>>,
+}
+
+fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, ProtoError> {
+    let builder = builder_ref.take();
+    let mut children: Vec<Rc<ProtoScope>> = Vec::new();
+    let mut declarations: Vec<Rc<ProtoScope>> = Vec::new();
+    for child in builder.children {
+        let ResolveResult {
+            scope,
+            declaration_scopes,
+        } = resolve(child)?;
+        children.push(scope);
+        declarations.extend(declaration_scopes);
+    }
+
+    let scope = match builder.data {
+        ScopeData::Root => unreachable!(),
+        ScopeData::Package(p) => Rc::new(ProtoScope::Package(PackageScope {
+            children,
+            name: p.name,
+        })),
+        ScopeData::File(f) => Rc::new(ProtoScope::File(FileScope {
+            children,
+            name: f.name,
+        })),
+        ScopeData::Enum(e) => {
+            let enum_scope = Rc::new(ProtoScope::Enum(EnumScope {
+                id: e.id,
+                name: e.name,
+                entries: e.entries,
+            }));
+
+            declarations.push(Rc::clone(&enum_scope));
+
+            enum_scope
+        }
+        ScopeData::Message(m) => {
+            let message_scope = Rc::new(ProtoScope::Message(MessageScope { id: m.id, children }));
+            declarations.push(Rc::clone(&message_scope));
+            message_scope
+        }
+    };
+
+    Ok(ResolveResult {
+        scope: scope,
+        declaration_scopes: declarations,
+    })
 }
 
 impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
@@ -205,6 +285,10 @@ impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
         }
         Ok(())
     }
+
+    fn resolve(self) -> Result<ProtoScope, ProtoError> {
+        todo!()
+    }
 }
 
 impl ScopeBuilder {
@@ -228,6 +312,16 @@ impl ScopeBuilder {
             let child = child_ref.borrow();
             child.print_level(level + 1);
         }
+    }
+
+    fn is_root(&self) -> bool {
+        return matches!(
+            self,
+            ScopeBuilder {
+                data: ScopeData::Root,
+                ..
+            }
+        );
     }
 
     fn is_package_with_name(&self, package_name: &str) -> bool {

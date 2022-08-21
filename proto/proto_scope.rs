@@ -1,12 +1,8 @@
 use std::rc::Rc;
 
 use self::{
-    enum_scope::EnumScope,
-    file::FileScope,
-    message::MessageScope,
-    package::PackageScope,
-    root_scope::RootScope,
-    traits::{ChildrenScopes, ParentScope, SetParent},
+    enum_scope::EnumScope, file::FileScope, message::MessageScope, package::PackageScope,
+    root_scope::RootScope, traits::ChildrenScopes,
 };
 
 pub(super) mod builder;
@@ -18,12 +14,24 @@ pub(crate) mod root_scope;
 pub(super) mod traits;
 
 #[derive(Debug)]
-pub(in crate::proto) enum ProtoScope {
+pub(crate) enum ProtoScope {
     Root(RootScope),
     Package(PackageScope),
     File(FileScope),
     Enum(EnumScope),
     Message(MessageScope),
+}
+
+impl ProtoScope {
+    fn id(&self) -> Option<usize> {
+        match self {
+            ProtoScope::Root(_) => None,
+            ProtoScope::Package(_) => None,
+            ProtoScope::File(_) => None,
+            ProtoScope::Enum(e) => Some(e.id),
+            ProtoScope::Message(m) => Some(m.id),
+        }
+    }
 }
 
 impl Default for ProtoScope {
@@ -34,37 +42,25 @@ impl Default for ProtoScope {
 
 impl From<PackageScope> for ProtoScope {
     fn from(package: PackageScope) -> Self {
-        ProtoScope::Package(package)
+        ProtoScope::Package(package.into())
     }
 }
 
 impl From<FileScope> for ProtoScope {
     fn from(file: FileScope) -> Self {
-        ProtoScope::File(file)
+        ProtoScope::File(file.into())
     }
 }
 
 impl From<EnumScope> for ProtoScope {
     fn from(enum_scope: EnumScope) -> Self {
-        ProtoScope::Enum(enum_scope)
+        ProtoScope::Enum(enum_scope.into())
     }
 }
 
 impl From<MessageScope> for ProtoScope {
     fn from(message_scope: MessageScope) -> Self {
-        ProtoScope::Message(message_scope)
-    }
-}
-
-impl SetParent for ProtoScope {
-    fn set_parent(&mut self, parent: std::rc::Weak<ProtoScope>) {
-        match self {
-            ProtoScope::Root(root) => root.set_parent(parent),
-            ProtoScope::Package(package) => package.set_parent(parent),
-            ProtoScope::File(file) => file.set_parent(parent),
-            ProtoScope::Enum(enum_scope) => enum_scope.set_parent(parent),
-            ProtoScope::Message(message_scope) => message_scope.set_parent(parent),
-        }
+        ProtoScope::Message(message_scope.into())
     }
 }
 
@@ -76,18 +72,6 @@ impl ChildrenScopes for ProtoScope {
             ProtoScope::File(file) => file.children(),
             ProtoScope::Enum(enum_scope) => enum_scope.children(),
             ProtoScope::Message(message_scope) => message_scope.children(),
-        }
-    }
-}
-
-impl ParentScope for ProtoScope {
-    fn parent(&self) -> Option<Rc<ProtoScope>> {
-        match self {
-            ProtoScope::Root(r) => r.parent(),
-            ProtoScope::Package(package) => package.parent(),
-            ProtoScope::File(file) => file.parent(),
-            ProtoScope::Enum(enum_scope) => enum_scope.parent(),
-            ProtoScope::Message(message_scope) => message_scope.parent(),
         }
     }
 }
