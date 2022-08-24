@@ -37,9 +37,15 @@ fn insert_message_declaration(
 ) -> Result<(), ProtoError> {
     let message_name = message_scope.name();
     let mut message_folder = Folder::new(message_name);
-    insert_message_types(&root, &mut message_folder, &message_scope)?;
-    compile_encode(&root, &mut message_folder, &message_scope)?;
-    compile_decode(&root, &mut message_folder, &message_scope)?;
+    if !message_scope
+        .get_message_declaration()
+        .map(|d| d.entries.is_empty())
+        .unwrap_or(false)
+    {
+        insert_message_types(&root, &mut message_folder, &message_scope)?;
+        compile_encode(&root, &mut message_folder, &message_scope)?;
+        compile_decode(&root, &mut message_folder, &message_scope)?;
+    }
     insert_children(&root, &mut message_folder, &message_scope)?;
     message_parent_folder.entries.push(message_folder.into());
 
