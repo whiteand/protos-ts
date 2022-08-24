@@ -1,5 +1,5 @@
 use std::{
-    cell::{Ref, RefCell},
+    cell::RefCell,
     collections::HashMap,
     ops::Deref,
     rc::{Rc, Weak},
@@ -135,6 +135,82 @@ impl ScopeBuilder {
             None => None,
         }
     }
+    fn get_builder_by_absolute_path(&self, path: &[Rc<str>]) -> Option<Rc<RefCell<ScopeBuilder>>> {
+        if self.is_root() {
+            return self.get_by_path(path);
+        }
+        return self
+            .for_parent(|p| p.get_builder_by_absolute_path(path))
+            .flatten();
+    }
+    fn matches(&self, full_path: &[Rc<str>]) -> bool {
+        if self.is_root() {
+            return false;
+        }
+        if self.is_file() {
+            return self.for_parent(|parent| parent.matches(&full_path)).unwrap_or(false);
+        }
+        if full_path.len() == 0 {
+            return false;
+        }
+        let self_name = self.name().unwrap();
+        if full_path.len() == 1 {
+            return self_name == full_path[0];
+        }
+        let last_name = Rc::clone(&full_path[full_path.len() - 1]);
+        last_name == self_name
+            && self
+                .for_parent(|parent| parent.matches(&full_path[..full_path.len() - 1]))
+                .unwrap_or(false)
+    }
+
+    fn get_children_names(&self) -> Vec<Rc<str>> {
+        let mut res = Vec::new();
+        for child in &self.children {
+            match child.borrow().name() {
+                Some(n) => res.push(n),
+                None => {}
+            }
+        }
+        res
+    }
+
+    fn print_full_tree(&self) {
+        if self.is_root() {
+            self.print_level(0);
+        } else {
+            self.for_parent(|p| p.print_full_tree());
+        }
+    }
+
+    fn get_by_path(&self, path: &[Rc<str>]) -> Option<Rc<RefCell<ScopeBuilder>>> {
+        if path.is_empty() {
+            return None;
+        }
+        let resolved_children = self.resolve_child_by_name(&path[0]);
+        if path.len() == 1 {
+            match resolved_children.len() {
+                0 => return None,
+                _ => {
+                    for child in resolved_children {
+                        return Some(child);
+                    }
+                    return None;
+                }
+            }
+        }
+        if resolved_children.len() <= 0 {
+            return None;
+        }
+        for child in resolved_children {
+            let result = child.borrow().get_by_path(&path[1..]);
+            if result.is_some() {
+                return result;
+            }
+        }
+        return None;
+    }
+
     fn is_root(&self) -> bool {
         self.data.is_root()
     }
@@ -144,6 +220,11 @@ impl ScopeBuilder {
         }
         return false;
     }
+
+    fn has_parent(&self) -> bool {
+        return self.for_parent(|_| true).unwrap_or(false);
+    }
+
     fn id(&self) -> Option<usize> {
         self.data.id()
     }
@@ -160,6 +241,24 @@ impl ScopeBuilder {
             }
             _ => return None,
         }
+    }
+
+    fn get_all_declaration_builders(&self) -> Vec<Rc<RefCell<ScopeBuilder>>> {
+        let mut res = Vec::new();
+        for child_ref in &self.children {
+            let child_is_declaration = {
+                let child = child_ref.borrow();
+                child.is_message() || child.is_enum()
+            };
+            if child_is_declaration {
+                res.push(Rc::clone(child_ref));
+            }
+            {
+                let child_types = child_ref.borrow().get_all_declaration_builders();
+                res.extend(child_types);
+            }
+        }
+        return res;
     }
     fn is_package(&self) -> bool {
         self.data.is_package()
@@ -286,7 +385,6 @@ trait ScopeBuilderPrivate {
     fn load_declaration(&self, declaration: Declaration) -> Result<(), ProtoError>;
     fn load_enum(&self, enum_declaration: EnumDeclaration) -> Result<(), ProtoError>;
     fn load_message(&self, message_declaration: MessageDeclaration) -> Result<(), ProtoError>;
-    fn resolve(self) -> Result<ProtoScope, ProtoError>;
 }
 
 impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
@@ -296,15 +394,12 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
     }
 
     fn finish(self) -> Result<RootScope, ProtoError> {
-        {
-            let root_builder = self.borrow();
-            assert!(root_builder.is_root());
-        }
-        let root_builder = self.take();
+        let root_builder = self.borrow();
+        assert!(root_builder.is_root());
         let mut children: Vec<Rc<ProtoScope>> = Vec::new();
         let mut types: HashMap<usize, Vec<Rc<str>>> = Default::default();
 
-        for child_ref in root_builder.children {
+        for child_ref in root_builder.children.iter() {
             let ResolveResult {
                 scope,
                 declaration_paths,
@@ -327,7 +422,7 @@ struct ResolveResult {
     declaration_paths: Vec<(usize, Vec<Rc<str>>)>,
 }
 
-fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, ProtoError> {
+fn resolve(builder_ref: &Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, ProtoError> {
     let builder = builder_ref.borrow();
     let mut children: Vec<Rc<ProtoScope>> = Vec::new();
     let mut declaration_paths: Vec<(usize, Vec<Rc<str>>)> = Vec::new();
@@ -335,7 +430,7 @@ fn resolve(builder_ref: Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, Prot
         let ResolveResult {
             scope,
             declaration_paths: declaration_scopes,
-        } = resolve(Rc::clone(child))?;
+        } = resolve(child)?;
         let name = scope.name();
         children.push(scope);
         for (id, mut path) in declaration_scopes {
@@ -432,9 +527,18 @@ fn resolve_full_path(builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Result<Ty
     if in_file_resolution.is_some() {
         return Ok(in_file_resolution.unwrap());
     }
-    let imprts = get_imports(&builder)?;
+    let imports = get_imports(&builder)?;
+    let imported_files = imports
+        .into_iter()
+        .map(|p| builder.get_builder_by_absolute_path(&p).unwrap());
+    for file_builder_ref in imported_files {
+        let file_builder = file_builder_ref.borrow();
+        let resolved = resolve_in_imported_file(&file_builder, &full_path);
+        if resolved.is_some() {
+            return Ok(resolved.unwrap());
+        }
+    }
 
-    dbg!(imprts);
     return Err(ProtoError::new(
         format!(
             "Cannot resolve {}\n  in {}",
@@ -443,6 +547,21 @@ fn resolve_full_path(builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Result<Ty
         )
         .as_str(),
     ));
+}
+
+fn resolve_in_imported_file(file_builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Option<Type> {
+    for declaration_builder_ref in file_builder.get_all_declaration_builders() {
+        let declaration_builder = declaration_builder_ref.borrow();
+        println!(
+            "\nMatching\n  {}\nwith\n  {}",
+            declaration_builder.path().join("/"),
+            full_path.join("/")
+        );
+        if declaration_builder.matches(&full_path) {
+            return declaration_builder.get_type();
+        }
+    }
+    None
 }
 
 fn get_imports(builder: &ScopeBuilder) -> Result<Vec<Vec<Rc<str>>>, ProtoError> {
@@ -630,7 +749,7 @@ impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
                 Ok(())
             }
             None => {
-                let package_builder =
+                let mut package_builder =
                     ScopeBuilder::new_package(Rc::clone(&path[0]), Rc::clone(self));
                 let package_ref = Rc::new(RefCell::new(package_builder));
                 package_ref.load_file(file, &path[1..])?;
@@ -693,10 +812,6 @@ impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
             cell.children.push(message_builder_ref);
         }
         Ok(())
-    }
-
-    fn resolve(self) -> Result<ProtoScope, ProtoError> {
-        todo!()
     }
 }
 

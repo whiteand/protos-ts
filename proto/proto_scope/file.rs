@@ -1,4 +1,4 @@
-use std::rc::{Rc, Weak};
+use std::rc::{Rc};
 
 use super::{traits::ChildrenScopes, ProtoScope};
 
