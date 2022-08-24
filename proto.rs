@@ -8,3 +8,4 @@ mod scope;
 mod lexems;
 mod id_generator;
 mod proto_scope;
+mod protopath;

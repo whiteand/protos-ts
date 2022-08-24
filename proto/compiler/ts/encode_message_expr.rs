@@ -1,6 +1,9 @@
 use std::rc::Rc;
 
-use crate::proto::package::MessageDeclaration;
+use crate::proto::{
+    package::MessageDeclaration,
+    proto_scope::{root_scope::RootScope, ProtoScope},
+};
 
 use super::{
     ast::{self, File, ImportSpecifier},
@@ -13,27 +16,28 @@ use super::{
 };
 
 pub(super) fn encode_message_expr(
-    scope: &BlockScope,
-    parent_message_decl: &MessageDeclaration,
-    message_file: &mut File,
-    defined: &DefinedId,
+    root: &RootScope,
+    parent_message_scope: &ProtoScope,
+    encode_file: &mut File,
+    field_message_id: usize,
 ) -> ast::Expression {
-    let imported_message = match defined.declaration {
-        super::defined_id::IdType::DataType(decl) => match decl {
-            crate::proto::package::Declaration::Enum(_) => unreachable!(),
-            crate::proto::package::Declaration::Message(m) => m,
-        },
-        super::defined_id::IdType::Package(_) => unreachable!(),
+    let encode_func_path = {
+        let mut res = TsPath::from(root.get_declaration_path(field_message_id).unwrap());
+        res.push(TsPathComponent::File("encode".into()));
+        res.push(TsPathComponent::Function("encode".into()));
+        res
     };
-    let mut encode_func_path = TsPath::from(defined.path());
-    encode_func_path.push(TsPathComponent::File("encode".into()));
-    encode_func_path.push(TsPathComponent::Function("encode".into()));
-    let message_scope = scope.push(parent_message_decl);
-    let mut current_path = TsPath::from(message_scope.path());
-    current_path.push(TsPathComponent::File("encode".into()));
+    let current_path = {
+        let mut res = TsPath::from(
+            root.get_declaration_path(parent_message_scope.id().unwrap())
+                .unwrap(),
+        );
+        res.push(TsPathComponent::File("encode".into()));
+        res
+    };
     match get_relative_import_string(&current_path, &encode_func_path) {
         Some(import_string) => {
-            let imported_name = Rc::new(ast::Identifier::from(format!("e{}", imported_message.id)));
+            let imported_name = Rc::new(ast::Identifier::from(format!("e{}", field_message_id)));
             let import_stmt = ast::ImportDeclaration::import(
                 vec![ImportSpecifier {
                     name: Rc::clone(&imported_name),
@@ -41,7 +45,7 @@ pub(super) fn encode_message_expr(
                 }],
                 import_string.into(),
             );
-            ensure_import(message_file, import_stmt);
+            ensure_import(encode_file, import_stmt);
             ast::Expression::from(imported_name)
         }
         None => ast::Expression::from(ENCODE_FUNCTION_NAME),

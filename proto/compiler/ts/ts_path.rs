@@ -1,9 +1,7 @@
 use std::{ops::Deref, rc::Rc};
 
-use super::{
-    file_name_to_folder_name::file_name_to_folder_name,
-    protopath::{PathComponent, ProtoPath},
-};
+use super::file_name_to_folder_name::file_name_to_folder_name;
+use crate::proto::protopath::{PathComponent, ProtoPath};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum TsPathComponent {
@@ -12,6 +10,18 @@ pub(super) enum TsPathComponent {
     Enum(Rc<str>),
     Interface(Rc<str>),
     Function(Rc<str>),
+}
+
+impl TsPathComponent {
+    pub fn to_str(&self) -> Rc<str> {
+        match self {
+            TsPathComponent::Folder(s) => Rc::clone(&s),
+            TsPathComponent::File(s) => Rc::clone(&s),
+            TsPathComponent::Enum(s) => Rc::clone(&s),
+            TsPathComponent::Interface(s) => Rc::clone(&s),
+            TsPathComponent::Function(s) => Rc::clone(&s),
+        }
+    }
 }
 impl From<&TsPathComponent> for String {
     fn from(p: &TsPathComponent) -> String {

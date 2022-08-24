@@ -1,27 +1,46 @@
-use std::rc::Rc;
+use std::{ops::Index, rc::Rc};
 
 #[derive(Debug, Clone)]
-pub(super) enum PathComponent {
+pub(crate) enum PathComponent {
     Package(Rc<str>),
     File(Rc<str>),
     Message(Rc<str>),
     Enum(Rc<str>),
 }
-
-impl From<&PathComponent> for String {
-    fn from(p: &PathComponent) -> String {
-        match p {
-            PathComponent::Package(s) => s.to_string(),
-            PathComponent::File(s) => s.to_string(),
-            PathComponent::Message(s) => s.to_string(),
-            PathComponent::Enum(s) => s.to_string(),
+impl PathComponent {
+    pub fn as_str(&self) -> Rc<str> {
+        match self {
+            PathComponent::Package(s) => Rc::clone(&s),
+            PathComponent::File(s) => Rc::clone(&s),
+            PathComponent::Message(s) => Rc::clone(&s),
+            PathComponent::Enum(s) => Rc::clone(&s),
         }
     }
 }
 
+impl From<&PathComponent> for String {
+    fn from(p: &PathComponent) -> String {
+        p.as_str().to_string()
+    }
+}
+
 #[derive(Debug, Clone)]
-pub(super) struct ProtoPath {
+pub(crate) struct ProtoPath {
     pub path: Vec<PathComponent>,
+}
+
+impl ProtoPath {
+    pub fn len(&self) -> usize {
+        self.path.len()
+    }
+}
+
+impl Index<usize> for ProtoPath {
+    type Output = PathComponent;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.path[index]
+    }
 }
 
 impl ProtoPath {

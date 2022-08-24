@@ -5,7 +5,6 @@ use super::{
     proto_scope::{
         builder::{ScopeBuilder, ScopeBuilderTrait},
         root_scope::RootScope,
-        ProtoScope,
     },
     scope::Scope,
     syntax,
@@ -83,6 +82,111 @@ pub(crate) enum Type {
     String,   // string
     Uint32,   // uint32
     Uint64,   // uint64
+}
+
+impl Type {
+    pub fn is_basic(&self) -> bool {
+        return matches!(
+            self,
+            Self::Bool
+                | Self::Bytes
+                | Self::Double
+                | Self::Fixed32
+                | Self::Fixed64
+                | Self::Float
+                | Self::Int32
+                | Self::Int64
+                | Self::Sfixed32
+                | Self::Sfixed64
+                | Self::Sint32
+                | Self::Sint64
+                | Self::String
+                | Self::Uint32
+                | Self::Uint64
+        );
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Bool => "bool".to_string(),
+            Self::Bytes => "bytes".to_string(),
+            Self::Double => "double".to_string(),
+            Self::Fixed32 => "fixed32".to_string(),
+            Self::Fixed64 => "fixed64".to_string(),
+            Self::Float => "float".to_string(),
+            Self::Int32 => "int32".to_string(),
+            Self::Int64 => "int64".to_string(),
+            Self::Sfixed32 => "sfixed32".to_string(),
+            Self::Sfixed64 => "sfixed64".to_string(),
+            Self::Sint32 => "sint32".to_string(),
+            Self::Sint64 => "sint64".to_string(),
+            Self::String => "string".to_string(),
+            Self::Uint32 => "uint32".to_string(),
+            Self::Uint64 => "uint64".to_string(),
+            _ => todo!(),
+        }
+    }
+
+    pub fn get_basic_wire_type(&self) -> u32 {
+        match self {
+            Self::Bool => 0,
+            Self::Bytes => 2,
+            Self::Double => 1,
+            Self::Fixed32 => 5,
+            Self::Fixed64 => 1,
+            Self::Float => 5,
+            Self::Int32 => 0,
+            Self::Int64 => 0,
+            Self::Sfixed32 => 5,
+            Self::Sfixed64 => 1,
+            Self::Sint32 => 0,
+            Self::Sint64 => 0,
+            Self::String => 2,
+            Self::Uint32 => 0,
+            Self::Uint64 => 0,
+            Self::Message(_) => unreachable!(),
+            Self::Enum(_) => unreachable!(),
+            Self::Repeated(_) => unreachable!(),
+            Self::Map(_, _) => unreachable!(),
+        }
+    }
+
+    pub fn packed_wire_type(&self) -> Option<u32> {
+        match self {
+            Self::Bool => Some(0),
+            Self::Double => Some(1),
+            Self::Fixed32 => Some(5),
+            Self::Fixed64 => Some(1),
+            Self::Float => Some(5),
+            Self::Int32 => Some(0),
+            Self::Int64 => Some(0),
+            Self::Sfixed32 => Some(5),
+            Self::Sfixed64 => Some(1),
+            Self::Sint32 => Some(0),
+            Self::Sint64 => Some(0),
+            Self::Uint32 => Some(0),
+            Self::Uint64 => Some(0),
+            _ => None,
+        }
+    }
+
+    pub fn map_key_wire_type(&self) -> Option<u32> {
+        match self {
+            Self::Bool => Some(0),
+            Self::Fixed32 => Some(5),
+            Self::Fixed64 => Some(1),
+            Self::Int32 => Some(0),
+            Self::Int64 => Some(0),
+            Self::Sfixed32 => Some(5),
+            Self::Sfixed64 => Some(1),
+            Self::Sint32 => Some(0),
+            Self::Sint64 => Some(0),
+            Self::String => Some(2),
+            Self::Uint32 => Some(0),
+            Self::Uint64 => Some(0),
+            _ => None,
+        }
+    }
 }
 
 impl Clone for Type {
@@ -311,6 +415,17 @@ pub(crate) struct Field {
     pub field_type: Type,
     pub tag: i64,
     pub attributes: Vec<(Rc<str>, Rc<str>)>,
+}
+
+impl Field {
+    pub fn json_name(&self) -> Rc<str> {
+        for (key, value) in &self.attributes {
+            if key.deref() == "json_name" {
+                return Rc::clone(value);
+            }
+        }
+        Rc::clone(&self.name)
+    }
 }
 
 impl FieldDeclaration {

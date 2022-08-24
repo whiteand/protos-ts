@@ -1,12 +1,13 @@
 use std::rc::Rc;
 
 use crate::proto::{
-    compiler::ts::protopath::PathComponent,
     error::ProtoError,
-    package::{Declaration, ProtoFile}, scope::Scope,
+    package::{Declaration, ProtoFile},
+    protopath::{ProtoPath, PathComponent},
+    scope::Scope,
 };
 
-use super::{block_scope::BlockScope, protopath::ProtoPath};
+use super::block_scope::BlockScope;
 
 #[derive(Debug)]
 pub(super) enum IdType<'scope> {

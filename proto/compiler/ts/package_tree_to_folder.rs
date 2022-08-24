@@ -1,25 +1,34 @@
-use std::rc::Rc;
+use std::ops::Deref;
 
-use super::{ast::*, file_to_folder};
-use crate::proto::{error::ProtoError, package_tree::*};
+use super::{ast::*, file_to_folder::file_to_folder};
+use crate::proto::{
+    error::ProtoError,
+    proto_scope::{root_scope::RootScope, traits::ChildrenScopes, ProtoScope},
+};
 
-fn package_tree_to_folder(
-    root: &PackageTree,
-    package_tree: &PackageTree,
-) -> Result<Folder, ProtoError> {
-    let mut folder = Folder::new(Rc::clone(&package_tree.name));
-    for child in package_tree.children.iter() {
-        let child_folder: Folder = package_tree_to_folder(root, child)?;
+fn scope_to_folder(root: &RootScope, scope: &ProtoScope) -> Result<Folder, ProtoError> {
+    let mut folder = Folder::new(scope.name());
+    for child in scope.children().iter() {
+        let child_folder: Folder = match child.deref() {
+            ProtoScope::Root(_) => unreachable!(),
+            p @ ProtoScope::Package(_) => scope_to_folder(root, p)?,
+            f @ ProtoScope::File(_) => file_to_folder(root, f)?,
+            ProtoScope::Enum(_) => unreachable!(),
+            ProtoScope::Message(_) => unreachable!(),
+        };
         folder.entries.push(child_folder.into());
-    }
-    for file in package_tree.files.iter() {
-        let file_folder = file_to_folder::file_to_folder(root, file)?;
-
-        folder.entries.push(file_folder.into());
     }
     Ok(folder)
 }
 
-pub(crate) fn root_tree_to_folder(root: &PackageTree) -> Result<Folder, ProtoError> {
-    package_tree_to_folder(root, root)
+pub(crate) fn root_scope_to_folder(
+    root: &RootScope,
+    folder_name: String,
+) -> Result<Folder, ProtoError> {
+    let mut folder = Folder::new(folder_name.into());
+    for child in root.children.iter() {
+        let child_folder: Folder = scope_to_folder(root, child)?;
+        folder.entries.push(child_folder.into());
+    }
+    Ok(folder)
 }

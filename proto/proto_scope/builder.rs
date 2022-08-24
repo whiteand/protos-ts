@@ -552,11 +552,6 @@ fn resolve_full_path(builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Result<Ty
 fn resolve_in_imported_file(file_builder: &ScopeBuilder, full_path: &[Rc<str>]) -> Option<Type> {
     for declaration_builder_ref in file_builder.get_all_declaration_builders() {
         let declaration_builder = declaration_builder_ref.borrow();
-        println!(
-            "\nMatching\n  {}\nwith\n  {}",
-            declaration_builder.path().join("/"),
-            full_path.join("/")
-        );
         if declaration_builder.matches(&full_path) {
             return declaration_builder.get_type();
         }

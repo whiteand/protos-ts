@@ -4,13 +4,11 @@ use crate::proto::{
     error::ProtoError,
     package::{ImportPath, MessageDeclaration, ProtoFile},
     package_tree::PackageTree,
+    protopath::{PathComponent, ProtoPath},
     scope::Scope,
 };
 
-use super::{
-    defined_id::{DefinedId, IdType},
-    protopath::{PathComponent, ProtoPath},
-};
+use super::defined_id::{DefinedId, IdType};
 
 #[derive(Debug)]
 pub(super) struct BlockScope<'a> {

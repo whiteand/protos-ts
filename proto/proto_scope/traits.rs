@@ -1,4 +1,7 @@
-use std::rc::{Rc, Weak};
+use std::{
+    ops::Deref,
+    rc::{Rc, Weak},
+};
 
 use super::ProtoScope;
 
@@ -16,4 +19,19 @@ pub(in crate::proto) trait ParentScope {
 
 pub(in crate::proto) trait RegisterDeclaration {
     fn register_declaration(&mut self, scope: Rc<ProtoScope>);
+}
+
+pub(in crate::proto) trait ResolveName {
+    fn resolve_name(&self, name: &str) -> Option<Rc<ProtoScope>>;
+}
+
+impl<T: ChildrenScopes> ResolveName for T {
+    fn resolve_name(&self, name: &str) -> Option<Rc<ProtoScope>> {
+        for child in self.children().iter() {
+            if child.name().deref() == name {
+                return Some(Rc::clone(child));
+            }
+        }
+        None
+    }
 }

@@ -1,9 +1,15 @@
 use std::rc::Rc;
 
 use self::{
-    enum_scope::EnumScope, file::FileScope, message::MessageScope, package::PackageScope,
-    root_scope::RootScope, traits::ChildrenScopes,
+    enum_scope::EnumScope,
+    file::FileScope,
+    message::MessageScope,
+    package::PackageScope,
+    root_scope::RootScope,
+    traits::{ChildrenScopes, ResolveName},
 };
+
+use super::protopath::PathComponent;
 
 pub(super) mod builder;
 pub(super) mod enum_scope;
@@ -23,7 +29,7 @@ pub(crate) enum ProtoScope {
 }
 
 impl ProtoScope {
-    fn id(&self) -> Option<usize> {
+    pub fn id(&self) -> Option<usize> {
         match self {
             ProtoScope::Root(_) => None,
             ProtoScope::Package(_) => None,
@@ -32,7 +38,25 @@ impl ProtoScope {
             ProtoScope::Message(m) => Some(m.id),
         }
     }
-    fn name(&self) -> Rc<str> {
+    pub fn as_path_component(&self) -> PathComponent {
+        match self {
+            ProtoScope::Root(_) => unreachable!(),
+            ProtoScope::Package(_) => PathComponent::Package(self.name()),
+            ProtoScope::File(_) => PathComponent::File(self.name()),
+            ProtoScope::Enum(e) => PathComponent::Enum(self.name()),
+            ProtoScope::Message(m) => PathComponent::Message(self.name()),
+        }
+    }
+    pub fn get_message_declaration(&self) -> Option<&MessageScope> {
+        match self {
+            ProtoScope::Root(_) => None,
+            ProtoScope::Package(_) => None,
+            ProtoScope::File(_) => None,
+            ProtoScope::Enum(_) => None,
+            ProtoScope::Message(m) => Some(m),
+        }
+    }
+    pub fn name(&self) -> Rc<str> {
         match self {
             ProtoScope::Root(r) => unreachable!(),
             ProtoScope::Package(p) => Rc::clone(&p.name),
@@ -40,6 +64,33 @@ impl ProtoScope {
             ProtoScope::Enum(e) => Rc::clone(&e.name),
             ProtoScope::Message(m) => Rc::clone(&m.name),
         }
+    }
+    pub fn is_file(&self) -> bool {
+        match self {
+            ProtoScope::File(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_package(&self) -> bool {
+        match self {
+            ProtoScope::Package(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_enum(&self) -> bool {
+        match self {
+            ProtoScope::Enum(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_message(&self) -> bool {
+        match self {
+            ProtoScope::Enum(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_declaration(&self) -> bool {
+        self.is_enum() || self.is_message()
     }
 }
 

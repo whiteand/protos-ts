@@ -1,18 +1,17 @@
-use std::rc::Rc;
-
-use crate::proto::package;
+use crate::proto::proto_scope::{root_scope::RootScope, ProtoScope};
 
 use super::ast::{self, Folder};
 
-pub(super) fn insert_enum_declaration(
-    res: &mut Folder,
-    enum_declaration: &package::EnumDeclaration,
-) {
-    let mut file = ast::File::new(Rc::clone(&enum_declaration.name));
+pub(super) fn insert_enum_declaration(root: &RootScope, res: &mut Folder, enum_scope: &ProtoScope) {
+    let mut file = ast::File::new(enum_scope.name());
+    let enum_decl = match enum_scope {
+        ProtoScope::Enum(e) => e,
+        _ => unreachable!(),
+    };
     let enum_declaration = super::ast::EnumDeclaration {
         modifiers: vec![ast::Modifier::Export],
-        name: enum_declaration.name.clone().into(),
-        members: enum_declaration
+        name: enum_scope.name().into(),
+        members: enum_decl
             .entries
             .iter()
             .map(|entry| super::ast::EnumMember {
