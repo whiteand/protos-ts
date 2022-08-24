@@ -1,7 +1,7 @@
 use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
-    compiler::ts::{encode_call::encode_call, encode_message_expr::encode_message_expr},
+    compiler::ts::{encode_call::encode_call, encode_message_expr::encode_message_expr, encode_basic_repeated_type_field::encode_basic_repeated_type_field},
     error::ProtoError,
     package::{self},
     proto_scope::{root_scope::RootScope, ProtoScope},
@@ -196,21 +196,19 @@ pub(super) fn compile_encode(
                 }
                 package::Type::Repeated(_) => unreachable!(),
                 package::Type::Map(_, _) => unreachable!(),
-                package::Type::Bool => todo!(),
-                package::Type::Bytes => todo!(),
-                package::Type::Double => todo!(),
-                package::Type::Fixed32 => todo!(),
-                package::Type::Fixed64 => todo!(),
-                package::Type::Float => todo!(),
-                package::Type::Int32 => todo!(),
-                package::Type::Int64 => todo!(),
-                package::Type::Sfixed32 => todo!(),
-                package::Type::Sfixed64 => todo!(),
-                package::Type::Sint32 => todo!(),
-                package::Type::Sint64 => todo!(),
-                package::Type::String => todo!(),
-                package::Type::Uint32 => todo!(),
-                package::Type::Uint64 => todo!(),
+                basic => {
+                    assert!(basic.is_basic());
+
+                    encode_func.push_statement(
+                        encode_basic_repeated_type_field(
+                            &field_value,
+                            basic,
+                            field.tag,
+                            &writer_var,
+                        )
+                        .into(),
+                    )
+                }
             },
             // FieldTypeReference::IdPath(ids) => {
             //     if ids.is_empty() {

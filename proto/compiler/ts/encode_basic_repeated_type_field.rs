@@ -1,18 +1,15 @@
 use std::rc::Rc;
 
 use crate::proto::{
-    compiler::ts::{
-        ast::{ElementAccess, MethodCall, MethodChain},
-        constants::get_basic_wire_type,
-    },
-    package::FieldTypeReference,
+    compiler::ts::ast::{ElementAccess, MethodCall, MethodChain},
+    package::{self},
 };
 
 use super::ast::{self, ForStatement, Prop};
 
 pub(super) fn encode_basic_repeated_type_field(
     field_value: &Rc<ast::Expression>,
-    field_type: &FieldTypeReference,
+    field_type: &package::Type,
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {
@@ -29,9 +26,10 @@ pub(super) fn encode_basic_repeated_type_field(
         }));
 
     let encode_elements_stmt = match field_type {
-        FieldTypeReference::IdPath(_) => unreachable!(),
-        FieldTypeReference::Repeated(_) => unreachable!(),
-        FieldTypeReference::Map(_, _) => unreachable!(),
+        package::Type::Enum(_) => unreachable!(),
+        package::Type::Message(_) => unreachable!(),
+        package::Type::Repeated(_) => unreachable!(),
+        package::Type::Map(_, _) => unreachable!(),
         basic => match basic.packed_wire_type() {
             Some(_) => encode_packed_elements(&field_value, basic, field_tag, &writer_var),
             None => encode_non_packed_elements(&field_value, basic, field_tag, &writer_var),
@@ -47,14 +45,14 @@ pub(super) fn encode_basic_repeated_type_field(
 
 fn encode_non_packed_elements(
     field_value: &Rc<ast::Expression>,
-    element_type: &FieldTypeReference,
+    element_type: &package::Type,
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {
     assert!(element_type.is_basic());
     let mut res = ast::Block::new();
 
-    let wire_type = get_basic_wire_type(element_type);
+    let wire_type = element_type.get_basic_wire_type();
 
     let field_prefix = field_tag << 3 | (wire_type as i64);
 
@@ -73,7 +71,7 @@ fn encode_non_packed_elements(
 
     let element_value_expr: Rc<ast::Expression> = field_value.element(i_id_expr).into();
 
-    let type_str = format!("{}", element_type);
+    let type_str = element_type.to_string();
     let encode_element_expr: Rc<ast::Expression> = Rc::new(tag_encoding_expr)
         .method_call(&type_str, vec![element_value_expr])
         .into();
@@ -87,7 +85,7 @@ fn encode_non_packed_elements(
 }
 fn encode_packed_elements(
     field_value: &Rc<ast::Expression>,
-    element_type: &FieldTypeReference,
+    element_type: &package::Type,
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {
@@ -117,7 +115,7 @@ fn encode_packed_elements(
 
     let element_value_expr: Rc<ast::Expression> = field_value.element(i_id_expr).into();
 
-    let type_str = format!("{}", element_type);
+    let type_str = element_type.to_string();
     let encode_element_expr: Rc<ast::Expression> = writer_expr
         .method_call(&type_str, vec![element_value_expr])
         .into();
