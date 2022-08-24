@@ -3,13 +3,12 @@ use std::rc::Rc;
 use crate::proto::{
     compiler::ts::ast::ElementAccess,
     error::ProtoError,
-    package::{self, Declaration, FieldTypeReference, MessageDeclaration},
+    package,
     proto_scope::{root_scope::RootScope, ProtoScope},
 };
 
 use super::{
     ast::{self, MethodCall, MethodChain},
-    constants,
     encode_message_expr::encode_message_expr,
     has_property::has_property,
 };
@@ -26,21 +25,18 @@ pub(super) fn encode_map_field(
     key_type: &package::Type,
     value_type: &package::Type,
 ) -> Result<ast::Statement, ProtoError> {
-    let field_exists_expression =
-        Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
-            operator: ast::BinaryOperator::LogicalAnd,
-            left: ast::Expression::BinaryExpression(ast::BinaryExpression {
-                operator: ast::BinaryOperator::WeakNotEqual,
-                left: Rc::clone(&field_value),
-                right: Rc::new(ast::Expression::Null),
-            })
-            .into(),
-            right: has_property(
+    let field_exists_expression = ast::BinaryOperator::LogicalAnd
+        .apply(
+            ast::BinaryOperator::WeakNotEqual
+                .apply(Rc::clone(&field_value), ast::Expression::Null.into())
+                .into(),
+            has_property(
                 Rc::new(Rc::clone(message_parameter_id).into()),
                 Rc::clone(js_name_id),
             )
             .into(),
-        }));
+        )
+        .into();
 
     let mut then_block = ast::Block::new();
 
@@ -55,8 +51,8 @@ pub(super) fn encode_map_field(
         .into(),
     );
 
-    let keys_expr: Rc<ast::Expression> = Rc::new((Rc::clone(&keys_id).into()));
-    let i_id_expr: Rc<ast::Expression> = Rc::new((Rc::clone(&i_id).into()));
+    let keys_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&keys_id).into());
+    let i_id_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&i_id).into());
 
     let mut for_stmt = ast::ForStatement::for_each(Rc::clone(&i_id), Rc::clone(&keys_expr));
 

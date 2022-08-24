@@ -1,13 +1,9 @@
 use std::{
     fmt::{Display, Formatter},
     io,
-    rc::Rc,
 };
 
-use super::{
-    lexems::{self},
-    package::ProtoVersion,
-};
+use super::lexems::{self};
 
 #[derive(Debug)]
 pub(crate) enum ProtoError {
@@ -32,11 +28,6 @@ pub(crate) enum ProtoError {
         line: usize,
         column: usize,
         message: String,
-    },
-    UnsupportedProtoVersion(Vec<String>, ProtoVersion),
-    ConflictingFiles {
-        first_path: Rc<str>,
-        second_path: Rc<str>,
     },
 }
 
@@ -85,23 +76,6 @@ impl Display for ProtoError {
                     f,
                     " at {}:{}:{} to {}",
                     file_path, line, start_column, end_column
-                )
-            }
-            UnsupportedProtoVersion(package_path, version) => {
-                write!(f, "Unsupported proto version: {}", version)?;
-                if !package_path.is_empty() {
-                    write!(f, " in package {}", package_path.join("."))?;
-                }
-                Ok(())
-            }
-            ConflictingFiles {
-                first_path,
-                second_path,
-            } => {
-                write!(
-                    f,
-                    "Cannot merge two files:\n{}\nand\n{}",
-                    first_path, second_path
                 )
             }
         }

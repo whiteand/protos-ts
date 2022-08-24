@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
+use super::ast::{self, MethodChain};
 use super::has_property::has_property;
 use crate::proto::package;
-use super::ast::{self, MethodChain};
 
 pub(super) fn encode_enum_field(
     message_parameter_id: &Rc<ast::Identifier>,
@@ -13,21 +13,18 @@ pub(super) fn encode_enum_field(
 ) -> ast::Statement {
     let wire_type = package::Type::Int32.get_basic_wire_type();
     let field_prefix = (field_tag << 3) | (wire_type as i64);
-    let field_exists_expression =
-        Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
-            operator: ast::BinaryOperator::LogicalAnd,
-            left: ast::Expression::BinaryExpression(ast::BinaryExpression {
-                operator: ast::BinaryOperator::WeakNotEqual,
-                left: Rc::clone(&field_value),
-                right: Rc::new(ast::Expression::Null),
-            })
-            .into(),
-            right: has_property(
+    let field_exists_expression = ast::BinaryOperator::LogicalAnd
+        .apply(
+            ast::BinaryOperator::WeakNotEqual
+                .apply(Rc::clone(&field_value), ast::Expression::Null.into())
+                .into(),
+            has_property(
                 ast::Expression::Identifier(Rc::clone(message_parameter_id)).into(),
                 Rc::clone(js_name_id),
             )
             .into(),
-        }));
+        )
+        .into();
 
     let writer_var_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&writer_var).into());
     let encode_field_stmt = ast::Statement::Expression(

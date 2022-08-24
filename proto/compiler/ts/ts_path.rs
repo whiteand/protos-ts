@@ -12,17 +12,6 @@ pub(super) enum TsPathComponent {
     Function(Rc<str>),
 }
 
-impl TsPathComponent {
-    pub fn to_str(&self) -> Rc<str> {
-        match self {
-            TsPathComponent::Folder(s) => Rc::clone(&s),
-            TsPathComponent::File(s) => Rc::clone(&s),
-            TsPathComponent::Enum(s) => Rc::clone(&s),
-            TsPathComponent::Interface(s) => Rc::clone(&s),
-            TsPathComponent::Function(s) => Rc::clone(&s),
-        }
-    }
-}
 impl From<&TsPathComponent> for String {
     fn from(p: &TsPathComponent) -> String {
         match p {

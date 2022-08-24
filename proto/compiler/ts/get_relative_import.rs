@@ -53,25 +53,6 @@ pub(super) fn get_relative_import_string(
     Some(import_string)
 }
 
-pub(super) fn get_named_relative_import(
-    from: &[TsPathComponent],
-    to: &[TsPathComponent],
-    name: &str,
-) -> Option<ast::ImportDeclaration> {
-    let imported_name: String = to.last().unwrap().into();
-    let import_string = get_relative_import_string(from, to);
-    import_string.map(|import_string| ast::ImportDeclaration {
-        import_clause: ast::ImportClause {
-            name: None,
-            named_bindings: Some(vec![ast::ImportSpecifier::new_full(
-                ast::Identifier::new(&imported_name).into(),
-                Some(ast::Identifier::new(name).into()),
-            )]),
-        }
-        .into(),
-        string_literal: import_string.into(),
-    })
-}
 pub(super) fn get_relative_import(
     from: &[TsPathComponent],
     to: &[TsPathComponent],

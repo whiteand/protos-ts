@@ -1,4 +1,4 @@
-use std::{ops::Deref, rc::Rc, thread::LocalKey};
+use std::{ops::Deref, rc::Rc};
 
 use crate::proto::package::FieldDeclaration;
 
@@ -7,8 +7,8 @@ use super::{
     id_generator::IdGenerator,
     lexems::{Lexem, LocatedLexem},
     package::{
-        Declaration, EnumDeclaration, EnumEntry, FieldTypeReference, ImportPath, MessageDeclaration,
-        MessageDeclarationEntry, OneOfDeclaration, ProtoFile,
+        Declaration, EnumDeclaration, EnumEntry, FieldTypeReference, ImportPath,
+        MessageDeclaration, MessageDeclarationEntry, OneOfDeclaration, ProtoFile,
     },
 };
 
@@ -677,7 +677,9 @@ pub(super) fn parse_package(
                     options: message_entries
                         .iter()
                         .filter_map(|entry| match entry {
-                            MessageDeclarationEntry::Field(field_decl) => Some(field_decl.to_owned()),
+                            MessageDeclarationEntry::Field(field_decl) => {
+                                Some(field_decl.to_owned())
+                            }
                             _ => None,
                         })
                         .collect::<Vec<FieldDeclaration>>(),

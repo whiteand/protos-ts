@@ -28,7 +28,6 @@ pub(super) fn insert_message_types(
 
     message_folder.entries.push(file.into());
 
-    ///! TODO: Implement this
     Ok(())
 }
 
@@ -109,7 +108,6 @@ fn import_encoding_input_type(
                 root,
                 message_scope,
                 types_file,
-                field_type,
                 imported_message_id,
                 imported_name,
             )
@@ -169,7 +167,6 @@ fn import_decode_result_type(
                 root,
                 message_scope,
                 types_file,
-                field_type,
                 message_id,
                 imported_name,
             )
@@ -250,7 +247,6 @@ fn import_message_type(
     root: &RootScope,
     message_scope: &ProtoScope,
     types_file: &mut ast::File,
-    field_type: &package::Type,
     imported_message_id: usize,
     imported_name: Rc<str>,
 ) -> Result<Type, ProtoError> {

@@ -129,9 +129,7 @@ impl From<&Type> for String {
             Type::Number => "number".into(),
             Type::String => "string".into(),
             Type::Null => "null".into(),
-            Type::Void => "void".into(),
             Type::Never => "never".into(),
-            Type::Undefined => "undefined".into(),
             Type::UnionType(UnionType { types }) => {
                 let type_str: Vec<String> = types
                     .iter()
@@ -176,11 +174,10 @@ mod test_type {
                 Type::Number,
                 Type::String,
                 Type::Null,
-                Type::Undefined,
             ],
         });
         let rendered: String = (&type_).into();
-        assert_eq!(rendered, "boolean | number | string | null | undefined");
+        assert_eq!(rendered, "boolean | number | string | null");
     }
     #[test]
     fn it_renders_array_with_nested_type() {
@@ -191,7 +188,6 @@ mod test_type {
                     Type::Number,
                     Type::String,
                     Type::Null,
-                    Type::Undefined,
                 ],
             }
             .into(),
@@ -199,7 +195,7 @@ mod test_type {
         let rendered: String = (&type_).into();
         assert_eq!(
             rendered,
-            "Array<boolean | number | string | null | undefined>"
+            "Array<boolean | number | string | null>"
         );
     }
     #[test]
@@ -302,7 +298,7 @@ impl From<&FunctionDeclaration> for String {
         res.push_str(&name.text);
         res.push_str("(");
         for (ind, param) in parameters.iter().enumerate() {
-            if (ind > 0) {
+            if ind > 0 {
                 res.push_str(", ");
             }
             res.push_str(&param.name.text);

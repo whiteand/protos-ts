@@ -1,8 +1,8 @@
-use crate::proto::proto_scope::{root_scope::RootScope, ProtoScope};
+use crate::proto::proto_scope::{ProtoScope};
 
 use super::ast::{self, Folder};
 
-pub(super) fn insert_enum_declaration(root: &RootScope, res: &mut Folder, enum_scope: &ProtoScope) {
+pub(super) fn insert_enum_declaration(res: &mut Folder, enum_scope: &ProtoScope) {
     let mut file = ast::File::new(enum_scope.name());
     let enum_decl = match enum_scope {
         ProtoScope::Enum(e) => e,

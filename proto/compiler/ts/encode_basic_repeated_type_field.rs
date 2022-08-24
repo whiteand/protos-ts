@@ -13,17 +13,14 @@ pub(super) fn encode_basic_repeated_type_field(
     field_tag: i64,
     writer_var: &Rc<ast::Identifier>,
 ) -> ast::Statement {
-    let field_exists_expression =
-        Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
-            operator: ast::BinaryOperator::LogicalAnd,
-            left: ast::Expression::BinaryExpression(ast::BinaryExpression {
-                operator: ast::BinaryOperator::WeakNotEqual,
-                left: Rc::clone(&field_value),
-                right: Rc::new(ast::Expression::Null),
-            })
-            .into(),
-            right: (*field_value).prop("length").into(),
-        }));
+    let field_exists_expression = ast::BinaryOperator::LogicalAnd
+        .apply(
+            ast::BinaryOperator::WeakNotEqual
+                .apply(Rc::clone(&field_value), Rc::new(ast::Expression::Null))
+                .into(),
+            (*field_value).prop("length").into(),
+        )
+        .into();
 
     let encode_elements_stmt = match field_type {
         package::Type::Enum(_) => unreachable!(),

@@ -1,12 +1,10 @@
 use super::{
     error::ProtoError,
     lexems,
-    package_tree::PackageTree,
     proto_scope::{
         builder::{ScopeBuilder, ScopeBuilderTrait},
         root_scope::RootScope,
     },
-    scope::Scope,
     syntax,
 };
 use lexems::read_lexems;
@@ -268,49 +266,6 @@ impl FieldTypeReference {
     pub fn repeated(t: Self) -> Self {
         FieldTypeReference::Repeated(Box::new(t))
     }
-    pub fn is_basic(&self) -> bool {
-        match self {
-            FieldTypeReference::Bool => true,
-            FieldTypeReference::Bytes => true,
-            FieldTypeReference::Double => true,
-            FieldTypeReference::Fixed32 => true,
-            FieldTypeReference::Fixed64 => true,
-            FieldTypeReference::Float => true,
-            FieldTypeReference::Int32 => true,
-            FieldTypeReference::Int64 => true,
-            FieldTypeReference::Sfixed32 => true,
-            FieldTypeReference::Sfixed64 => true,
-            FieldTypeReference::Sint32 => true,
-            FieldTypeReference::Sint64 => true,
-            FieldTypeReference::String => true,
-            FieldTypeReference::Uint32 => true,
-            FieldTypeReference::Uint64 => true,
-            _ => false,
-        }
-    }
-
-    pub fn packed_wire_type(&self) -> Option<u32> {
-        match self {
-            FieldTypeReference::Bool => Some(0),
-            FieldTypeReference::Double => Some(1),
-            FieldTypeReference::Fixed32 => Some(5),
-            FieldTypeReference::Fixed64 => Some(1),
-            FieldTypeReference::Float => Some(5),
-            FieldTypeReference::Int32 => Some(0),
-            FieldTypeReference::Int64 => Some(0),
-            FieldTypeReference::Sfixed32 => Some(5),
-            FieldTypeReference::Sfixed64 => Some(1),
-            FieldTypeReference::Sint32 => Some(0),
-            FieldTypeReference::Sint64 => Some(0),
-            FieldTypeReference::Uint32 => Some(0),
-            FieldTypeReference::Uint64 => Some(0),
-            FieldTypeReference::IdPath(_) => None,
-            FieldTypeReference::Repeated(_) => None,
-            FieldTypeReference::Map(_, _) => None,
-            FieldTypeReference::Bytes => None,
-            FieldTypeReference::String => None,
-        }
-    }
 
     pub fn map_key_wire_type(&self) -> Option<u32> {
         match self {
@@ -428,17 +383,6 @@ impl Field {
     }
 }
 
-impl FieldDeclaration {
-    pub fn json_name(&self) -> Rc<str> {
-        for (key, value) in &self.attributes {
-            if key.deref() == "json_name" {
-                return Rc::clone(value);
-            }
-        }
-        Rc::clone(&self.name)
-    }
-}
-
 impl std::fmt::Display for FieldDeclaration {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} {} = {}", self.field_type_ref, self.name, self.tag)?;
@@ -481,6 +425,7 @@ impl std::fmt::Display for OneOfDeclaration {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum MessageEntry {
     Field(Field),
+    #[allow(dead_code)]
     OneOf(OneOfGroup),
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -524,29 +469,6 @@ impl std::fmt::Display for MessageDeclaration {
             }
         }
         write!(f, "}}\n")
-    }
-}
-
-impl Scope for MessageDeclaration {
-    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Declaration> {
-        let mut res = None;
-        for i in 0..self.entries.len() {
-            let entry = &self.entries[i];
-            match entry {
-                MessageDeclarationEntry::Field(_) => {}
-                MessageDeclarationEntry::Declaration(decl) => {
-                    let matches = match decl {
-                        Declaration::Enum(e) => e.name.deref() == name,
-                        Declaration::Message(m) => m.name.deref() == name,
-                    };
-                    if matches {
-                        res = Some(&*decl);
-                    }
-                }
-                MessageDeclarationEntry::OneOf(_) => {}
-            }
-        }
-        res
     }
 }
 
@@ -622,39 +544,6 @@ pub(crate) struct ProtoFile {
     pub name: Rc<str>,
 }
 
-impl Scope for ProtoFile {
-    fn resolve<'scope>(&'scope self, name: &str) -> Option<&'scope Declaration> {
-        let mut decl_index = None;
-        for i in 0..self.declarations.len() {
-            let decl = &self.declarations[i];
-            match decl {
-                Declaration::Enum(e) => {
-                    if e.name.deref() == name {
-                        decl_index = Some(i);
-                        break;
-                    }
-                }
-                Declaration::Message(m) => {
-                    if m.name.deref() == name {
-                        decl_index = Some(i);
-                        break;
-                    }
-                }
-            }
-        }
-        match decl_index {
-            Some(ind) => Some(&self.declarations[ind]),
-            None => None,
-        }
-    }
-}
-
-impl ProtoFile {
-    pub fn full_path(&self) -> Rc<str> {
-        return format!("{}/{}", self.path.join("/"), self.name).into();
-    }
-}
-
 impl std::fmt::Display for ProtoFile {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "syntax = \"{}\";\n", self.version)?;
@@ -682,14 +571,6 @@ impl std::fmt::Display for ProtoFile {
     }
 }
 
-pub(crate) fn read_package_tree(files: &[PathBuf]) -> Result<PackageTree, ProtoError> {
-    let mut packages: Vec<ProtoFile> = Vec::new();
-    for file in files {
-        let proto_file = read_proto_file(file)?;
-        packages.push(proto_file);
-    }
-    packages.try_into()
-}
 pub(crate) fn read_root_scope(files: &[PathBuf]) -> Result<RootScope, ProtoError> {
     let builder = ScopeBuilder::new_ref();
 

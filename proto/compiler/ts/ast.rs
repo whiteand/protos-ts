@@ -87,6 +87,7 @@ pub(crate) struct ImportSpecifier {
 }
 
 impl ImportSpecifier {
+    #[allow(dead_code)]
     pub fn new_full(name: Rc<Identifier>, property_name: Option<Rc<Identifier>>) -> Self {
         Self {
             name,
@@ -227,9 +228,7 @@ impl From<Vec<Type>> for UnionType {
 pub(crate) enum Type {
     Number,
     Null,
-    Undefined,
     Never,
-    Void,
     Boolean,
     String,
     UnionType(UnionType),
@@ -259,12 +258,10 @@ impl Type {
             Type::Number => false,
             Type::Never => false,
             Type::Null => false,
-            Type::Undefined => false,
             Type::Boolean => false,
             Type::String => false,
             Type::TypeReference(_) => false,
             Type::Record(_, _) => false,
-            Type::Void => false,
         }
     }
 
@@ -418,6 +415,17 @@ pub(crate) enum BinaryOperator {
     LessThan,
 }
 
+impl BinaryOperator {
+    pub fn apply(self, left: Rc<Expression>, right: Rc<Expression>) -> Expression {
+        let mut binary_expr = BinaryExpression::new(self);
+
+        binary_expr.left(left);
+        binary_expr.right(right);
+
+        Expression::BinaryExpression(binary_expr)
+    }
+}
+
 impl From<&BinaryOperator> for &str {
     fn from(binary_operator: &BinaryOperator) -> Self {
         match binary_operator {
@@ -474,16 +482,6 @@ impl PropertyAccessExpression {
     pub fn new(expression: Rc<Expression>, name: Rc<Identifier>) -> Self {
         Self { expression, name }
     }
-    pub fn prop(&self, name: Rc<Identifier>) -> Self {
-        Self {
-            expression: Expression::PropertyAccessExpression(Self {
-                expression: Rc::clone(&self.expression),
-                name: Rc::clone(&self.name),
-            })
-            .into(),
-            name,
-        }
-    }
     pub fn requires_wrap_for_prop(&self) -> bool {
         match self.expression.deref() {
             Expression::Identifier(_) => false,
@@ -509,18 +507,21 @@ impl PropertyAccessExpression {
 pub(crate) enum PropertyAssignment {}
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct NewExpression {
     pub expression: Rc<Expression>,
     pub arguments: Vec<Rc<Expression>>,
 }
 
 impl NewExpression {
+    #[allow(dead_code)]
     pub fn new(expression: Rc<Expression>) -> Self {
         Self {
             expression,
             arguments: Vec::new(),
         }
     }
+    #[allow(dead_code)]
     pub fn add_argument(&mut self, argument: Rc<Expression>) -> &mut Self {
         self.arguments.push(argument);
         self
@@ -561,6 +562,7 @@ impl PrefixUnaryExpression {
     }
 }
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) enum Expression {
     Identifier(Rc<Identifier>),
     Null,
@@ -585,11 +587,12 @@ impl Expression {
         Statement::ReturnStatement(Some(self))
     }
     pub fn into_prop(self, name: &str) -> Self {
-        Expression::PropertyAccessExpression(PropertyAccessExpression {
-            expression: Rc::new(self),
-            name: Rc::new(Identifier::new(name)),
-        })
+        Expression::PropertyAccessExpression(PropertyAccessExpression::new(
+            Rc::new(self),
+            Rc::new(Identifier::new(name)),
+        ))
     }
+    #[allow(dead_code)]
     pub fn into_method_call(self, name: &str, args: Vec<Rc<Expression>>) -> Expression {
         self.into_prop(name).into_call(args)
     }
@@ -599,6 +602,7 @@ impl Expression {
             arguments: args,
         })
     }
+    #[allow(dead_code)]
     pub fn into_element(self, argument: Rc<Expression>) -> Expression {
         Expression::ElementAccessExpression(ElementAccessExpression {
             expression: Rc::new(self),
@@ -749,12 +753,6 @@ pub(crate) struct VariableDeclaration {
     pub initializer: Rc<Expression>,
 }
 
-impl VariableDeclaration {
-    pub fn new(name: Rc<Identifier>, initializer: Rc<Expression>) -> Self {
-        Self { name, initializer }
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct VariableDeclarationList {
     pub kind: VariableKind,
@@ -819,20 +817,20 @@ impl ForStatement {
         Self {
             initializer: VariableDeclarationList::declare_let(Rc::clone(&iter_var), 0f64.into())
                 .into(),
-            condition: Rc::new(Expression::BinaryExpression(BinaryExpression {
-                operator: BinaryOperator::LessThan,
-                left: Expression::Identifier(Rc::clone(&iter_var)).into(),
-                right: Rc::new(Expression::PropertyAccessExpression(
-                    PropertyAccessExpression {
-                        expression: Rc::clone(&arr_expr),
-                        name: Rc::new("length".into()),
-                    },
-                )),
-            })),
-            incrementor: Expression::PrefixUnaryExpression(PrefixUnaryExpression {
-                operator: UnaryOperator::Increment,
-                operand: Rc::clone(&iter_var),
-            })
+            condition: BinaryOperator::LessThan
+                .apply(
+                    Expression::Identifier(Rc::clone(&iter_var)).into(),
+                    Rc::new(Expression::PropertyAccessExpression(
+                        PropertyAccessExpression {
+                            expression: Rc::clone(&arr_expr),
+                            name: Rc::new("length".into()),
+                        },
+                    )),
+                )
+                .into(),
+            incrementor: Expression::PrefixUnaryExpression(PrefixUnaryExpression::increment(
+                Rc::clone(&iter_var),
+            ))
             .into(),
             statement: Default::default(),
         }
@@ -987,15 +985,6 @@ impl From<Folder> for FolderEntry {
     }
 }
 
-impl FolderEntry {
-    pub fn as_folder_mut(&mut self) -> Option<&mut Folder> {
-        match self {
-            FolderEntry::Folder(folder) => Some(folder),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct Folder {
     pub name: Rc<str>,
@@ -1008,57 +997,5 @@ impl Folder {
             name,
             entries: Vec::new(),
         }
-    }
-    pub fn insert_folder(&mut self, name: Rc<str>) -> usize {
-        for i in 0..self.entries.len() {
-            if let FolderEntry::Folder(folder) = &self.entries[i] {
-                if folder.name == name {
-                    return i;
-                }
-            }
-        }
-        self.entries.push(Folder::new(name).into());
-        return self.entries.len() - 1;
-    }
-    pub fn insert_folder_by_path(&mut self, package_path: &[Rc<str>]) {
-        let mut cur = self;
-        for folder in package_path {
-            let index = cur.insert_folder(Rc::clone(&folder));
-            let entry = cur.entries[index].as_folder_mut().unwrap();
-            cur = entry;
-        }
-    }
-    pub fn display_tree(&self) -> String {
-        self.display_level(0)
-    }
-    fn display_level(&self, level: usize) -> String {
-        let mut res = String::new();
-        for _ in 0..level {
-            res.push_str("  ");
-        }
-        res.push_str(&self.name);
-        res.push_str("\n");
-        for entry in &self.entries {
-            match entry {
-                FolderEntry::File(_) => {}
-                FolderEntry::Folder(folder) => {
-                    res.push_str(&folder.display_level(level + 1));
-                }
-            }
-        }
-        for entry in &self.entries {
-            match entry {
-                FolderEntry::File(file) => {
-                    for _ in 0..level {
-                        res.push_str("  ");
-                    }
-                    res.push_str(" ");
-                    res.push_str(&file.name);
-                    res.push_str(".ts\n");
-                }
-                FolderEntry::Folder(_) => {}
-            }
-        }
-        res
     }
 }

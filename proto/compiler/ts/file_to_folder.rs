@@ -21,7 +21,7 @@ pub(super) fn file_to_folder(
             ProtoScope::Root(_) => unreachable!(),
             ProtoScope::Package(_) => unreachable!(),
             ProtoScope::File(_) => unreachable!(),
-            e @ ProtoScope::Enum(_) => insert_enum_declaration(&root, &mut res, e),
+            e @ ProtoScope::Enum(_) => insert_enum_declaration(&mut res, e),
             m @ ProtoScope::Message(_) => {
                 insert_message_declaration(&root, &mut res, m)?;
             }
@@ -67,7 +67,7 @@ fn insert_children(
             ProtoScope::Root(_) => unreachable!(),
             ProtoScope::Package(_) => unreachable!(),
             ProtoScope::File(_) => unreachable!(),
-            e @ ProtoScope::Enum(_) => insert_enum_declaration(&root, message_folder, e),
+            e @ ProtoScope::Enum(_) => insert_enum_declaration(message_folder, e),
             m @ ProtoScope::Message(_) => {
                 insert_message_declaration(&root, message_folder, m)?;
             }

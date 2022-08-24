@@ -56,16 +56,14 @@ pub(super) fn compile_encode(
     let message_parameter_id = Rc::new(ast::Identifier::new("message"));
     let writer_parameter_id = Rc::new(ast::Identifier::new("writer"));
 
-    encode_func.add_param(ast::Parameter {
-        name: Rc::clone(&message_parameter_id),
-        parameter_type: Type::reference(Rc::clone(&message_encode_input_type_id)).into(),
-        optional: false,
-    });
-    encode_func.add_param(ast::Parameter {
-        name: Rc::clone(&writer_parameter_id),
-        parameter_type: Type::reference(Rc::clone(&writer_type_id)).into(),
-        optional: true,
-    });
+    encode_func.add_param(ast::Parameter::new(
+        &message_parameter_id,
+        Type::reference(Rc::clone(&message_encode_input_type_id)),
+    ));
+    encode_func.add_param(ast::Parameter::new_optional(
+        &writer_parameter_id,
+        Type::reference(Rc::clone(&writer_type_id)),
+    ));
 
     encode_func.returns(Type::reference(Rc::clone(&writer_type_id)).into());
 
@@ -75,14 +73,14 @@ pub(super) fn compile_encode(
     encode_func.push_statement(
         ast::Statement::from(ast::VariableDeclarationList::declare_const(
             Rc::clone(&writer_var),
-            ast::BinaryExpression {
-                operator: ast::BinaryOperator::LogicalOr,
-                left: ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
-                right: Rc::new(ast::Expression::from(Rc::clone(&writer_type_id)))
-                    .method_call("create", vec![])
-                    .into(),
-            }
-            .into(),
+            ast::BinaryOperator::LogicalOr
+                .apply(
+                    ast::Expression::from(Rc::clone(&writer_parameter_id)).into(),
+                    Rc::new(ast::Expression::from(Rc::clone(&writer_type_id)))
+                        .method_call("create", vec![])
+                        .into(),
+                )
+                .into(),
         ))
         .into(),
     );
@@ -124,21 +122,18 @@ pub(super) fn compile_encode(
             package::Type::Message(m_id) => {
                 let message_id = *m_id;
 
-                let field_exists_expression =
-                    Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
-                        operator: ast::BinaryOperator::LogicalAnd,
-                        left: ast::Expression::BinaryExpression(ast::BinaryExpression {
-                            operator: ast::BinaryOperator::WeakNotEqual,
-                            left: Rc::clone(&field_value),
-                            right: Rc::new(ast::Expression::Null),
-                        })
-                        .into(),
-                        right: has_property(
+                let field_exists_expression = ast::BinaryOperator::LogicalAnd
+                    .apply(
+                        ast::BinaryOperator::WeakNotEqual
+                            .apply(Rc::clone(&field_value), ast::Expression::Null.into())
+                            .into(),
+                        has_property(
                             ast::Expression::Identifier(Rc::clone(&message_parameter_id)).into(),
                             Rc::clone(&js_name_id),
                         )
                         .into(),
-                    }));
+                    )
+                    .into();
                 let message_encode_expr =
                     encode_message_expr(&root, &message_scope, &mut file, message_id);
                 let expr = encode_call(
@@ -163,17 +158,14 @@ pub(super) fn compile_encode(
                     let message_encode_expr =
                         encode_message_expr(&root, &message_scope, &mut file, message_id);
 
-                    let array_is_not_empty =
-                        Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
-                            operator: ast::BinaryOperator::LogicalAnd,
-                            left: ast::Expression::BinaryExpression(ast::BinaryExpression {
-                                operator: ast::BinaryOperator::WeakNotEqual,
-                                left: Rc::clone(&field_value),
-                                right: Rc::new(ast::Expression::Null),
-                            })
-                            .into(),
-                            right: field_value.prop("length").into(),
-                        }));
+                    let array_is_not_empty = ast::BinaryOperator::LogicalAnd
+                        .apply(
+                            ast::BinaryOperator::WeakNotEqual
+                                .apply(Rc::clone(&field_value), ast::Expression::Null.into())
+                                .into(),
+                            field_value.prop("length").into(),
+                        )
+                        .into();
 
                     let i_id = ast::Identifier::from("i").into();
                     let i_id_expr = ast::Expression::from(Rc::clone(&i_id));

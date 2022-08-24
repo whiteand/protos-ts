@@ -29,12 +29,6 @@ pub(crate) struct ProtoPath {
     pub path: Vec<PathComponent>,
 }
 
-impl ProtoPath {
-    pub fn len(&self) -> usize {
-        self.path.len()
-    }
-}
-
 impl Index<usize> for ProtoPath {
     type Output = PathComponent;
 
@@ -68,7 +62,6 @@ impl std::fmt::Display for ProtoPath {
                 (PathComponent::Message(prev), _) => write!(f, "{}.", prev)?,
             }
         }
-        let str: String = self.path.last().unwrap().into();
         Ok(())
     }
 }

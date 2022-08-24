@@ -148,7 +148,9 @@ impl ScopeBuilder {
             return false;
         }
         if self.is_file() {
-            return self.for_parent(|parent| parent.matches(&full_path)).unwrap_or(false);
+            return self
+                .for_parent(|parent| parent.matches(&full_path))
+                .unwrap_or(false);
         }
         if full_path.len() == 0 {
             return false;
@@ -162,25 +164,6 @@ impl ScopeBuilder {
             && self
                 .for_parent(|parent| parent.matches(&full_path[..full_path.len() - 1]))
                 .unwrap_or(false)
-    }
-
-    fn get_children_names(&self) -> Vec<Rc<str>> {
-        let mut res = Vec::new();
-        for child in &self.children {
-            match child.borrow().name() {
-                Some(n) => res.push(n),
-                None => {}
-            }
-        }
-        res
-    }
-
-    fn print_full_tree(&self) {
-        if self.is_root() {
-            self.print_level(0);
-        } else {
-            self.for_parent(|p| p.print_full_tree());
-        }
     }
 
     fn get_by_path(&self, path: &[Rc<str>]) -> Option<Rc<RefCell<ScopeBuilder>>> {
@@ -213,16 +196,6 @@ impl ScopeBuilder {
 
     fn is_root(&self) -> bool {
         self.data.is_root()
-    }
-    fn has_name(&self, name: &str) -> bool {
-        if let Some(current_name) = self.name() {
-            return current_name.deref() == name;
-        }
-        return false;
-    }
-
-    fn has_parent(&self) -> bool {
-        return self.for_parent(|_| true).unwrap_or(false);
     }
 
     fn id(&self) -> Option<usize> {
@@ -307,17 +280,6 @@ impl ScopeBuilder {
     }
     pub(in super::super) fn new_ref() -> Rc<RefCell<Self>> {
         return Rc::new(RefCell::new(Self::new()));
-    }
-
-    fn print_level(&self, level: usize) {
-        for _ in 0..level {
-            print!("  ");
-        }
-        println!("{}", self.data);
-        for child_ref in &self.children {
-            let child = child_ref.borrow();
-            child.print_level(level + 1);
-        }
     }
 
     fn is_package_with_name(&self, package_name: &str) -> bool {
@@ -744,7 +706,7 @@ impl ScopeBuilderPrivate for Rc<RefCell<ScopeBuilder>> {
                 Ok(())
             }
             None => {
-                let mut package_builder =
+                let package_builder =
                     ScopeBuilder::new_package(Rc::clone(&path[0]), Rc::clone(self));
                 let package_ref = Rc::new(RefCell::new(package_builder));
                 package_ref.load_file(file, &path[1..])?;

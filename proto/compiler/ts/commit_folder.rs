@@ -5,7 +5,6 @@ use std::{
 };
 
 use super::super::super::error::ProtoError;
-use super::render_file;
 
 pub(crate) fn commit_folder(folder: &super::ast::Folder) -> Result<(), ProtoError> {
     let folder_name = folder.name.to_string();

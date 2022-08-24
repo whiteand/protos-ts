@@ -6,9 +6,9 @@ use crate::proto::{
 use super::ast::Folder;
 
 pub(super) fn compile_decode(
-    root: &RootScope,
+    _root: &RootScope,
     message_folder: &mut Folder,
-    message_scope: &ProtoScope,
+    _message_scope: &ProtoScope,
 ) -> Result<(), ProtoError> {
     let file = super::ast::File::new("decode".into());
 

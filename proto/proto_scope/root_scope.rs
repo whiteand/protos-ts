@@ -14,10 +14,6 @@ pub(crate) struct RootScope {
 }
 
 impl RootScope {
-    pub fn new() -> Self {
-        RootScope::default()
-    }
-
     pub fn get_declaration_path(&self, decl_id: usize) -> Option<ProtoPath> {
         let mut res = ProtoPath::new();
         let mut str_path = &self.types.get(&decl_id)?[..];
