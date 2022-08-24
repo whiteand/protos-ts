@@ -1,9 +1,7 @@
 pub(crate) mod ast;
-mod block_scope;
 pub(crate) mod commit_folder;
 mod constants;
 mod decode_compiler;
-mod defined_id;
 mod encode_basic_repeated_type_field;
 mod encode_basic_type_field;
 mod encode_call;
@@ -11,7 +9,6 @@ mod encode_compiler;
 mod encode_enum_field;
 mod encode_map_field;
 mod encode_message_expr;
-mod encode_user_defined;
 mod ensure_import;
 mod enum_compiler;
 mod file_name_to_folder_name;

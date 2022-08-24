@@ -64,9 +64,9 @@ out
 | Encoding of repeated basic types  | **Done**      |
 | Encoding of enums                 | **Done**      |
 | Encoding of user defined messages | **Done**      |
-| Fix resolving algorithm           | *In Progress* |
+| Fix resolving algorithm           | **Done**      |
+| Encoding of oneof messages        | *In Progress* |
 | Encoding of google defined        | Open          |
-| Encoding of oneof messages        | Open          |
 | Decoding of basic types           | Open          |
 | Decoding of enums                 | Open          |
 | Decoding of user defined messages | Open          |

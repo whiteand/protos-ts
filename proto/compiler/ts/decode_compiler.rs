@@ -1,6 +1,9 @@
-use crate::proto::{error::ProtoError, package::MessageDeclaration, proto_scope::{ProtoScope, root_scope::RootScope}};
+use crate::proto::{
+    error::ProtoError,
+    proto_scope::{root_scope::RootScope, ProtoScope},
+};
 
-use super::{ast::Folder, block_scope::BlockScope};
+use super::ast::Folder;
 
 pub(super) fn compile_decode(
     root: &RootScope,

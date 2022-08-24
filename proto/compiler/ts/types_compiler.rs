@@ -3,15 +3,13 @@ use std::rc::Rc;
 use crate::proto::{
     compiler::ts::ast::{self, Type},
     error::ProtoError,
-    package::{self, Declaration, FieldTypeReference, MessageDeclaration, MessageEntry},
+    package::{self, MessageEntry},
     proto_scope::{root_scope::RootScope, ProtoScope},
 };
 
 use super::{
     ast::Folder,
-    block_scope::BlockScope,
     constants::PROTOBUF_MODULE,
-    defined_id::IdType,
     ensure_import::ensure_import,
     get_relative_import::get_relative_import,
     message_name_to_encode_type_name::message_name_to_encode_type_name,
@@ -58,10 +56,6 @@ fn insert_encoded_input_interface(
                 );
             }
             MessageEntry::OneOf(_) => todo!(),
-            // Field(f) => {
-            // }
-            // Declaration(_) => {}
-            // OneOf(_) => todo!("Not implemented handling of OneOf Field"),
         }
     }
 
@@ -125,7 +119,11 @@ fn import_encoding_input_type(
                 import_encoding_input_type(root, message_scope, types_file, field_type)?;
             return Ok(Type::array(element_type));
         }
-        package::Type::Map(_, _) => todo!(),
+        package::Type::Map(key, value) => {
+            let key_type = import_encoding_input_type(root, message_scope, types_file, key)?;
+            let value_type = import_encoding_input_type(root, message_scope, types_file, value)?;
+            return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
+        }
         package::Type::Bool => Ok(Type::Boolean),
         package::Type::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
         package::Type::Double => Ok(Type::Number),
@@ -153,58 +151,6 @@ fn import_encoding_input_type(
         package::Type::Sint32 => Ok(Type::Number),
         package::Type::String => Ok(Type::String),
         package::Type::Uint32 => Ok(Type::Number),
-        // FieldTypeReference::IdPath(ids) => {
-        //     if ids.is_empty() {
-        //         unreachable!();
-        //     }
-        //     let resolve_result = type_scope.resolve_path(ids)?;
-        //     let requested_path = resolve_result.path();
-        //     let mut requested_ts_path = TsPath::from(requested_path);
-
-        //     let imported_type_name = match resolve_result.declaration {
-        //         IdType::DataType(decl) => match decl {
-        //             Declaration::Enum(e) => {
-        //                 requested_ts_path.push(TsPathComponent::Enum(e.name.clone()));
-        //                 Rc::clone(&e.name)
-        //             }
-        //             Declaration::Message(m) => {
-        //                 requested_ts_path.push(TsPathComponent::File("types".into()));
-        //                 let encode_type_name: Rc<str> =
-        //                     Rc::from(message_name_to_encode_type_name(&m.name));
-        //                 requested_ts_path
-        //                     .push(TsPathComponent::Interface(Rc::clone(&encode_type_name)));
-        //                 encode_type_name
-        //             }
-        //         },
-        //         IdType::Package(_) => unreachable!(),
-        //     };
-
-        //     let mut current_file_path = TsPath::from(type_scope.path());
-        //     current_file_path.push(TsPathComponent::File("types".into()));
-
-        //     match get_relative_import(&current_file_path, &requested_ts_path) {
-        //         Some(import_declaration) => {
-        //             ensure_import(types_file, import_declaration);
-        //         }
-        //         _ => {}
-        //     }
-
-        //     return Ok(Type::reference(
-        //         ast::Identifier {
-        //             text: imported_type_name,
-        //         }
-        //         .into(),
-        //     ));
-        // }
-        // FieldTypeReference::Repeated(field_type) => {
-        //     let element_type = import_encoding_input_type(types_file, type_scope, field_type)?;
-        //     return Ok(Type::array(element_type));
-        // }
-        // FieldTypeReference::Map(key, value) => {
-        //     let key_type = import_encoding_input_type(types_file, type_scope, key)?;
-        //     let value_type = import_encoding_input_type(types_file, type_scope, value)?;
-        //     return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
-        // }
     }
 }
 
@@ -215,6 +161,19 @@ fn import_decode_result_type(
     field_type: &package::Type,
 ) -> Result<Type, ProtoError> {
     match field_type {
+        package::Type::Enum(e_id) => import_enum_type(root, message_scope, types_file, *e_id),
+        package::Type::Message(m_id) => {
+            let message_id = *m_id;
+            let imported_name = root.get_declaration_name(message_id).unwrap();
+            import_message_type(
+                root,
+                message_scope,
+                types_file,
+                field_type,
+                message_id,
+                imported_name,
+            )
+        }
         package::Type::Bool => Ok(Type::Boolean),
         package::Type::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
         package::Type::Double => Ok(Type::Number),
@@ -241,74 +200,17 @@ fn import_decode_result_type(
         package::Type::Sint32 => Ok(Type::Number),
         package::Type::String => Ok(Type::String),
         package::Type::Uint32 => Ok(Type::Number),
-        package::Type::Enum(e_id) => import_enum_type(root, message_scope, types_file, *e_id),
-        package::Type::Message(m_id) => {
-            let message_id = *m_id;
-            let imported_name = root.get_declaration_name(message_id).unwrap();
-            import_message_type(
-                root,
-                message_scope,
-                types_file,
-                field_type,
-                message_id,
-                imported_name,
-            )
-        }
+
         package::Type::Repeated(field_type) => {
             let element_type =
-            import_decode_result_type(root, message_scope, types_file, field_type)?;
+                import_decode_result_type(root, message_scope, types_file, field_type)?;
             return Ok(Type::array(element_type));
         }
-        package::Type::Map(_, _) => todo!(),
-        // FieldTypeReference::IdPath(ids) => {
-        //     if ids.is_empty() {
-        //         unreachable!();
-        //     }
-        //     let resolve_result = scope.resolve_path(ids)?;
-        //     let requested_path = resolve_result.path();
-        //     let mut requested_ts_path = TsPath::from(requested_path);
-
-        //     let mut imported_type_name = Rc::from(String::new());
-        //     match resolve_result.declaration {
-        //         IdType::DataType(decl) => match decl {
-        //             Declaration::Enum(e) => {
-        //                 requested_ts_path.push(TsPathComponent::Enum(Rc::clone(&e.name)));
-        //                 imported_type_name = Rc::clone(&e.name);
-        //             }
-        //             Declaration::Message(m) => {
-        //                 requested_ts_path.push(TsPathComponent::File("types".into()));
-        //                 let encode_type_name = message_name_to_encode_type_name(&m.name);
-        //                 imported_type_name = Rc::from(encode_type_name);
-        //                 requested_ts_path
-        //                     .push(TsPathComponent::Interface(Rc::clone(&imported_type_name)));
-        //             }
-        //         },
-        //         IdType::Package(_) => unreachable!(),
-        //     }
-
-        //     let mut current_file_path = TsPath::from(scope.path());
-        //     current_file_path.push(TsPathComponent::File("types".into()));
-
-        //     match get_relative_import(&current_file_path, &requested_ts_path) {
-        //         Some(import_declaration) => {
-        //             ensure_import(types_file, import_declaration);
-        //         }
-        //         _ => {}
-        //     }
-
-        //     return Ok(Type::reference(
-        //         ast::Identifier::new(&imported_type_name).into(),
-        //     ));
-        // }
-        // FieldTypeReference::Repeated(field_type) => {
-        //     let element_type = import_decode_result_type(types_file, scope, field_type)?;
-        //     return Ok(Type::array(element_type));
-        // }
-        // FieldTypeReference::Map(key, value) => {
-        //     let key_type = import_decode_result_type(types_file, scope, key)?;
-        //     let value_type = import_decode_result_type(types_file, scope, value)?;
-        //     return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
-        // }
+        package::Type::Map(key, value) => {
+            let key_type = import_decode_result_type(root, message_scope, types_file, key)?;
+            let value_type = import_decode_result_type(root, message_scope, types_file, value)?;
+            return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
+        }
     }
 }
 

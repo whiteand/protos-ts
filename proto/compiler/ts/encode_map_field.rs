@@ -90,46 +90,32 @@ pub(super) fn encode_map_field(
     ));
 
     match value_type {
-        package::Type::Message(_) => todo!(),
         package::Type::Repeated(_) => unreachable!(),
         package::Type::Map(_, _) => unreachable!(),
 
-        // FieldTypeReference::IdPath(ids) => {
-        //     let defined = field_scope.resolve_path(ids)?;
-        //     let decl = match defined.declaration {
-        //         super::defined_id::IdType::DataType(decl) => decl,
-        //         super::defined_id::IdType::Package(_) => unreachable!(),
-        //     };
-        //     match decl {
-        //         Declaration::Message(m) => {
-        //             let encode_func_expr = encode_message_expr(
-        //                 &root,
-        //                 &parent_message_scope,
-        //                 encode_file,
-        //                 field_message_id,
-        //             );
+        package::Type::Message(m_id) => {
+            let encode_func_expr =
+                encode_message_expr(&root, &parent_message_scope, encode_file, *m_id);
 
-        //             for_stmt.push_statement(encode_key_expr.into());
+            for_stmt.push_statement(encode_key_expr.into());
 
-        //             let encode_value = encode_func_expr
-        //                 .into_call(vec![
-        //                     value_expr,
-        //                     writer_var_expr
-        //                         .method_chain(vec![
-        //                             ("uint32", vec![Rc::new(18f64.into())]),
-        //                             ("fork", vec![]),
-        //                         ])
-        //                         .into(),
-        //                 ])
-        //                 .into_prop("ldelim")
-        //                 .into_call(vec![])
-        //                 .into_prop("ldelim")
-        //                 .into_call(vec![]);
+            let encode_value = encode_func_expr
+                .into_call(vec![
+                    value_expr,
+                    writer_var_expr
+                        .method_chain(vec![
+                            ("uint32", vec![Rc::new(18f64.into())]),
+                            ("fork", vec![]),
+                        ])
+                        .into(),
+                ])
+                .into_prop("ldelim")
+                .into_call(vec![])
+                .into_prop("ldelim")
+                .into_call(vec![]);
 
-        //             for_stmt.push_statement(encode_value.into());
-        //         }
-        //     }
-        // }
+            for_stmt.push_statement(encode_value.into());
+        }
         package::Type::Enum(_) => {
             let key_value_expr =
                 encode_basic_key_value(&package::Type::Int32, encode_key_expr, value_expr);

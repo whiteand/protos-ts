@@ -1,14 +1,12 @@
 use std::ops::Deref;
 
 use super::{
-    ast::Folder, block_scope::BlockScope, decode_compiler::compile_decode,
-    encode_compiler::compile_encode, enum_compiler::insert_enum_declaration,
-    file_name_to_folder_name::file_name_to_folder_name, types_compiler::insert_message_types,
+    ast::Folder, decode_compiler::compile_decode, encode_compiler::compile_encode,
+    enum_compiler::insert_enum_declaration, file_name_to_folder_name::file_name_to_folder_name,
+    types_compiler::insert_message_types,
 };
 use crate::proto::{
     error::ProtoError,
-    package::{Declaration, MessageDeclaration, MessageDeclarationEntry, ProtoFile},
-    package_tree::PackageTree,
     proto_scope::{root_scope::RootScope, traits::ChildrenScopes, ProtoScope},
 };
 
@@ -57,7 +55,7 @@ fn insert_children(
         ProtoScope::Message(m) => m,
         _ => unreachable!(),
     };
-    
+
     for child_scope in message_declaration.children().iter() {
         match child_scope.deref() {
             ProtoScope::Root(_) => unreachable!(),
@@ -66,7 +64,7 @@ fn insert_children(
             e @ ProtoScope::Enum(_) => insert_enum_declaration(&root, message_folder, e),
             m @ ProtoScope::Message(_) => {
                 insert_message_declaration(&root, message_folder, m)?;
-            }            
+            }
         }
     }
     Ok(())

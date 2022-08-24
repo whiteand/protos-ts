@@ -1,15 +1,10 @@
 use std::rc::Rc;
 
-use crate::proto::{
-    package::MessageDeclaration,
-    proto_scope::{root_scope::RootScope, ProtoScope},
-};
+use crate::proto::proto_scope::{root_scope::RootScope, ProtoScope};
 
 use super::{
     ast::{self, File, ImportSpecifier},
-    block_scope::BlockScope,
     constants::ENCODE_FUNCTION_NAME,
-    defined_id::DefinedId,
     ensure_import::ensure_import,
     get_relative_import::get_relative_import_string,
     ts_path::{TsPath, TsPathComponent},
