@@ -163,13 +163,7 @@ fn import_decode_result_type(
         package::Type::Message(m_id) => {
             let message_id = *m_id;
             let imported_name = root.get_declaration_name(message_id).unwrap();
-            import_message_type(
-                root,
-                message_scope,
-                types_file,
-                message_id,
-                imported_name,
-            )
+            import_message_type(root, message_scope, types_file, message_id, imported_name)
         }
         package::Type::Bool => Ok(Type::Boolean),
         package::Type::Bytes => Ok(Type::reference(ast::Identifier::new("Uint8Array").into())),
@@ -225,10 +219,9 @@ fn import_enum_type(
         res
     };
     let types_file_path = {
-        let mut res = TsPath::from(
-            root.get_declaration_path(message_scope.id().unwrap())
-                .unwrap(),
-        );
+        let message_id = message_scope.id().unwrap();
+        let declaration_proto_path = root.get_declaration_path(message_id).unwrap();
+        let mut res = TsPath::from(declaration_proto_path);
         res.push(TsPathComponent::File("types".into()));
         res
     };

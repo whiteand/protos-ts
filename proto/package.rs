@@ -1,5 +1,6 @@
 use super::{
     error::ProtoError,
+    id_generator::IdGenerator,
     lexems,
     proto_scope::{
         builder::{ScopeBuilder, ScopeBuilderTrait},
@@ -573,15 +574,18 @@ impl std::fmt::Display for ProtoFile {
 
 pub(crate) fn read_root_scope(files: &[PathBuf]) -> Result<RootScope, ProtoError> {
     let builder = ScopeBuilder::new_ref();
-
+    let mut id_generator = IdGenerator::new();
     for file in files {
-        let proto_file = read_proto_file(file)?;
+        let proto_file = read_proto_file(&mut id_generator, file)?;
         builder.load(proto_file)?;
     }
     builder.finish()
 }
 
-fn read_proto_file(file_path: &PathBuf) -> Result<ProtoFile, ProtoError> {
+fn read_proto_file(
+    id_generator: &mut IdGenerator,
+    file_path: &PathBuf,
+) -> Result<ProtoFile, ProtoError> {
     let content = read_file_content(file_path)?;
 
     let relative_file_path = get_relative_path(file_path);
@@ -598,7 +602,7 @@ fn read_proto_file(file_path: &PathBuf) -> Result<ProtoFile, ProtoError> {
         name: file_name.into(),
     };
 
-    parse_package(&lexems, &mut res)?;
+    parse_package(id_generator, &lexems, &mut res)?;
 
     Ok(res)
 }

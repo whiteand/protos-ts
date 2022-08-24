@@ -111,13 +111,13 @@ impl From<FieldTypeReference> for StackItem {
 }
 
 pub(super) fn parse_package(
+    id_gen: &mut IdGenerator,
     located_lexems: &[LocatedLexem],
     res: &mut ProtoFile,
 ) -> Result<(), ProtoError> {
     let mut ind = 0;
     let mut tasks: Vec<Task> = vec![ParseStatements];
     let mut stack: Vec<StackItem> = Vec::new();
-    let mut id_gen = IdGenerator::new();
     while let Some(task) = tasks.pop() {
         match task {
             ParseStatements => {
