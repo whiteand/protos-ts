@@ -90,7 +90,6 @@ pub(super) fn encode_map_field(
     ));
 
     match value_type {
-        package::Type::Enum(_) => todo!(),
         package::Type::Message(_) => todo!(),
         package::Type::Repeated(_) => unreachable!(),
         package::Type::Map(_, _) => unreachable!(),
@@ -102,14 +101,6 @@ pub(super) fn encode_map_field(
         //         super::defined_id::IdType::Package(_) => unreachable!(),
         //     };
         //     match decl {
-        //         Declaration::Enum(_) => {
-        //             let key_value_expr = encode_basic_key_value(
-        //                 &FieldTypeReference::Int32,
-        //                 encode_key_expr,
-        //                 value_expr,
-        //             );
-        //             for_stmt.push_statement(key_value_expr.into());
-        //         }
         //         Declaration::Message(m) => {
         //             let encode_func_expr = encode_message_expr(
         //                 &root,
@@ -139,8 +130,11 @@ pub(super) fn encode_map_field(
         //         }
         //     }
         // }
-        // FieldTypeReference::Repeated(_) => unreachable!(),
-        // FieldTypeReference::Map(_, _) => unreachable!(),
+        package::Type::Enum(_) => {
+            let key_value_expr =
+                encode_basic_key_value(&package::Type::Int32, encode_key_expr, value_expr);
+            for_stmt.push_statement(key_value_expr.into());
+        }
         basic => {
             for_stmt
                 .push_statement(encode_basic_key_value(basic, encode_key_expr, value_expr).into());

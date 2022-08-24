@@ -1,7 +1,10 @@
 use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
-    compiler::ts::{encode_call::encode_call, encode_message_expr::encode_message_expr, encode_basic_repeated_type_field::encode_basic_repeated_type_field},
+    compiler::ts::{
+        encode_basic_repeated_type_field::encode_basic_repeated_type_field,
+        encode_call::encode_call, encode_message_expr::encode_message_expr,
+    },
     error::ProtoError,
     package::{self},
     proto_scope::{root_scope::RootScope, ProtoScope},
@@ -155,7 +158,6 @@ pub(super) fn compile_encode(
                 }));
             }
             package::Type::Repeated(element_type) => match element_type.deref() {
-                package::Type::Enum(_) => todo!(),
                 package::Type::Message(m_id) => {
                     let message_id = *m_id;
                     let message_encode_expr =
@@ -196,6 +198,17 @@ pub(super) fn compile_encode(
                 }
                 package::Type::Repeated(_) => unreachable!(),
                 package::Type::Map(_, _) => unreachable!(),
+                package::Type::Enum(_) => {
+                    encode_func.push_statement(
+                        encode_basic_repeated_type_field(
+                            &field_value,
+                            &package::Type::Int32,
+                            field.tag,
+                            &writer_var,
+                        )
+                        .into(),
+                    );
+                }
                 basic => {
                     assert!(basic.is_basic());
 
@@ -210,156 +223,6 @@ pub(super) fn compile_encode(
                     )
                 }
             },
-            // FieldTypeReference::IdPath(ids) => {
-            //     if ids.is_empty() {
-            //         unreachable!();
-            //     }
-            //     let resolve_result = field_scope.resolve_path(ids)?;
-            //     let type_declaration = match resolve_result.declaration {
-            //         IdType::DataType(decl) => decl,
-            //         IdType::Package(_) => unreachable!(),
-            //     };
-            //     match type_declaration {
-            //         Declaration::Enum(_) => {
-            //             encode_func.push_statement(
-            //                 encode_enum_field(
-            //                     &message_parameter_id,
-            //                     &writer_var,
-            //                     &js_name_id,
-            //                     field_value,
-            //                     field.tag,
-            //                 )
-            //                 .into(),
-            //             );
-            //         }
-            //         Declaration::Message(_) => {
-            //             let field_exists_expression =
-            //                 Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
-            //                     operator: ast::BinaryOperator::LogicalAnd,
-            //                     left: ast::Expression::BinaryExpression(ast::BinaryExpression {
-            //                         operator: ast::BinaryOperator::WeakNotEqual,
-            //                         left: Rc::clone(&field_value),
-            //                         right: Rc::new(ast::Expression::Null),
-            //                     })
-            //                     .into(),
-            //                     right: has_property(
-            //                         ast::Expression::Identifier(Rc::clone(&message_parameter_id))
-            //                             .into(),
-            //                         Rc::clone(&js_name_id),
-            //                     )
-            //                     .into(),
-            //                 }));
-            //             let message_encode_expr = encode_message_expr(
-            //                 &field_scope,
-            //                 &message_declaration,
-            //                 &mut file,
-            //                 &resolve_result,
-            //             );
-            //             let expr = encode_call(
-            //                 message_encode_expr,
-            //                 Rc::clone(&writer_var_expr),
-            //                 field.tag,
-            //                 field_value,
-            //             );
-
-            //             encode_func.push_statement(ast::Statement::IfStatement(ast::IfStatement {
-            //                 expression: field_exists_expression,
-            //                 then_statement: ast::Statement::Block(ast::Block {
-            //                     statements: vec![ast::Statement::Expression(expr.into()).into()],
-            //                 })
-            //                 .into(),
-            //                 else_statement: None,
-            //             }));
-            //         }
-            //     }
-            // }
-            // FieldTypeReference::Repeated(element_type) => match element_type.deref() {
-            //     FieldTypeReference::IdPath(ids) => {
-            //         if ids.is_empty() {
-            //             unreachable!();
-            //         }
-            //         let resolve_result = field_scope.resolve_path(ids)?;
-            //         let type_declaration = match resolve_result.declaration {
-            //             IdType::DataType(decl) => decl,
-            //             IdType::Package(_) => unreachable!(),
-            //         };
-            //         match type_declaration {
-            //             Declaration::Enum(_) => {
-            //                 encode_func.push_statement(
-            //                     encode_basic_repeated_type_field(
-            //                         &field_value,
-            //                         &FieldTypeReference::Int32,
-            //                         field.tag,
-            //                         &writer_var,
-            //                     )
-            //                     .into(),
-            //                 );
-            //             }
-            //             Declaration::Message(m) => {
-            //                 let message_encode_expr = encode_message_expr(
-            //                     &field_scope,
-            //                     &message_declaration,
-            //                     &mut file,
-            //                     &resolve_result,
-            //                 );
-
-            //                 let array_is_not_empty =
-            //                     Rc::new(ast::Expression::BinaryExpression(ast::BinaryExpression {
-            //                         operator: ast::BinaryOperator::LogicalAnd,
-            //                         left: ast::Expression::BinaryExpression(
-            //                             ast::BinaryExpression {
-            //                                 operator: ast::BinaryOperator::WeakNotEqual,
-            //                                 left: Rc::clone(&field_value),
-            //                                 right: Rc::new(ast::Expression::Null),
-            //                             },
-            //                         )
-            //                         .into(),
-            //                         right: field_value.prop("length").into(),
-            //                     }));
-
-            //                 let i_id = ast::Identifier::from("i").into();
-            //                 let i_id_expr = ast::Expression::from(Rc::clone(&i_id));
-
-            //                 let mut for_stmt = ast::ForStatement::for_each(
-            //                     Rc::clone(&i_id),
-            //                     Rc::clone(&field_value),
-            //                 );
-
-            //                 let expr = encode_call(
-            //                     message_encode_expr,
-            //                     Rc::clone(&writer_var_expr),
-            //                     field.tag,
-            //                     field_value.element(i_id_expr.into()).into(),
-            //                 );
-
-            //                 for_stmt.push_statement(ast::Statement::from(expr));
-
-            //                 encode_func.push_statement(ast::Statement::IfStatement(
-            //                     ast::IfStatement {
-            //                         expression: array_is_not_empty,
-            //                         then_statement: ast::Statement::from(for_stmt).into(),
-            //                         else_statement: None,
-            //                     },
-            //                 ));
-            //             }
-            //         }
-            //     }
-            //     FieldTypeReference::Repeated(_) => unreachable!(),
-            //     FieldTypeReference::Map(_, _) => unreachable!(),
-            // basic => {
-            //     assert!(basic.is_basic());
-
-            //     encode_func.push_statement(
-            //         encode_basic_repeated_type_field(
-            //             &field_value,
-            //             basic,
-            //             field.tag,
-            //             &writer_var,
-            //         )
-            //         .into(),
-            //     )
-            // }
-            // },
             package::Type::Map(kt, vt) => encode_func.push_statement(
                 encode_map_field(
                     &root,
@@ -403,6 +266,5 @@ pub(super) fn compile_encode(
 
     message_folder.entries.push(file.into());
 
-    ///! TODO: Implement this
     Ok(())
 }
