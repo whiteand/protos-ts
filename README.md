@@ -71,5 +71,6 @@ out
 | Decoding of enums                 | Open          |
 | Decoding of user defined messages | Open          |
 | Full Coverage Tests               | Open          |
+| Reach CLI experience              | Open          |
 
 
