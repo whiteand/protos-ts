@@ -9,8 +9,8 @@ use crate::proto::{
     error::ProtoError,
     package::{
         Declaration, EnumDeclaration, Field, FieldDeclaration, FieldTypeReference, ImportPath,
-        MessageDeclaration, MessageDeclarationEntry, MessageEntry, OneOfDeclaration, ProtoFile,
-        Type,
+        MessageDeclaration, MessageDeclarationEntry, MessageEntry, OneOfDeclaration, OneOfGroup,
+        ProtoFile, Type,
     },
 };
 
@@ -438,7 +438,21 @@ fn resolve(builder_ref: &Rc<RefCell<ScopeBuilder>>) -> Result<ResolveResult, Pro
 
                         entries.push(entry);
                     }
-                    FieldOrOneOf::OneOf(_) => todo!(),
+                    FieldOrOneOf::OneOf(one_of_decl) => {
+                        let name = Rc::clone(&one_of_decl.name);
+                        let mut options = Vec::new();
+                        for option in &one_of_decl.options {
+                            let field_type = resolve_type(&builder, &option.field_type_ref)?;
+                            options.push(Field {
+                                name: Rc::clone(&option.name),
+                                field_type: field_type,
+                                tag: option.tag,
+                                attributes: option.attributes.clone(),
+                            });
+                        }
+                        let entry = MessageEntry::OneOf(OneOfGroup { name, options });
+                        entries.push(entry)
+                    }
                 }
             }
             let message_scope = Rc::new(ProtoScope::Message(MessageScope {

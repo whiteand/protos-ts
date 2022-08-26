@@ -7,7 +7,7 @@ use args::get_proto_folder_path;
 use args::CliArguments;
 use proto::compiler::ts::ast::Folder;
 use proto::compiler::ts::commit_folder::commit_folder;
-use proto::compiler::ts::package_tree_to_folder::root_scope_to_folder;
+use proto::compiler::ts::scope_to_folder::root_scope_to_folder;
 use proto::folder::read_proto_folder;
 
 use proto::package::read_root_scope;

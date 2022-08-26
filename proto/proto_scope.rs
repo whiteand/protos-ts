@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, fmt::Formatter};
 
 use self::{
     enum_scope::EnumScope, file::FileScope, message::MessageScope, package::PackageScope,
@@ -101,6 +101,18 @@ impl ChildrenScopes for ProtoScope {
             ProtoScope::File(file) => file.children(),
             ProtoScope::Enum(enum_scope) => enum_scope.children(),
             ProtoScope::Message(message_scope) => message_scope.children(),
+        }
+    }
+}
+
+impl std::fmt::Display for ProtoScope {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            ProtoScope::Root(r) => r.fmt(f),
+            ProtoScope::Package(p) => todo!(),
+            ProtoScope::File(file) => file.fmt(f),
+            ProtoScope::Enum(e) => todo!(),
+            ProtoScope::Message(m) => m.fmt(f),
         }
     }
 }

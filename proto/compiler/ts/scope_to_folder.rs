@@ -27,7 +27,13 @@ pub(crate) fn root_scope_to_folder(
 ) -> Result<Folder, ProtoError> {
     let mut folder = Folder::new(folder_name.into());
     for child in root.children.iter() {
-        let child_folder: Folder = scope_to_folder(root, child)?;
+        let child_folder = match child.deref() {
+            ProtoScope::Root(_) => unreachable!(),
+            package_child @ ProtoScope::Package(_) => scope_to_folder(root, package_child)?,
+            file_scope @ ProtoScope::File(_) => file_to_folder(root, file_scope)?,
+            ProtoScope::Enum(_) => todo!(),
+            ProtoScope::Message(_) => todo!(),
+        };
         folder.entries.push(child_folder.into());
     }
     Ok(folder)

@@ -54,7 +54,21 @@ fn insert_encoded_input_interface(
                     ast::PropertySignature::new_optional(f.json_name(), property_type).into(),
                 );
             }
-            MessageEntry::OneOf(_) => todo!(),
+            MessageEntry::OneOf(one_of) => {
+                for option in &one_of.options {
+                    let property_type = import_encoding_input_type(
+                        &root,
+                        &message_scope,
+                        types_file,
+                        &option.field_type,
+                    )?
+                    .or(&Type::Null);
+                    interface.members.push(
+                        ast::PropertySignature::new_optional(option.json_name(), property_type)
+                            .into(),
+                    );
+                }
+            }
         }
     }
 
@@ -83,7 +97,21 @@ fn insert_decode_result_interface(
                     .members
                     .push(ast::PropertySignature::new_optional(f.json_name(), property_type).into())
             }
-            OneOf(_) => todo!("Not implemented handling of OneOf Field"),
+            OneOf(one_of) => {
+                for option in &one_of.options {
+                    let property_type = import_decode_result_type(
+                        &root,
+                        &message_scope,
+                        types_file,
+                        &option.field_type,
+                    )?
+                    .or(&Type::Null);
+                    interface.members.push(
+                        ast::PropertySignature::new_optional(option.json_name(), property_type)
+                            .into(),
+                    );
+                }
+            }
         }
     }
 

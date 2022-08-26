@@ -93,9 +93,9 @@ pub(super) fn compile_encode(
     let mut fields = message_declaration
         .entries
         .iter()
-        .filter_map(|entry| match entry {
-            package::MessageEntry::Field(f) => Some(f),
-            package::MessageEntry::OneOf(_) => todo!(),
+        .flat_map(|f| match f {
+            package::MessageEntry::Field(f) => vec![f],
+            package::MessageEntry::OneOf(one_of) => one_of.options.iter().collect(),
         })
         .collect::<Vec<_>>();
 

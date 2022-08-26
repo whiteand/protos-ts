@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, fmt::Write};
 
 use crate::proto::protopath::ProtoPath;
 
@@ -49,5 +49,20 @@ impl Default for RootScope {
 impl ChildrenScopes for RootScope {
     fn children(&self) -> &[Rc<ProtoScope>] {
         &self.children
+    }
+}
+
+impl std::fmt::Display for RootScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "RootScope")?;
+        for child in &self.children {
+            let str = format!("{}", child);
+            for line in str.lines() {
+                write!(f, "  ")?;
+                f.write_str(&line)?;
+                f.write_char('\n')?;
+            }
+        }
+        Ok(())
     }
 }
