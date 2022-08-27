@@ -11,6 +11,7 @@ mod struct_file;
 mod time_type;
 mod timestamp;
 mod wrappers;
+mod field_mask;
 
 pub(super) fn create_well_known_file(
     id_gen: &mut IdGenerator,
@@ -23,6 +24,7 @@ pub(super) fn create_well_known_file(
         "duration.proto" => duration::create_file(id_gen),
         "wrappers.proto" => wrappers::create_file(id_gen),
         "struct.proto" => struct_file::create_file(id_gen),
+        "field_mask.proto" => field_mask::create_file(id_gen),
         _ => {
             unreachable!("Cannot load well known {}", file_name);
         }
@@ -50,6 +52,7 @@ fn is_valid_well_known_import_file_name(imp: &str) -> bool {
         "struct.proto" => true,
         "timestamp.proto" => true,
         "wrappers.proto" => true,
+        "field_mask.proto" => true,
         _ => false,
     }
 }
