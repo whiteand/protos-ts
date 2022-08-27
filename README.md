@@ -53,33 +53,28 @@ out
 
 ## TODOs
 
-| Development Task                       | Progress |
-| :------------------------------------- | :------- |
-| Lexical Analyzer                       | **Done** |
-| Syntactical Analyzer                   | **Done** |
-| Proto Packages -> Package Tree         | **Done** |
-| Create name resolution mechanism       | **Done** |
-| Generation of interfaces               | **Done** |
-| Encoding of basic types                | **Done** |
-| Encoding of repeated basic types       | **Done** |
-| Encoding of enums                      | **Done** |
-| Encoding of user defined messages      | **Done** |
-| Fix resolving algorithm                | **Done** |
-| Encoding of oneof messages             | **Done** |
-| Encoding `google.protobuf.DoubleValue` | Open     |
-| Encoding `google.protobuf.Timestamp`   | Open     |
-| Encoding `google.protobuf.StringValue` | Open     |
-| Encoding `google.protobuf.UInt32Value` | Open     |
-| Encoding `google.protobuf.BoolValue`   | Open     |
-| Encoding `google.protobuf.Int32Value`  | Open     |
-| Encoding `google.protobuf.Duration`    | Open     |
-| Encoding `google.protobuf.UInt64Value` | Open     |
-| Encoding `google.protobuf.Any`         | Open     |
-| Decoding of basic types                | Open     |
-| Decoding of enums                      | Open     |
-| Decoding of user defined messages      | Open     |
-| Full Coverage Tests                    | Open     |
-| Reach CLI experience                   | Open     |
+| Development Task                      | Progress      |
+| :------------------------------------ | :------------ |
+| Lexical Analyzer                      | **Done**      |
+| Syntactical Analyzer                  | **Done**      |
+| Proto Packages -> Package Tree        | **Done**      |
+| Create name resolution mechanism      | **Done**      |
+| Generation of interfaces              | **Done**      |
+| Encoding of basic types               | **Done**      |
+| Encoding of repeated basic types      | **Done**      |
+| Encoding of enums                     | **Done**      |
+| Encoding of user defined messages     | **Done**      |
+| Fix resolving algorithm               | **Done**      |
+| Encoding of oneof messages            | **Done**      |
+| Importing `google/protobuf/wrappers`  | **Done**      |
+| Importing `google/protobuf/timestamp` | *In Progress* |
+| Importing `google/protobuf/duration`  | Open          |
+| Importing `google/protobuf/any`       | Open          |
+| Decoding of basic types               | Open          |
+| Decoding of enums                     | Open          |
+| Decoding of user defined messages     | Open          |
+| Full Coverage Tests                   | Open          |
+| Reach CLI experience                  | Open          |
 
 ## Links 
 [Proto 3 Language Specification](https://developers.google.com/protocol-buffers/docs/reference/proto3-spec)

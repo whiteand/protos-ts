@@ -1,6 +1,6 @@
 use super::{
     error::ProtoError,
-    id_generator::IdGenerator,
+    id_generator::{IdGenerator, UniqueId},
     lexems,
     proto_scope::{
         builder::{ScopeBuilder, ScopeBuilderTrait},
@@ -45,6 +45,17 @@ pub(crate) struct EnumDeclaration {
     pub id: usize,
     pub name: Rc<str>,
     pub entries: Vec<EnumEntry>,
+}
+impl UniqueId for EnumDeclaration {
+    type Args = (Rc<str>, Vec<EnumEntry>);
+
+    fn create_with_id(id: usize, args: Self::Args) -> Self {
+        EnumDeclaration {
+            id,
+            name: args.0,
+            entries: args.1,
+        }
+    }
 }
 impl std::fmt::Display for EnumDeclaration {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -365,6 +376,17 @@ pub(crate) struct FieldDeclaration {
     pub attributes: Vec<(Rc<str>, Rc<str>)>,
 }
 
+impl FieldDeclaration {
+    pub fn new(name: &str, field_type_ref: FieldTypeReference, tag: i64) -> Self {
+        FieldDeclaration {
+            name: Rc::from(name),
+            field_type_ref,
+            tag,
+            attributes: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Field {
     pub name: Rc<str>,
@@ -457,6 +479,18 @@ pub(crate) struct MessageDeclaration {
     pub id: usize,
     pub name: Rc<str>,
     pub entries: Vec<MessageDeclarationEntry>,
+}
+
+impl UniqueId for MessageDeclaration {
+    type Args = (Rc<str>, Vec<MessageDeclarationEntry>);
+
+    fn create_with_id(id: usize, args: Self::Args) -> Self {
+        MessageDeclaration {
+            id,
+            name: args.0,
+            entries: args.1,
+        }
+    }
 }
 
 impl std::fmt::Display for MessageDeclaration {
@@ -577,9 +611,36 @@ pub(crate) fn read_root_scope(files: &[PathBuf]) -> Result<RootScope, ProtoError
     let mut id_generator = IdGenerator::new();
     for file in files {
         let proto_file = read_proto_file(&mut id_generator, file)?;
+        for imprt in proto_file
+            .imports
+            .iter()
+            .filter(|imp| is_well_known_import(imp))
+        {
+            builder.load_well_known(&mut id_generator, &imprt.file_name);
+        }
         builder.load(proto_file)?;
     }
     builder.finish()
+}
+
+fn is_well_known_import(imp: &ImportPath) -> bool {
+    if imp.packages.len() != 2 {
+        return false;
+    }
+    if &*imp.packages[0] != "google" {
+        return false;
+    }
+    if &*imp.packages[1] != "protobuf" {
+        return false;
+    }
+    return is_valid_well_known_import_file_name(&imp.file_name);
+}
+fn is_valid_well_known_import_file_name(imp: &str) -> bool {
+    match imp {
+        "timestamp.proto" => true,
+        "wrappers.proto" => true,
+        _ => false,
+    }
 }
 
 fn read_proto_file(

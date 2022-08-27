@@ -1,5 +1,7 @@
 use std::{mem, ops::Deref, rc::Rc};
 
+use crate::proto::id_generator::UniqueId;
+
 #[derive(Debug)]
 pub(crate) struct SourceFile {
     pub statements: Vec<Statement>,
@@ -182,6 +184,7 @@ pub(crate) struct EnumDeclaration {
     pub name: Identifier,
     pub members: Vec<EnumMember>,
 }
+
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UnionType {

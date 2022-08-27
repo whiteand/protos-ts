@@ -469,11 +469,8 @@ pub(super) fn parse_package(
                         let enum_name_item = stack.pop().unwrap();
                         match (list_item, enum_name_item) {
                             (StackItem::EnumEntriesList(entries), StackItem::String(name)) => {
-                                let enum_declaration = EnumDeclaration {
-                                    id: id_gen.next().unwrap(),
-                                    name,
-                                    entries: entries,
-                                };
+                                let enum_declaration: EnumDeclaration =
+                                    id_gen.create((name, entries));
                                 stack.push(enum_declaration.into());
                             }
                             (a, b) => {
@@ -555,11 +552,10 @@ pub(super) fn parse_package(
                     Some(StackItem::String(name)) => name,
                     _ => unreachable!(),
                 };
-                let message_declaration = MessageDeclaration {
-                    id: id_gen.next().unwrap(),
-                    name: message_name,
-                    entries,
-                };
+                let message_declaration: MessageDeclaration = id_gen.create((
+                    message_name,
+                    entries
+                ));
                 stack.push(message_declaration.into());
                 continue;
             }

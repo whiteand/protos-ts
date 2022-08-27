@@ -1,3 +1,5 @@
+mod well_known;
+
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -7,12 +9,15 @@ use std::{
 
 use crate::proto::{
     error::ProtoError,
+    id_generator::{IdGenerator, UniqueId},
     package::{
         Declaration, EnumDeclaration, Field, FieldDeclaration, FieldTypeReference, ImportPath,
         MessageDeclaration, MessageDeclarationEntry, MessageEntry, OneOfDeclaration, OneOfGroup,
         ProtoFile, Type,
     },
 };
+
+use self::well_known::create_well_known_file;
 
 use super::{
     enum_scope::EnumScope, file::FileScope, message::MessageScope, package::PackageScope,
@@ -36,11 +41,34 @@ enum FieldOrOneOf {
     Field(FieldDeclaration),
 }
 
+impl From<FieldDeclaration> for FieldOrOneOf {
+    fn from(field: FieldDeclaration) -> Self {
+        FieldOrOneOf::Field(field)
+    }
+}
+impl From<OneOfDeclaration> for FieldOrOneOf {
+    fn from(one_of: OneOfDeclaration) -> Self {
+        FieldOrOneOf::OneOf(one_of)
+    }
+}
+
 #[derive(Debug)]
 struct MessageData {
     id: usize,
     name: Rc<str>,
     fields: Vec<FieldOrOneOf>,
+}
+
+impl UniqueId for MessageData {
+    type Args = (Rc<str>, Vec<FieldOrOneOf>);
+
+    fn create_with_id(id: usize, args: Self::Args) -> Self {
+        MessageData {
+            id,
+            name: args.0,
+            fields: args.1,
+        }
+    }
 }
 
 enum ScopeData {
@@ -284,7 +312,7 @@ impl ScopeBuilder {
 
     fn is_package_with_name(&self, package_name: &str) -> bool {
         match self.data {
-            ScopeData::Package(PackageData { ref name }) => (*name).deref() == package_name,
+            ScopeData::Package(PackageData { ref name }) => &**name == package_name,
             _ => false,
         }
     }
@@ -339,6 +367,7 @@ impl ScopeBuilder {
 
 pub(crate) trait ScopeBuilderTrait {
     fn load(&self, file: ProtoFile) -> Result<(), ProtoError>;
+    fn load_well_known(&self, id_gen: &mut IdGenerator, file_name: &str);
     fn finish(self) -> Result<RootScope, ProtoError>;
 }
 
@@ -353,6 +382,41 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
     fn load(&self, file: ProtoFile) -> Result<(), ProtoError> {
         let package_path = file.path.clone();
         self.load_file(file, &package_path)
+    }
+
+    fn load_well_known(&self, id_gen: &mut IdGenerator, imp: &str) {
+        {
+            let builder = self.borrow();
+            assert!(builder.is_root());
+        }
+        {
+            let builder = self.borrow();
+            let present = builder
+                .children
+                .iter()
+                .filter(|c| c.borrow().is_file())
+                .any(|c| match &c.borrow().data {
+                    ScopeData::File(f) => &*f.name == imp,
+                    _ => false,
+                });
+            if present {
+                return;
+            }
+        }
+        let protobuf_package = ensure_well_known_package(self);
+        let child_ref = {
+            let child_builder = create_well_known_file(id_gen, imp);
+            {
+                let mut child = child_builder.borrow_mut();
+                child.parent = Some(Rc::downgrade(&protobuf_package))
+            };
+            child_builder
+        };
+
+        {
+            let mut protobuf_package_builder = protobuf_package.borrow_mut();
+            protobuf_package_builder.children.push(child_ref);
+        }
     }
 
     fn finish(self) -> Result<RootScope, ProtoError> {
@@ -376,6 +440,52 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
         }
 
         Ok(RootScope { children, types })
+    }
+}
+
+fn ensure_well_known_package(root_ref: &Rc<RefCell<ScopeBuilder>>) -> Rc<RefCell<ScopeBuilder>> {
+    let maybe_google = {
+        let root = root_ref.borrow();
+        root.children
+            .iter()
+            .find(|c| {
+                let child = c.borrow();
+                child.is_package_with_name("google")
+            })
+            .map(|c| Rc::clone(&c))
+    };
+    match maybe_google {
+        Some(_) => {
+            todo!()
+        }
+        None => {
+            let google_package_ref = {
+                let name = "google".into();
+                let parent = Rc::clone(root_ref);
+                let google_package = ScopeBuilder::new_package(name, parent);
+                Rc::new(RefCell::new(google_package))
+            };
+
+            {
+                let mut root = root_ref.borrow_mut();
+                root.children.push(Rc::clone(&google_package_ref));
+            }
+
+            let protobuf_child_ref = {
+                let parent = Rc::clone(&google_package_ref);
+                let name = "protobuf".into();
+                let protobuf = ScopeBuilder::new_package(name, parent);
+                Rc::new(RefCell::new(protobuf))
+            };
+
+            {
+                let mut google_package = google_package_ref.borrow_mut();
+
+                google_package.children.push(Rc::clone(&protobuf_child_ref));
+            }
+
+            protobuf_child_ref
+        }
     }
 }
 
