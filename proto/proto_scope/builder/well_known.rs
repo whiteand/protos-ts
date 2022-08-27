@@ -51,8 +51,8 @@ fn is_valid_well_known_import_file_name(imp: &str) -> bool {
         "field_mask.proto" => true,
         "struct.proto" => true,
         "timestamp.proto" => true,
-        "wrappers.proto" => true,
         "field_mask.proto" => true,
+        "wrappers.proto" => true,
         _ => false,
     }
 }

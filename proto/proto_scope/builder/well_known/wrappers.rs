@@ -38,8 +38,8 @@ fn create_wrappers_messages(id_gen: &mut IdGenerator) -> Vec<MessageData> {
     vec![
         make_wrapper(id_gen, "DoubleValue", FieldTypeReference::Double),
         make_wrapper(id_gen, "FloatValue", FieldTypeReference::Float),
-        make_wrapper(id_gen, "Int64", FieldTypeReference::Int64),
-        make_wrapper(id_gen, "UInt64", FieldTypeReference::Uint64),
+        make_wrapper(id_gen, "Int64Value", FieldTypeReference::Int64),
+        make_wrapper(id_gen, "UInt64Value", FieldTypeReference::Uint64),
         make_wrapper(id_gen, "Int32Value", FieldTypeReference::Int32),
         make_wrapper(id_gen, "UInt32Value", FieldTypeReference::Uint32),
         make_wrapper(id_gen, "BoolValue", FieldTypeReference::Bool),

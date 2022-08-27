@@ -109,9 +109,9 @@ impl std::fmt::Display for ProtoScope {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             ProtoScope::Root(r) => r.fmt(f),
-            ProtoScope::Package(p) => todo!(),
+            ProtoScope::Package(_) => todo!(),
             ProtoScope::File(file) => file.fmt(f),
-            ProtoScope::Enum(e) => todo!(),
+            ProtoScope::Enum(_) => todo!(),
             ProtoScope::Message(m) => m.fmt(f),
         }
     }
