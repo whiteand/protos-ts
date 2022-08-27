@@ -1,4 +1,4 @@
-mod well_known;
+pub(crate) mod well_known;
 
 use std::{
     cell::RefCell,

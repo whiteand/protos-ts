@@ -3,7 +3,7 @@ use super::{
     id_generator::{IdGenerator, UniqueId},
     lexems,
     proto_scope::{
-        builder::{ScopeBuilder, ScopeBuilderTrait},
+        builder::{well_known::is_well_known_import, ScopeBuilder, ScopeBuilderTrait},
         root_scope::RootScope,
     },
     syntax,
@@ -621,26 +621,6 @@ pub(crate) fn read_root_scope(files: &[PathBuf]) -> Result<RootScope, ProtoError
         builder.load(proto_file)?;
     }
     builder.finish()
-}
-
-fn is_well_known_import(imp: &ImportPath) -> bool {
-    if imp.packages.len() != 2 {
-        return false;
-    }
-    if &*imp.packages[0] != "google" {
-        return false;
-    }
-    if &*imp.packages[1] != "protobuf" {
-        return false;
-    }
-    return is_valid_well_known_import_file_name(&imp.file_name);
-}
-fn is_valid_well_known_import_file_name(imp: &str) -> bool {
-    match imp {
-        "timestamp.proto" => true,
-        "wrappers.proto" => true,
-        _ => false,
-    }
 }
 
 fn read_proto_file(
