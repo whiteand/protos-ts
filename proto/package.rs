@@ -34,6 +34,12 @@ pub(crate) struct EnumEntry {
     pub value: i64,
 }
 
+impl From<(Rc<str>, i64)> for EnumEntry {
+    fn from((name, value): (Rc<str>, i64)) -> Self {
+        Self { name, value }
+    }
+}
+
 impl std::fmt::Display for EnumEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} = {}", self.name, self.value)
@@ -248,6 +254,9 @@ pub(crate) enum FieldTypeReference {
 }
 
 impl FieldTypeReference {
+    pub fn id(id: &str) -> Self {
+        Self::IdPath(vec![id.into()])
+    }
     pub fn trivial_resolve(&self) -> Option<Type> {
         match self {
             FieldTypeReference::IdPath(_) => None,

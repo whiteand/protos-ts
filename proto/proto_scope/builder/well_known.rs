@@ -4,8 +4,13 @@ use crate::proto::{id_generator::IdGenerator, package::ImportPath};
 
 use super::ScopeBuilder;
 
-mod wrappers;
 mod any;
+mod duration;
+mod empty;
+mod struct_file;
+mod time_type;
+mod timestamp;
+mod wrappers;
 
 pub(super) fn create_well_known_file(
     id_gen: &mut IdGenerator,
@@ -13,10 +18,14 @@ pub(super) fn create_well_known_file(
 ) -> Rc<RefCell<ScopeBuilder>> {
     match file_name {
         "any.proto" => any::create_file(id_gen),
+        "timestamp.proto" => timestamp::create_file(id_gen),
+        "empty.proto" => empty::create_file(id_gen),
+        "duration.proto" => duration::create_file(id_gen),
         "wrappers.proto" => wrappers::create_file(id_gen),
+        "struct.proto" => struct_file::create_file(id_gen),
         _ => {
             unreachable!("Cannot load well known {}", file_name);
-        },
+        }
     }
 }
 
