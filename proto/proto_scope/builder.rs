@@ -389,21 +389,15 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
             let builder = self.borrow();
             assert!(builder.is_root());
         }
+        let protobuf_package = ensure_well_known_package(self);
         {
-            let builder = self.borrow();
-            let present = builder
-                .children
-                .iter()
-                .filter(|c| c.borrow().is_file())
-                .any(|c| match &c.borrow().data {
-                    ScopeData::File(f) => &*f.name == imp,
-                    _ => false,
-                });
+            let present = protobuf_package.borrow().children.iter().any(
+                |c| c.borrow().is_file_with_name(imp)
+            );
             if present {
-                return;
+                return
             }
         }
-        let protobuf_package = ensure_well_known_package(self);
         let child_ref = {
             let child_builder = create_well_known_file(id_gen, imp);
             {
@@ -455,8 +449,22 @@ fn ensure_well_known_package(root_ref: &Rc<RefCell<ScopeBuilder>>) -> Rc<RefCell
             .map(|c| Rc::clone(&c))
     };
     match maybe_google {
-        Some(_) => {
-            todo!()
+        Some(google) => {
+            let maybe_protobuf = {
+                let google = google.borrow();
+                google
+                    .children
+                    .iter()
+                    .find(|c| {
+                        let child = c.borrow();
+                        child.is_package_with_name("protobuf")
+                    })
+                    .map(|c| Rc::clone(&c))
+            };
+            match maybe_protobuf {
+                Some(protobuf) => protobuf,
+                None => todo!(),
+            }
         }
         None => {
             let google_package_ref = {
