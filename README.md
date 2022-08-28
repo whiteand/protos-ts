@@ -78,3 +78,4 @@ out
 [Proto 3 Language Specification](https://developers.google.com/protocol-buffers/docs/reference/proto3-spec)
 [Google Protobuf package](https://developers.google.com/protocol-buffers/docs/reference/google.protobuf)
 [Well Known in Protobufjs](https://github.com/protobufjs/protobuf.js/blob/master/src/common.js)
+[Decoder](https://github.com/protobufjs/protobuf.js/blob/master/src/decoder.js)

@@ -1,6 +1,6 @@
-use std::{rc::Rc, fmt::Write};
+use std::{fmt::Write, rc::Rc};
 
-use crate::proto::package::MessageEntry;
+use crate::proto::package::{MessageEntry, Field};
 
 use super::{traits::ChildrenScopes, ProtoScope};
 
@@ -15,6 +15,22 @@ pub(crate) struct MessageScope {
 impl ChildrenScopes for MessageScope {
     fn children(&self) -> &[Rc<ProtoScope>] {
         &self.children
+    }
+}
+
+impl MessageScope {
+    pub fn get_fields(&self) -> Vec<&Field> {
+        let mut fields = self
+            .entries
+            .iter()
+            .flat_map(|f| match f {
+                MessageEntry::Field(f) => vec![f],
+                MessageEntry::OneOf(one_of) => one_of.options.iter().collect(),
+            })
+            .collect::<Vec<_>>();
+
+        fields.sort_by_key(|x| x.tag);
+        fields
     }
 }
 

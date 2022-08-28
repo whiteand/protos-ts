@@ -1,6 +1,8 @@
 use std::{mem, ops::Deref, rc::Rc};
 
-use crate::proto::id_generator::UniqueId;
+pub(crate) trait StatementList {
+    fn push_statement(&mut self, stmt: Statement);
+}
 
 #[derive(Debug)]
 pub(crate) struct SourceFile {
@@ -185,7 +187,6 @@ pub(crate) struct EnumDeclaration {
     pub members: Vec<EnumMember>,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct UnionType {
     pub types: Vec<Type>,
@@ -238,6 +239,12 @@ pub(crate) enum Type {
     ArrayType(Box<Type>),
     Record(Box<Type>, Box<Type>),
     TypeReference(Vec<Rc<Identifier>>),
+}
+
+impl Type {
+    pub fn from_id(name: &str) -> Type {
+        return Type::TypeReference(vec![Rc::new(name.into())]);
+    }
 }
 
 impl From<UnionType> for Type {
@@ -402,11 +409,14 @@ impl FunctionDeclaration {
     pub fn add_param(&mut self, param: Parameter) {
         self.parameters.push(param);
     }
-    pub fn push_statement(&mut self, statement: Statement) {
-        self.body.statements.push(statement.into());
-    }
     pub fn returns(&mut self, return_type: Type) {
         self.return_type = return_type;
+    }
+}
+
+impl StatementList for FunctionDeclaration {
+    fn push_statement(&mut self, statement: Statement) {
+        self.body.statements.push(statement.into());
     }
 }
 
@@ -414,8 +424,13 @@ impl FunctionDeclaration {
 pub(crate) enum BinaryOperator {
     LogicalOr,
     LogicalAnd,
+    BinaryAnd,
     WeakNotEqual,
     LessThan,
+    InstanceOf,
+    StrictEqual,
+    Plus,
+    UnsignedRightShift,
 }
 
 impl BinaryOperator {
@@ -436,6 +451,11 @@ impl From<&BinaryOperator> for &str {
             BinaryOperator::LogicalAnd => "&&",
             BinaryOperator::WeakNotEqual => "!=",
             BinaryOperator::LessThan => "<",
+            BinaryOperator::InstanceOf => "instanceof",
+            BinaryOperator::Plus => "+",
+            BinaryOperator::StrictEqual => "===",
+            BinaryOperator::UnsignedRightShift => ">>>",
+            BinaryOperator::BinaryAnd => "&",
         }
     }
 }
@@ -503,11 +523,14 @@ impl PropertyAccessExpression {
             Expression::StringLiteral(_) => false,
             Expression::ElementAccessExpression(_) => false,
             Expression::PrefixUnaryExpression(_) => true,
+            Expression::ConditionalExpression(_) => true,
         }
     }
 }
 #[derive(Debug)]
-pub(crate) enum PropertyAssignment {}
+pub(crate) enum ObjectLiteralMember {
+    PropertyAssignment(Rc<Identifier>, Rc<Expression>),
+}
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -551,6 +574,27 @@ impl From<&UnaryOperator> for &str {
 }
 
 #[derive(Debug)]
+pub(crate) struct ConditionalExpression {
+    pub condition: Rc<Expression>,
+    pub when_true: Rc<Expression>,
+    pub when_false: Rc<Expression>,
+}
+
+impl ConditionalExpression {
+    pub fn new(
+        condition: Rc<Expression>,
+        when_true: Rc<Expression>,
+        when_false: Rc<Expression>,
+    ) -> ConditionalExpression {
+        return Self {
+            condition,
+            when_true,
+            when_false,
+        };
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct PrefixUnaryExpression {
     pub operator: UnaryOperator,
     pub operand: Rc<Identifier>,
@@ -577,15 +621,23 @@ pub(crate) enum Expression {
     PropertyAccessExpression(PropertyAccessExpression),
     ParenthesizedExpression(Rc<Expression>),
     ArrayLiteralExpression(Vec<Rc<Expression>>),
-    ObjectLiteralExpression(Vec<Rc<PropertyAssignment>>),
+    ObjectLiteralExpression(Vec<Rc<ObjectLiteralMember>>),
     NewExpression(NewExpression),
     NumericLiteral(f64),
     StringLiteral(StringLiteral),
     ElementAccessExpression(ElementAccessExpression),
     PrefixUnaryExpression(PrefixUnaryExpression),
+    ConditionalExpression(ConditionalExpression),
 }
 
 impl Expression {
+    pub fn conditional(
+        condition: Rc<Expression>,
+        when_true: Rc<Expression>,
+        when_false: Rc<Expression>,
+    ) -> Self {
+        ConditionalExpression::new(condition, when_true, when_false).into()
+    }
     pub fn into_return_statement(self) -> Statement {
         Statement::ReturnStatement(Some(self))
     }
@@ -611,6 +663,12 @@ impl Expression {
             expression: Rc::new(self),
             argument,
         })
+    }
+}
+
+impl From<ConditionalExpression> for Expression {
+    fn from(cond: ConditionalExpression) -> Self {
+        Self::ConditionalExpression(cond)
     }
 }
 
@@ -690,6 +748,16 @@ impl From<f64> for Expression {
         Self::NumericLiteral(f)
     }
 }
+impl From<i32> for Expression {
+    fn from(int_value: i32) -> Self {
+        Self::NumericLiteral(int_value as f64)
+    }
+}
+impl From<usize> for Expression {
+    fn from(u: usize) -> Self {
+        Self::NumericLiteral(u as f64)
+    }
+}
 
 impl From<&str> for Expression {
     fn from(s: &str) -> Self {
@@ -754,6 +822,7 @@ pub(crate) enum VariableKind {
 pub(crate) struct VariableDeclaration {
     pub name: Rc<Identifier>,
     pub initializer: Rc<Expression>,
+    pub var_type: Option<Rc<Type>>,
 }
 
 #[derive(Debug)]
@@ -769,6 +838,17 @@ impl VariableDeclarationList {
             declarations: vec![VariableDeclaration {
                 name,
                 initializer: initializer.into(),
+                var_type: None,
+            }],
+        }
+    }
+    pub fn declare_typed_const(name: Rc<Identifier>, t: Rc<Type>, initializer: Expression) -> Self {
+        VariableDeclarationList {
+            kind: VariableKind::Const,
+            declarations: vec![VariableDeclaration {
+                name,
+                initializer: initializer.into(),
+                var_type: Some(t),
             }],
         }
     }
@@ -778,6 +858,7 @@ impl VariableDeclarationList {
             declarations: vec![VariableDeclaration {
                 name,
                 initializer: initializer.into(),
+                var_type: None,
             }],
         }
     }
@@ -801,9 +882,11 @@ impl Block {
             statements: Vec::new(),
         }
     }
-    pub fn push_statement(&mut self, statement: Statement) -> &mut Self {
-        self.statements.push(Rc::new(statement));
-        self
+}
+
+impl StatementList for Block {
+    fn push_statement(&mut self, stmt: Statement) {
+        self.statements.push(stmt.into());
     }
 }
 
@@ -838,19 +921,19 @@ impl ForStatement {
             statement: Default::default(),
         }
     }
+}
 
-    pub fn push_statement(&mut self, statement: Statement) -> &mut Self {
+impl StatementList for ForStatement {
+    fn push_statement(&mut self, statement: Statement) {
         let for_stmt_rc = mem::replace(&mut self.statement, Box::default());
 
         match *for_stmt_rc {
             Statement::Block(mut b) => {
                 b.push_statement(statement);
                 self.statement = Box::new(Statement::Block(b));
-                self
             }
             Statement::Empty => {
                 self.statement = statement.into();
-                self
             }
             Statement::ImportDeclaration(_) => unreachable!(),
             Statement::EnumDeclaration(_) => unreachable!(),
@@ -861,12 +944,83 @@ impl ForStatement {
                 block.push_statement(stmt);
                 block.push_statement(statement);
                 self.statement = Box::new(Statement::Block(block));
-                self
             }
         }
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct WhileStatement {
+    pub condition: Rc<Expression>,
+    pub statement: Box<Block>,
+}
+
+impl WhileStatement {
+    pub fn new(condition: Rc<Expression>) -> Self {
+        Self {
+            condition,
+            statement: Box::new(Block::new()),
+        }
+    }
+}
+
+impl StatementList for WhileStatement {
+    fn push_statement(&mut self, stmt: Statement) {
+        self.statement.push_statement(stmt);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct CaseClause {
+    pub expression: Rc<Expression>,
+    pub statements: Vec<Statement>,
+}
+impl CaseClause {
+    fn new(expr: Rc<Expression>) -> Self {
+        Self {
+            expression: expr,
+            statements: vec![],
+        }
+    }
+}
+impl StatementList for CaseClause {
+    fn push_statement(&mut self, stmt: Statement) {
+        self.statements.push(stmt);
+    }
+}
+#[derive(Debug)]
+pub(crate) struct DefaultClause {
+    pub statements: Vec<Statement>,
+}
+impl DefaultClause {
+    pub fn new() -> Self {
+        Self { statements: vec![] }
+    }
+}
+impl StatementList for DefaultClause {
+    fn push_statement(&mut self, stmt: Statement) {
+        self.statements.push(stmt);
+    }
+}
+#[derive(Debug)]
+pub(crate) struct SwitchStatement {
+    pub expression: Rc<Expression>,
+    pub cases: Vec<CaseClause>,
+    pub default: Box<DefaultClause>,
+}
+
+impl SwitchStatement {
+    pub fn new(expression: Rc<Expression>, default: DefaultClause) -> Self {
+        SwitchStatement {
+            expression,
+            cases: vec![],
+            default: default.into(),
+        }
+    }
+    pub fn add_case(&mut self, case: CaseClause) {
+        self.cases.push(case)
+    }
+}
 #[derive(Debug)]
 pub(crate) enum Statement {
     Empty,
@@ -880,11 +1034,26 @@ pub(crate) enum Statement {
     Block(Block),
     Expression(Rc<Expression>),
     For(Rc<ForStatement>),
+    While(Rc<WhileStatement>),
+    Break,
+    Switch(Box<SwitchStatement>),
 }
 
 impl Default for Statement {
     fn default() -> Self {
         Self::Empty
+    }
+}
+
+impl From<SwitchStatement> for Statement {
+    fn from(s: SwitchStatement) -> Self {
+        Self::Switch(s.into())
+    }
+}
+
+impl From<WhileStatement> for Statement {
+    fn from(wh: WhileStatement) -> Self {
+        Self::While(Rc::new(wh))
     }
 }
 
@@ -966,8 +1135,11 @@ impl File {
             }),
         }
     }
-    pub fn push_statement(&mut self, statement: Statement) {
-        self.ast.statements.push(statement);
+}
+
+impl StatementList for File {
+    fn push_statement(&mut self, stmt: Statement) {
+        self.ast.statements.push(stmt);
     }
 }
 

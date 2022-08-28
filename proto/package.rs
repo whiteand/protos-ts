@@ -1,4 +1,5 @@
 use super::{
+    compiler::ts::ast,
     error::ProtoError,
     id_generator::{IdGenerator, UniqueId},
     lexems,
@@ -120,6 +121,32 @@ impl Type {
                 | Self::Uint32
                 | Self::Uint64
         );
+    }
+
+    pub fn default_expression(&self) -> ast::Expression {
+        match self {
+            Type::Enum(_) => 0f64.into(),
+            Type::Message(_) => ast::Expression::Null,
+            Type::Repeated(_) => ast::Expression::ArrayLiteralExpression(vec![]),
+            Type::Map(_, _) => ast::Expression::ObjectLiteralExpression(vec![]),
+            Type::Bool => ast::Expression::False,
+            Type::Bytes => ast::Expression::Null,
+            Type::Double => 0f64.into(),
+            Type::Fixed32 => 0f64.into(),
+            Type::Fixed64 => 0f64.into(),
+            Type::Float => 0f64.into(),
+            Type::Int32 => 0f64.into(),
+            Type::Int64 => 0f64.into(),
+            Type::Sfixed32 => 0f64.into(),
+            Type::Sfixed64 => 0f64.into(),
+            Type::Sint32 => 0f64.into(),
+            Type::Sint64 => 0f64.into(),
+            Type::String => ast::Expression::StringLiteral(
+                "".into()
+            ),
+            Type::Uint32 => 0f64.into(),
+            Type::Uint64 => 0f64.into(),
+        }
     }
 
     pub fn to_string(&self) -> String {

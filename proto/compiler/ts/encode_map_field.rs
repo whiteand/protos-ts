@@ -8,7 +8,7 @@ use crate::proto::{
 };
 
 use super::{
-    ast::{self, MethodCall, MethodChain},
+    ast::{self, MethodCall, MethodChain, StatementList},
     encode_message_expr::encode_message_expr,
     has_property::has_property,
 };

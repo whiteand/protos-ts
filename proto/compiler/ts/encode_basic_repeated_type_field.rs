@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::proto::{
-    compiler::ts::ast::{ElementAccess, MethodCall, MethodChain},
+    compiler::ts::ast::{ElementAccess, MethodCall, MethodChain, StatementList},
     package::{self},
 };
 

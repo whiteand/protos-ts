@@ -16,6 +16,9 @@ authors = ["Andrii Biletskyi <andrewbeletskiy@gmail.com>"]
 [dependencies]
 path-clean = "0.1.0"
 
+[profile.release]
+debug=true
+
 [[bin]]
 name = "protobufts"
 path = "main.rs"

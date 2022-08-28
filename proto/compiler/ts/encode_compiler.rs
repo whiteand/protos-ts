@@ -11,7 +11,7 @@ use crate::proto::{
 };
 
 use super::{
-    ast::{self, ElementAccess, Folder, MethodCall, Prop, Type},
+    ast::{self, ElementAccess, Folder, MethodCall, Prop, Type, StatementList},
     constants::{ENCODE_FUNCTION_NAME, PROTOBUF_MODULE},
     encode_basic_type_field::encode_basic_type_field,
     encode_enum_field::encode_enum_field,
@@ -90,18 +90,9 @@ pub(super) fn compile_encode(
         _ => unreachable!(),
     };
 
-    let mut fields = message_declaration
-        .entries
-        .iter()
-        .flat_map(|f| match f {
-            package::MessageEntry::Field(f) => vec![f],
-            package::MessageEntry::OneOf(one_of) => one_of.options.iter().collect(),
-        })
-        .collect::<Vec<_>>();
+    let fields = message_declaration.get_fields();
 
-    fields.sort_by_key(|x| x.tag);
-
-    for (_, field) in fields.into_iter().enumerate() {
+    for field in fields {
         let js_name = field.json_name();
         let js_name_id: Rc<ast::Identifier> = ast::Identifier::new(&js_name).into();
         let message_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&message_parameter_id).into());

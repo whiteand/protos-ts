@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, rc::Rc};
 
 use super::{ast::*, is_reserved::is_reserved, is_safe_id::is_safe_id, to_js_string::to_js_string};
 
@@ -169,12 +169,7 @@ mod test_type {
     #[test]
     fn it_renders_union() {
         let type_ = Type::UnionType(UnionType {
-            types: vec![
-                Type::Boolean,
-                Type::Number,
-                Type::String,
-                Type::Null,
-            ],
+            types: vec![Type::Boolean, Type::Number, Type::String, Type::Null],
         });
         let rendered: String = (&type_).into();
         assert_eq!(rendered, "boolean | number | string | null");
@@ -183,20 +178,12 @@ mod test_type {
     fn it_renders_array_with_nested_type() {
         let type_ = Type::array(
             UnionType {
-                types: vec![
-                    Type::Boolean,
-                    Type::Number,
-                    Type::String,
-                    Type::Null,
-                ],
+                types: vec![Type::Boolean, Type::Number, Type::String, Type::Null],
             }
             .into(),
         );
         let rendered: String = (&type_).into();
-        assert_eq!(
-            rendered,
-            "Array<boolean | number | string | null>"
-        );
+        assert_eq!(rendered, "Array<boolean | number | string | null>");
     }
     #[test]
     fn it_renders_bool_array() {
@@ -413,6 +400,30 @@ impl From<&PrefixUnaryExpression> for String {
         res
     }
 }
+impl From<&ConditionalExpression> for String {
+    fn from(cond: &ConditionalExpression) -> Self {
+        let cond_str: String = cond.condition.deref().into();
+        let when_true_str: String = cond.when_true.deref().into();
+        let when_false_str: String = cond.when_false.deref().into();
+        let full_len = cond_str.len() + when_true_str.len() + when_false_str.len() + 6;
+        let mut res: String = String::new();
+        if full_len <= 80 {
+            res.push_str(&cond_str);
+            res.push_str(" ? ");
+            res.push_str(&when_true_str);
+            res.push_str(" : ");
+            res.push_str(&when_false_str);
+        } else {
+            res.push_str(&cond_str);
+            res.push_str("\n  ? ");
+            res.push_str(&when_true_str);
+            res.push_str("\n  : ");
+            res.push_str(&when_false_str);
+        }
+
+        res
+    }
+}
 impl From<&Expression> for String {
     fn from(expr: &Expression) -> Self {
         match expr {
@@ -431,7 +442,7 @@ impl From<&Expression> for String {
                 format!("({})", expr_str)
             }
             Expression::ArrayLiteralExpression(_) => todo!(),
-            Expression::ObjectLiteralExpression(_) => todo!(),
+            Expression::ObjectLiteralExpression(props) => object_literal_to_string(props),
             Expression::NewExpression(_) => todo!(),
             Expression::NumericLiteral(f64) => f64.to_string(),
             Expression::StringLiteral(str) => to_js_string(str),
@@ -439,6 +450,35 @@ impl From<&Expression> for String {
                 element_access_expr.deref().into()
             }
             Expression::PrefixUnaryExpression(unary_expr) => unary_expr.deref().into(),
+            Expression::ConditionalExpression(cond) => cond.deref().into(),
+        }
+    }
+}
+
+fn object_literal_to_string(props: &[Rc<ObjectLiteralMember>]) -> String {
+    match props {
+        [] => "{}".into(),
+        props => {
+            let mut res = String::new();
+            res.push('{');
+            res.push('\n');
+            for p in props {
+                match &**p {
+                    ObjectLiteralMember::PropertyAssignment(prop, value) => {
+                        res.push(' ');
+                        res.push(' ');
+                        res.push_str(&prop.text);
+                        res.push(':');
+                        res.push(' ');
+                        let value_str: String = value.deref().into();
+                        res.push_str(&value_str);
+                        res.push(',');
+                        res.push('\n');
+                    }
+                }
+            }
+            res.push('}');
+            res
         }
     }
 }
@@ -456,6 +496,11 @@ impl From<&VariableDeclarationList> for String {
                 res.push_str(",\n  ");
             }
             res.push_str(&var.name.text);
+            if let Some(t) = &var.var_type {
+                let type_str: String = t.deref().into();
+                res.push_str(": ");
+                res.push_str(&type_str);
+            }
             res.push_str(" = ");
 
             let expr_str: String = var.initializer.deref().into();
@@ -481,12 +526,7 @@ impl From<&IfStatement> for String {
             }
             _ => {
                 res.push_str("\n");
-                let then_expr_str: String = expr.then_statement.deref().into();
-                for line in then_expr_str.lines() {
-                    res.push_str("  ");
-                    res.push_str(line);
-                    res.push('\n');
-                }
+                tab_lines(&mut res, expr.then_statement.deref().into());
             }
         }
         if let Some(else_statement) = &expr.else_statement {
@@ -503,18 +543,27 @@ impl From<&Block> for String {
         let mut res = String::new();
         res.push_str("{\n");
         for s in block.statements.iter() {
-            let statement_str: String = s.deref().into();
-            for line in statement_str.lines() {
-                res.push_str("  ");
-                res.push_str(line);
-                res.push_str("\n");
-            }
+            tab_lines(&mut res, s.deref().into());
         }
         res.push_str("}");
         res
     }
 }
 
+impl From<&WhileStatement> for String {
+    fn from(whl: &WhileStatement) -> Self {
+        let mut res = String::new();
+
+        res.push_str("while (");
+        let cond_str: String = whl.condition.deref().into();
+        res.push_str(&cond_str);
+        res.push_str(") ");
+        let block_str: String = whl.statement.deref().into();
+        res.push_str(&block_str);
+
+        res
+    }
+}
 impl From<&ForStatement> for String {
     fn from(for_stmt: &ForStatement) -> Self {
         let ForStatement {
@@ -558,6 +607,47 @@ impl From<&ForStatement> for String {
         res
     }
 }
+impl From<&CaseClause> for String {
+    fn from(_: &CaseClause) -> Self {
+        todo!()
+    }
+}
+impl From<&DefaultClause> for String {
+    fn from(d: &DefaultClause) -> Self {
+        let mut res = String::new();
+        res.push_str("default:\n");
+        for s in &d.statements {
+            tab_lines(&mut res, s.into());
+        }
+        res
+    }
+}
+
+fn tab_lines(dst: &mut String, src: String) {
+    for line in src.lines() {
+        dst.push(' ');
+        dst.push(' ');
+        dst.push_str(&line);
+        dst.push('\n');
+    }
+}
+
+impl From<&SwitchStatement> for String {
+    fn from(s: &SwitchStatement) -> Self {
+        let mut res = String::new();
+        res.push_str("switch (");
+        let expr_str: String = s.expression.deref().into();
+        res.push_str(&expr_str);
+        res.push_str(") {\n");
+        for case in &s.cases {
+            tab_lines(&mut res, case.into());
+        }
+        tab_lines(&mut res, s.default.deref().into());
+        res.push('}');
+
+        res
+    }
+}
 impl From<&Statement> for String {
     fn from(statement: &Statement) -> Self {
         match statement {
@@ -581,6 +671,9 @@ impl From<&Statement> for String {
             Statement::Expression(expr) => expr.deref().into(),
             Statement::Empty => ";".into(),
             Statement::For(for_stmt) => for_stmt.deref().into(),
+            Statement::While(whl) => whl.deref().into(),
+            Statement::Break => "break;".into(),
+            Statement::Switch(s) => s.deref().into(),
         }
     }
 }
