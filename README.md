@@ -76,3 +76,28 @@ out
 - [Google Protobuf package](https://developers.google.com/protocol-buffers/docs/reference/google.protobuf)
 - [Well Known in Protobufjs](https://github.com/protobufjs/protobuf.js/blob/master/src/common.js)
 - [Decoder](https://github.com/protobufjs/protobuf.js/blob/master/src/decoder.js)
+
+## Performance
+
+I didn't do it properly. But on my computer I've compared this implementation with official [compiler](https://github.com/protobufjs);
+I've took protocol buffer files from my work project and compiled both of them several times and took minimum.
+
+```
+This compiler: 0.9s
+official: 7s
+```
+
+Actually it is difficult to compare them because they do a different job.
+
+Official `protobuf.js` compiler generates big large file. While this compiler produces hierarchy of different files. Therefore we have much more IO operations.
+
+I've found that in my compiler 92% of the time is spent in IO operations to the harddrive.
+
+```
+collect file names 5.328ms
+parsing files 44.7105ms
+compiling files to typescript 33.6335ms
+saving typescript files 1.0607062s
+Full Time 1.1485477s
+```
+
