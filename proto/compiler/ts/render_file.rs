@@ -457,6 +457,14 @@ impl From<&Expression> for String {
             }
             Expression::PrefixUnaryExpression(unary_expr) => unary_expr.deref().into(),
             Expression::ConditionalExpression(cond) => cond.deref().into(),
+            Expression::Typeof(expr) => {
+                let mut res = String::new();
+                res.push_str("typeof ");
+                let inner_str: String = expr.deref().into();
+                res.push_str(&inner_str);
+                res
+            },
+            
         }
     }
 }

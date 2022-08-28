@@ -1,7 +1,7 @@
 use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
-    compiler::ts::ts_path::TsPath,
+    compiler::ts::{ast::ElementAccess, ts_path::TsPath},
     error::ProtoError,
     package,
     proto_scope::{root_scope::RootScope, ProtoScope},
@@ -9,8 +9,8 @@ use crate::proto::{
 
 use super::{
     ast::{
-        self, BinaryOperator, Block, LogicalExpr, MethodCall, ObjectLiteralMember, Prop,
-        StatementList, StatementPlacer, VariableDeclarationList,
+        self, BinaryOperator, Block, CaseClause, ExpressionChain, MethodCall, ObjectLiteralMember,
+        Prop, StatementList, StatementPlacer, VariableDeclarationList,
     },
     constants::{DECODE_FUNCTION_NAME, PROTOBUF_MODULE},
     ensure_import::ensure_import,
@@ -25,6 +25,8 @@ pub(super) fn compile_decode(
     let mut file = super::ast::File::new("decode".into());
 
     let reader_type_id: Rc<ast::Identifier> = ast::Identifier::from("Reader").into();
+    let util_id: Rc<ast::Identifier> = ast::Identifier::from("util").into();
+    let util_expr: Rc<ast::Expression> = ast::Expression::from(Rc::clone(&util_id)).into();
     let message_type_id: Rc<ast::Identifier> = ast::Identifier::from(message_scope.name()).into();
     let reader_parameter_id: Rc<ast::Identifier> = ast::Identifier::from("reader").into();
     let length_parameter_id: Rc<ast::Identifier> = ast::Identifier::from("length").into();
@@ -34,6 +36,16 @@ pub(super) fn compile_decode(
     let message_var_id: Rc<ast::Identifier> = ast::Identifier::from("message").into();
     let arr_end_id: Rc<ast::Identifier> = ast::Identifier::from("arr_end").into();
     let arr_end_expr: Rc<ast::Expression> = ast::Expression::from(Rc::clone(&arr_end_id)).into();
+    let map_entry_end_id: Rc<ast::Identifier> = ast::Identifier::from("pair_end").into();
+    let map_entry_end_expr: Rc<ast::Expression> =
+        ast::Expression::from(Rc::clone(&map_entry_end_id)).into();
+    let key_id: Rc<ast::Identifier> = ast::Identifier::from("k").into();
+    let key_expr: Rc<ast::Expression> = ast::Expression::from(Rc::clone(&key_id)).into();
+    let val_id: Rc<ast::Identifier> = ast::Identifier::from("v").into();
+    let val_expr: Rc<ast::Expression> = ast::Expression::from(Rc::clone(&val_id)).into();
+    let entry_tag_id: Rc<ast::Identifier> = ast::Identifier::from("t").into();
+    let entry_tag_expr: Rc<ast::Expression> =
+        ast::Expression::from(Rc::clone(&entry_tag_id)).into();
 
     file.push_statement(ast::Statement::ImportDeclaration(
         ast::ImportDeclaration::import(
@@ -176,6 +188,21 @@ pub(super) fn compile_decode(
                 .get_message_declaration()
                 .map(|d| d.get_fields())
                 .unwrap_or_else(Vec::new);
+            if fields.iter().any(|f| match &f.field_type {
+                package::Type::Repeated(_) => true,
+                package::Type::Map(_, _) => true,
+                _ => false,
+            }) {
+                let utils_import = ast::ImportDeclaration::import(
+                    vec![ast::ImportSpecifier {
+                        name: Rc::clone(&util_id),
+                        property_name: None,
+                    }],
+                    PROTOBUF_MODULE.into(),
+                );
+
+                ensure_import(&mut file, utils_import);
+            }
             for field in fields {
                 let name = field.json_name();
                 let id = field.tag;
@@ -240,7 +267,7 @@ pub(super) fn compile_decode(
                         case_clause.push_statement(reset_if);
 
                         match element_type.packed_wire_type() {
-                            Some(packed_wire_type) => {
+                            Some(_) => {
                                 let parse_element_expr = Rc::new(field_value_ref.method_call(
                                     "push",
                                     vec![reader_var_expr
@@ -341,7 +368,188 @@ pub(super) fn compile_decode(
                             },
                         }
                     }
-                    package::Type::Map(_, _) => todo!(),
+                    package::Type::Map(kt, vt) => {
+                        case_clause.push_statement(
+                            ast::IfStatement {
+                                expression: BinaryOperator::StrictEqual
+                                    .apply(
+                                        Rc::clone(&field_value_ref),
+                                        util_expr.prop("emptyObject").into(),
+                                    )
+                                    .into(),
+                                then_statement: ast::Statement::Expression(
+                                    BinaryOperator::Assign
+                                        .apply(
+                                            Rc::clone(&field_value_ref),
+                                            Rc::new(ast::Expression::ObjectLiteralExpression(
+                                                vec![],
+                                            )),
+                                        )
+                                        .into(),
+                                )
+                                .into(),
+                                else_statement: None,
+                            }
+                            .into(),
+                        );
+
+                        case_clause.push_statement(
+                            ast::Statement::VariableStatement(
+                                VariableDeclarationList::declare_const(
+                                    Rc::clone(&map_entry_end_id),
+                                    BinaryOperator::Plus.apply(
+                                        reader_var_expr.method_call("uint32", vec![]).into(),
+                                        reader_var_expr.prop("pos").into(),
+                                    ),
+                                )
+                                .into(),
+                            )
+                            .into(),
+                        );
+
+                        let value_type = match vt.deref() {
+                            package::Type::Enum(_) => package::Type::Int32.into(),
+                            _ => Rc::clone(vt),
+                        };
+
+                        case_clause.push_statement(
+                            ast::Statement::VariableStatement(
+                                VariableDeclarationList::declare_let(
+                                    Rc::clone(&key_id),
+                                    kt.default_expression().into(),
+                                )
+                                .into(),
+                            )
+                            .into(),
+                        );
+                        case_clause.push_statement(
+                            ast::Statement::VariableStatement(
+                                VariableDeclarationList::declare_let(
+                                    Rc::clone(&val_id),
+                                    value_type.default_expression().into(),
+                                )
+                                .into(),
+                            )
+                            .into(),
+                        );
+
+                        {
+                            let mut entry_while = case_clause.place(ast::WhileStatement::new(
+                                BinaryOperator::LessThan
+                                    .apply(
+                                        reader_var_expr.prop("pos").into(),
+                                        Rc::clone(&map_entry_end_expr),
+                                    )
+                                    .into(),
+                            ));
+
+                            entry_while.push_statement(ast::Statement::VariableStatement(
+                                ast::VariableDeclarationList::declare_const(
+                                    Rc::clone(&entry_tag_id),
+                                    reader_var_expr.method_call("uint32", vec![]),
+                                )
+                                .into(),
+                            ));
+                            {
+                                let mut entry_switch =
+                                    entry_while.place(ast::SwitchStatement::new(
+                                        BinaryOperator::UnsignedRightShift
+                                            .apply(Rc::clone(&entry_tag_expr), Rc::new(3.into()))
+                                            .into(),
+                                        vec![
+                                            reader_var_expr
+                                                .method_call(
+                                                    "skipType",
+                                                    vec![BinaryOperator::BinaryAnd
+                                                        .apply(
+                                                            Rc::clone(&entry_tag_expr),
+                                                            Rc::new(7.into()),
+                                                        )
+                                                        .into()],
+                                                )
+                                                .into(),
+                                            ast::Statement::Break,
+                                        ]
+                                        .into(),
+                                    ));
+
+                                let mut key_case = CaseClause::new(Rc::new(1.into()));
+                                let kt_string = kt.to_string();
+                                key_case.push_statement(ast::Statement::Expression(
+                                    BinaryOperator::Assign
+                                        .apply(
+                                            Rc::clone(&key_expr),
+                                            reader_var_expr.method_call(&kt_string, vec![]).into(),
+                                        )
+                                        .into(),
+                                ));
+                                key_case.push_statement(ast::Statement::Break);
+                                entry_switch.add_case(key_case);
+
+                                let mut val_case = CaseClause::new(Rc::new(2.into()));
+                                match value_type.deref() {
+                                    package::Type::Enum(_) => unreachable!(),
+                                    package::Type::Repeated(_) => unreachable!(),
+                                    package::Type::Map(_, _) => unreachable!(),
+                                    package::Type::Message(_) => todo!(),
+                                    basic => {
+                                        assert!(basic.is_basic());
+                                        let b_str = basic.to_string();
+                                        val_case.push_statement(ast::Statement::Expression(
+                                            BinaryOperator::Assign
+                                                .apply(
+                                                    Rc::clone(&val_expr),
+                                                    reader_var_expr
+                                                        .method_call(&b_str, vec![])
+                                                        .into(),
+                                                )
+                                                .into(),
+                                        ));
+                                    }
+                                };
+                                val_case.push_statement(ast::Statement::Break);
+                                entry_switch.add_case(val_case);
+                            }
+                        }
+
+                        match kt.long_wire_type() {
+                            Some(_) => case_clause.push_statement(ast::Statement::Expression(
+                                BinaryOperator::Assign
+                                    .apply(
+                                        Rc::clone(&key_expr),
+                                        ast::Expression::conditional(
+                                            BinaryOperator::StrictEqual
+                                                .apply(
+                                                    key_expr.type_of().into(),
+                                                    Rc::new(
+                                                        ast::StringLiteral::new("object".into())
+                                                            .into(),
+                                                    ),
+                                                )
+                                                .into(),
+                                            util_expr
+                                                .method_call(
+                                                    "longToHash",
+                                                    vec![Rc::clone(&key_expr)],
+                                                )
+                                                .into(),
+                                            Rc::clone(&key_expr),
+                                        )
+                                        .into(),
+                                    )
+                                    .into(),
+                            )),
+                            None => {}
+                        }
+                        case_clause.push_statement(ast::Statement::Expression(
+                            BinaryOperator::Assign
+                                .apply(
+                                    field_value_ref.element(Rc::clone(&key_expr)).into(),
+                                    Rc::clone(&val_expr),
+                                )
+                                .into(),
+                        ));
+                    }
                     basic => case_clause.push_statement(
                         ast::BinaryOperator::Assign
                             .apply(

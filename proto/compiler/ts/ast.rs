@@ -530,6 +530,8 @@ impl PropertyAccessExpression {
             Expression::ElementAccessExpression(_) => false,
             Expression::PrefixUnaryExpression(_) => true,
             Expression::ConditionalExpression(_) => true,
+            Expression::Typeof(_) => true,
+            
         }
     }
 }
@@ -636,6 +638,7 @@ pub(crate) enum Expression {
     ElementAccessExpression(ElementAccessExpression),
     PrefixUnaryExpression(PrefixUnaryExpression),
     ConditionalExpression(ConditionalExpression),
+    Typeof(Rc<Expression>),
 }
 
 impl Expression {
@@ -679,6 +682,9 @@ impl Expression {
             operand: self.into(),
         })
     }
+    pub fn into_typeof(self) -> Expression {
+        Expression::Typeof(self.into())
+    }
 
     pub fn into_parentheses(self) -> Expression {
         Expression::ParenthesizedExpression(self.into())
@@ -699,7 +705,8 @@ pub(crate) trait Prop {
     fn prop(&self, name: &str) -> Expression;
 }
 
-pub(crate) trait LogicalExpr {
+pub(crate) trait ExpressionChain {
+    fn type_of(&self) -> Expression;
     fn and(&self, other: Rc<Expression>) -> Expression;
     fn or(&self, other: Rc<Expression>) -> Expression;
     fn not(&self) -> Expression;
@@ -752,7 +759,8 @@ impl ElementAccess for Rc<Expression> {
     }
 }
 
-impl LogicalExpr for Rc<Expression> {
+impl ExpressionChain for Rc<Expression> {
+    
     fn and(&self, other: Rc<Expression>) -> Expression {
         BinaryOperator::LogicalAnd.apply(Rc::clone(&self), other)
     }
@@ -765,6 +773,10 @@ impl LogicalExpr for Rc<Expression> {
             operator: UnaryOperator::Not,
             operand: Rc::clone(self),
         })
+    }
+
+    fn type_of(&self) -> Expression {
+        Expression::Typeof(Rc::clone(self))
     }
 }
 

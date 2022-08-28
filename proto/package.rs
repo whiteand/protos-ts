@@ -127,8 +127,8 @@ impl Type {
         match self {
             Type::Enum(_) => 0f64.into(),
             Type::Message(_) => ast::Expression::Null,
-            Type::Repeated(_) => ast::Expression::ArrayLiteralExpression(vec![]),
-            Type::Map(_, _) => ast::Expression::ObjectLiteralExpression(vec![]),
+            Type::Repeated(_) => ast::Expression::from("util").into_prop("emptyArray"),
+            Type::Map(_, _) => ast::Expression::from("util").into_prop("emptyObject"),
             Type::Bool => ast::Expression::False,
             Type::Bytes => ast::Expression::Null,
             Type::Double => 0f64.into(),
@@ -141,11 +141,20 @@ impl Type {
             Type::Sfixed64 => 0f64.into(),
             Type::Sint32 => 0f64.into(),
             Type::Sint64 => 0f64.into(),
-            Type::String => ast::Expression::StringLiteral(
-                "".into()
-            ),
+            Type::String => ast::Expression::StringLiteral("".into()),
             Type::Uint32 => 0f64.into(),
             Type::Uint64 => 0f64.into(),
+        }
+    }
+
+    pub fn long_wire_type(&self) -> Option<i32> {
+        match self {
+            Self::Fixed64 => Some(1),
+            Self::Int64 => Some(0),
+            Self::Sfixed64 => Some(1),
+            Self::Sint64 => Some(0),
+            Self::Uint64 => Some(0),
+            _ => None,
         }
     }
 
