@@ -58,6 +58,12 @@ impl TsPath {
     pub fn push(&mut self, item: TsPathComponent) {
         self.path.push(item);
     }
+    pub fn push_file(&mut self, file_name: &str) {
+        self.push(TsPathComponent::File(Rc::from(file_name)))
+    }
+    pub fn push_function(&mut self, file_name: &str) {
+        self.push(TsPathComponent::Function(Rc::from(file_name)))
+    }
 }
 
 impl Default for TsPath {

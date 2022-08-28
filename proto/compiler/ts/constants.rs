@@ -1,5 +1,6 @@
 pub(super) const PROTOBUF_MODULE: &'static str = "protobufjs/minimal";
 pub(super) const ENCODE_FUNCTION_NAME: &'static str = "encode";
+pub(super) const DECODE_FUNCTION_NAME: &'static str = "decode";
 
 // {
 //     long: {

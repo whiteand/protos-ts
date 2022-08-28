@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use crate::proto::{
+    compiler::ts::ts_path::TsPath,
     error::ProtoError,
     package,
     proto_scope::{message::MessageScope, root_scope::RootScope, ProtoScope},
@@ -11,7 +12,9 @@ use super::{
         self, BinaryOperator, DefaultClause, MethodCall, ObjectLiteralMember, Prop, StatementList,
         StatementPlacer,
     },
-    constants::PROTOBUF_MODULE,
+    constants::{DECODE_FUNCTION_NAME, PROTOBUF_MODULE},
+    ensure_import::ensure_import,
+    get_relative_import::get_relative_import_string,
 };
 
 pub(super) fn compile_decode(
@@ -51,7 +54,8 @@ pub(super) fn compile_decode(
         .into(),
     ));
 
-    let mut decode_function_declaration = ast::FunctionDeclaration::new_exported("decode");
+    let mut decode_function_declaration =
+        ast::FunctionDeclaration::new_exported(DECODE_FUNCTION_NAME);
 
     decode_function_declaration.add_param(ast::Parameter::new(
         &reader_parameter_id,
@@ -187,16 +191,33 @@ pub(super) fn compile_decode(
 
                 match field_type {
                     package::Type::Enum(_) => unreachable!(),
-                    package::Type::Message(_) => todo!(),
+                    package::Type::Message(m_id) => {
+                        let decode_func_expr: ast::Expression =
+                            import_decode_func(&root, &message_scope, &mut file, *m_id);
+                        // %s=types[%i].decode(r,r.uint32())
+
+                        case_clause.push_statement(
+                            ast::BinaryOperator::Assign
+                                .apply(
+                                    Rc::clone(&field_value_ref),
+                                    decode_func_expr
+                                        .into_call(vec![
+                                            Rc::clone(&reader_var_expr),
+                                            reader_var_expr.method_call("uint32", vec![]).into(),
+                                        ])
+                                        .into(),
+                                )
+                                .into(),
+                        )
+                        // TODO: Add call of decode func
+                    }
                     package::Type::Repeated(_) => todo!(),
                     package::Type::Map(_, _) => todo!(),
                     basic => case_clause.push_statement(
                         ast::BinaryOperator::Assign
                             .apply(
                                 Rc::clone(&field_value_ref),
-                                Rc::new(
-                                    reader_var_expr.method_call(&basic.to_string(), vec![]),
-                                ),
+                                Rc::new(reader_var_expr.method_call(&basic.to_string(), vec![])),
                             )
                             .into(),
                     ),
@@ -235,4 +256,42 @@ fn get_default_message_value(message_scope: &ProtoScope) -> ast::Expression {
             })
             .collect(),
     )
+}
+
+fn import_decode_func(
+    root: &RootScope,
+    message_scope: &ProtoScope,
+    file: &mut ast::File,
+    m_id: usize,
+) -> ast::Expression {
+    let message_decode_path = {
+        let message_declaration_path = root.get_declaration_path(m_id).unwrap();
+        let mut ts_path = TsPath::from(message_declaration_path);
+        ts_path.push_file("decode");
+        ts_path.push_function("decode");
+        ts_path
+    };
+    let current_file_path = {
+        let message_declaration_path = root
+            .get_declaration_path(message_scope.id().unwrap())
+            .unwrap();
+        let mut ts_path = TsPath::from(message_declaration_path);
+        ts_path.push_file("decode");
+        ts_path
+    };
+    match get_relative_import_string(&current_file_path, &message_decode_path) {
+        Some(import_string) => {
+            let imported_name = Rc::new(ast::Identifier::from(format!("d{}", m_id)));
+            let import_stmt = ast::ImportDeclaration::import(
+                vec![ast::ImportSpecifier {
+                    name: Rc::clone(&imported_name),
+                    property_name: Some(Rc::new(DECODE_FUNCTION_NAME.into())),
+                }],
+                import_string.into(),
+            );
+            ensure_import(file, import_stmt);
+            ast::Expression::from(imported_name)
+        }
+        None => DECODE_FUNCTION_NAME.into(),
+    }
 }
