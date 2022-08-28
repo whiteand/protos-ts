@@ -327,7 +327,17 @@ pub(super) fn compile_decode(
                                         ),
                                     ))
                                 }
-                                basic => todo!("repeated {basic:#?}"),
+                                basic => {
+                                    let basic_str = basic.to_string();
+                                    case_clause.push_statement(ast::Statement::from(
+                                        field_value_ref.method_call(
+                                            "push",
+                                            vec![reader_var_expr
+                                                .method_call(&basic_str, vec![])
+                                                .into()],
+                                        ),
+                                    ))
+                                }
                             },
                         }
                     }
