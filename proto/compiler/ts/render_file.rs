@@ -396,7 +396,8 @@ impl From<&PrefixUnaryExpression> for String {
     fn from(unary_expr: &PrefixUnaryExpression) -> Self {
         let mut res = String::new();
         res.push_str((&unary_expr.operator).into());
-        res.push_str(&unary_expr.operand.deref().text);
+        let expr_str: String = unary_expr.operand.deref().into();
+        res.push_str(&expr_str);
         res
     }
 }
@@ -441,7 +442,12 @@ impl From<&Expression> for String {
                 let expr_str: String = expr.deref().into();
                 format!("({})", expr_str)
             }
-            Expression::ArrayLiteralExpression(_) => todo!(),
+            Expression::ArrayLiteralExpression(exprs) => {
+                match exprs[..] {
+                    [] => "[]".into(),
+                    _ => unreachable!()
+                }
+            },
             Expression::ObjectLiteralExpression(props) => object_literal_to_string(props),
             Expression::NewExpression(_) => todo!(),
             Expression::NumericLiteral(f64) => f64.to_string(),

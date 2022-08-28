@@ -1,16 +1,16 @@
-use std::rc::Rc;
+use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
     compiler::ts::ts_path::TsPath,
     error::ProtoError,
     package,
-    proto_scope::{message::MessageScope, root_scope::RootScope, ProtoScope},
+    proto_scope::{root_scope::RootScope, ProtoScope},
 };
 
 use super::{
     ast::{
-        self, BinaryOperator, DefaultClause, MethodCall, ObjectLiteralMember, Prop, StatementList,
-        StatementPlacer,
+        self, BinaryOperator, Block, LogicalExpr, MethodCall, ObjectLiteralMember, Prop,
+        StatementList, StatementPlacer, VariableDeclarationList,
     },
     constants::{DECODE_FUNCTION_NAME, PROTOBUF_MODULE},
     ensure_import::ensure_import,
@@ -32,6 +32,8 @@ pub(super) fn compile_decode(
     let end_var_id: Rc<ast::Identifier> = ast::Identifier::from("end").into();
     let tag_var_id: Rc<ast::Identifier> = ast::Identifier::from("tag").into();
     let message_var_id: Rc<ast::Identifier> = ast::Identifier::from("message").into();
+    let arr_end_id: Rc<ast::Identifier> = ast::Identifier::from("arr_end").into();
+    let arr_end_expr: Rc<ast::Expression> = ast::Expression::from(Rc::clone(&arr_end_id)).into();
 
     file.push_statement(ast::Statement::ImportDeclaration(
         ast::ImportDeclaration::import(
@@ -194,7 +196,6 @@ pub(super) fn compile_decode(
                     package::Type::Message(m_id) => {
                         let decode_func_expr: ast::Expression =
                             import_decode_func(&root, &message_scope, &mut file, *m_id);
-                        // %s=types[%i].decode(r,r.uint32())
 
                         case_clause.push_statement(
                             ast::BinaryOperator::Assign
@@ -208,10 +209,113 @@ pub(super) fn compile_decode(
                                         .into(),
                                 )
                                 .into(),
-                        )
-                        // TODO: Add call of decode func
+                        );
                     }
-                    package::Type::Repeated(_) => todo!(),
+                    package::Type::Repeated(t) => {
+                        let element_type = match t.deref() {
+                            package::Type::Enum(_) => package::Type::Int32.into(),
+                            _ => Rc::clone(t),
+                        };
+                        let reset_array_stmt = Rc::new(
+                            ast::BinaryOperator::Assign
+                                .apply(
+                                    Rc::clone(&field_value_ref),
+                                    Rc::new(ast::Expression::ArrayLiteralExpression(vec![])),
+                                )
+                                .into(),
+                        );
+
+                        let is_empty_expr: Rc<ast::Expression> = field_value_ref
+                            .and(field_value_ref.prop("length").into())
+                            .into_parentheses()
+                            .not()
+                            .into();
+
+                        let reset_if = ast::IfStatement {
+                            expression: is_empty_expr,
+                            then_statement: Rc::clone(&reset_array_stmt),
+                            else_statement: None,
+                        }
+                        .into();
+                        case_clause.push_statement(reset_if);
+
+                        match element_type.packed_wire_type() {
+                            Some(packed_wire_type) => {
+                                
+                                let parse_element_expr = Rc::new(field_value_ref.method_call(
+                                    "push",
+                                    vec![reader_var_expr
+                                        .method_call(&element_type.to_string(), vec![])
+                                        .into()],
+                                ));
+
+                                let mut packed_block = Block::new();
+
+                                packed_block.push_statement(
+                                    ast::Statement::VariableStatement(
+                                        VariableDeclarationList::declare_const(
+                                            Rc::clone(&arr_end_id),
+                                            BinaryOperator::Plus.apply(
+                                                reader_var_expr
+                                                    .method_call("uint32", vec![])
+                                                    .into(),
+                                                reader_var_expr.prop("pos").into(),
+                                            ),
+                                        )
+                                        .into(),
+                                    )
+                                    .into(),
+                                );
+
+                                let mut element_while = ast::WhileStatement::new(
+                                    BinaryOperator::LessThan
+                                        .apply(
+                                            reader_var_expr.prop("pos").into(),
+                                            Rc::clone(&arr_end_expr),
+                                        )
+                                        .into(),
+                                );
+
+                                element_while.push_statement(ast::Statement::Expression(
+                                    Rc::clone(&parse_element_expr),
+                                ));
+
+                                packed_block.push_statement(element_while.into());
+
+                                case_clause.push_statement(
+                                    ast::IfStatement {
+                                        expression: BinaryOperator::StrictEqual
+                                            .apply(
+                                                BinaryOperator::BinaryAnd
+                                                    .apply(
+                                                        Rc::clone(&tag_var_expr),
+                                                        Rc::new(7.into()),
+                                                    )
+                                                    .into_parentheses()
+                                                    .into(),
+                                                Rc::new(2.into()),
+                                            )
+                                            .into(),
+                                        then_statement: Rc::new(packed_block.into()),
+                                        else_statement: Some(
+                                            ast::Statement::Expression(Rc::clone(
+                                                &parse_element_expr,
+                                            ))
+                                            .into(),
+                                        ),
+                                    }
+                                    .into(),
+                                );
+                            }
+                            None => match element_type.deref() {
+                                package::Type::Enum(_) => unreachable!(),
+                                package::Type::Repeated(_) => unreachable!(),
+                                package::Type::Map(_, _) => unreachable!(),
+                                package::Type::Message(_) => todo!("Repeated message"),
+                                basic => todo!("repeated {basic:#?}"),
+                            },
+                        }
+                    }
                     package::Type::Map(_, _) => todo!(),
                     basic => case_clause.push_statement(
                         ast::BinaryOperator::Assign

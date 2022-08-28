@@ -569,12 +569,14 @@ pub(crate) struct ElementAccessExpression {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum UnaryOperator {
     Increment,
+    Not,
 }
 
 impl From<&UnaryOperator> for &str {
     fn from(unary_operator: &UnaryOperator) -> Self {
         match unary_operator {
             UnaryOperator::Increment => "++",
+            UnaryOperator::Not => "!",
         }
     }
 }
@@ -603,14 +605,14 @@ impl ConditionalExpression {
 #[derive(Debug)]
 pub(crate) struct PrefixUnaryExpression {
     pub operator: UnaryOperator,
-    pub operand: Rc<Identifier>,
+    pub operand: Rc<Expression>,
 }
 
 impl PrefixUnaryExpression {
     pub fn increment(operand: Rc<Identifier>) -> Self {
         Self {
             operator: UnaryOperator::Increment,
-            operand,
+            operand: Rc::new(operand.into()),
         }
     }
 }
@@ -670,6 +672,21 @@ impl Expression {
             argument,
         })
     }
+
+    pub fn not(self) -> Expression {
+        Expression::PrefixUnaryExpression(PrefixUnaryExpression {
+            operator: UnaryOperator::Not,
+            operand: self.into(),
+        })
+    }
+
+    pub fn into_parentheses(self) -> Expression {
+        Expression::ParenthesizedExpression(self.into())
+    }
+
+    pub fn and(self, another: Expression) -> Expression {
+        BinaryOperator::LogicalAnd.apply(self.into(), another.into())
+    }
 }
 
 impl From<ConditionalExpression> for Expression {
@@ -680,6 +697,16 @@ impl From<ConditionalExpression> for Expression {
 
 pub(crate) trait Prop {
     fn prop(&self, name: &str) -> Expression;
+}
+
+pub(crate) trait LogicalExpr {
+    fn and(&self, other: Rc<Expression>) -> Expression;
+    fn or(&self, other: Rc<Expression>) -> Expression;
+    fn not(&self) -> Expression;
+}
+
+pub(crate) trait WrapableExpr {
+    fn into_parentheses(&self) -> Expression;
 }
 
 pub(crate) trait MethodCall {
@@ -722,6 +749,28 @@ impl ElementAccess for Rc<Expression> {
             expression: Rc::clone(self),
             argument,
         })
+    }
+}
+
+impl LogicalExpr for Rc<Expression> {
+    fn and(&self, other: Rc<Expression>) -> Expression {
+        BinaryOperator::LogicalAnd.apply(Rc::clone(&self), other)
+    }
+
+    fn or(&self, other: Rc<Expression>) -> Expression {
+        BinaryOperator::LogicalOr.apply(Rc::clone(&self), other)
+    }
+    fn not(&self) -> Expression {
+        Expression::PrefixUnaryExpression(PrefixUnaryExpression {
+            operator: UnaryOperator::Not,
+            operand: Rc::clone(self),
+        })
+    }
+}
+
+impl WrapableExpr for Rc<Expression> {
+    fn into_parentheses(&self) -> Expression {
+        Expression::ParenthesizedExpression(Rc::clone(self))
     }
 }
 
@@ -1011,9 +1060,7 @@ impl DefaultClause {
 
 impl From<Vec<Statement>> for DefaultClause {
     fn from(statements: Vec<Statement>) -> Self {
-        Self {
-            statements,
-        }
+        Self { statements }
     }
 }
 
