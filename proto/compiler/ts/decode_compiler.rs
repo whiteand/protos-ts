@@ -6,7 +6,9 @@ use crate::proto::{
 };
 
 use super::{
-    ast::{self, BinaryOperator, ObjectLiteralMember, Prop, StatementList, MethodCall, DefaultClause},
+    ast::{
+        self, BinaryOperator, DefaultClause, MethodCall, ObjectLiteralMember, Prop, StatementList,
+    },
     constants::PROTOBUF_MODULE,
 };
 
@@ -145,13 +147,22 @@ pub(super) fn compile_decode(
 
     let mut default_clause = DefaultClause::new();
 
+    default_clause.push_statement(
+        reader_var_expr
+            .method_call(
+                "skipType",
+                vec![BinaryOperator::BinaryAnd
+                    .apply(Rc::clone(&tag_var_expr), Rc::new(7.into()))
+                    .into()],
+            )
+            .into(),
+    );
     default_clause.push_statement(ast::Statement::Break);
-    
+
     let switch_stmt = ast::SwitchStatement::new(
-        BinaryOperator::UnsignedRightShift.apply(
-            Rc::clone(&tag_var_expr),
-            Rc::new(3.into()),
-        ).into(),
+        BinaryOperator::UnsignedRightShift
+            .apply(Rc::clone(&tag_var_expr), Rc::new(3.into()))
+            .into(),
         default_clause,
     );
 
