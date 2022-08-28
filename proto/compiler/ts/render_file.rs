@@ -125,6 +125,7 @@ mod test_enum_declaration {
 impl From<&Type> for String {
     fn from(type_: &Type) -> Self {
         match type_ {
+            Type::Any => "any".into(),
             Type::Boolean => "boolean".into(),
             Type::Number => "number".into(),
             Type::String => "string".into(),

@@ -140,7 +140,7 @@ pub(super) fn compile_decode(
     decode_function_declaration.push_statement(ast::Statement::VariableStatement(
         ast::VariableDeclarationList::declare_typed_const(
             Rc::clone(&message_var_id),
-            ast::Type::from_id(&message_type_id).into(),
+            ast::Type::Any.into(),
             default_message_value,
         )
         .into(),
@@ -215,8 +215,6 @@ pub(super) fn compile_decode(
                         .into_prop(&name)
                         .into();
                 let mut case_clause = ast::CaseClause::new(Rc::new(id.into()));
-
-                //  TODO: Add decoding
 
                 match field_type {
                     package::Type::Enum(_) => unreachable!(),
@@ -414,8 +412,9 @@ pub(super) fn compile_decode(
 
                         case_clause.push_statement(
                             ast::Statement::VariableStatement(
-                                VariableDeclarationList::declare_let(
+                                VariableDeclarationList::declare_typed_let(
                                     Rc::clone(&key_id),
+                                    ast::Type::Any.into(),
                                     kt.default_expression().into(),
                                 )
                                 .into(),
@@ -424,8 +423,9 @@ pub(super) fn compile_decode(
                         );
                         case_clause.push_statement(
                             ast::Statement::VariableStatement(
-                                VariableDeclarationList::declare_let(
+                                VariableDeclarationList::declare_typed_let(
                                     Rc::clone(&val_id),
+                                    ast::Type::Any.into(),
                                     value_type.default_expression().into(),
                                 )
                                 .into(),
@@ -491,7 +491,25 @@ pub(super) fn compile_decode(
                                     package::Type::Enum(_) => unreachable!(),
                                     package::Type::Repeated(_) => unreachable!(),
                                     package::Type::Map(_, _) => unreachable!(),
-                                    package::Type::Message(_) => todo!(),
+                                    package::Type::Message(m) => {
+                                        let decode_expr =
+                                            import_decode_func(root, message_scope, &mut file, *m);
+                                        val_case.push_statement(
+                                            BinaryOperator::Assign
+                                                .apply(
+                                                    Rc::clone(&val_expr),
+                                                    decode_expr
+                                                        .into_call(vec![
+                                                            Rc::clone(&reader_var_expr),
+                                                            reader_var_expr
+                                                                .method_call("uint32", vec![])
+                                                                .into(),
+                                                        ])
+                                                        .into(),
+                                                )
+                                                .into(),
+                                        );
+                                    }
                                     basic => {
                                         assert!(basic.is_basic());
                                         let b_str = basic.to_string();

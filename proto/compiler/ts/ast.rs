@@ -243,6 +243,7 @@ pub(crate) enum Type {
     ArrayType(Box<Type>),
     Record(Box<Type>, Box<Type>),
     TypeReference(Vec<Rc<Identifier>>),
+    Any,
 }
 
 impl Type {
@@ -276,6 +277,7 @@ impl Type {
             Type::String => false,
             Type::TypeReference(_) => false,
             Type::Record(_, _) => false,
+            Type::Any => false,
         }
     }
 
@@ -917,6 +919,16 @@ impl VariableDeclarationList {
     pub fn declare_typed_const(name: Rc<Identifier>, t: Rc<Type>, initializer: Expression) -> Self {
         VariableDeclarationList {
             kind: VariableKind::Const,
+            declarations: vec![VariableDeclaration {
+                name,
+                initializer: initializer.into(),
+                var_type: Some(t),
+            }],
+        }
+    }
+    pub fn declare_typed_let(name: Rc<Identifier>, t: Rc<Type>, initializer: Expression) -> Self {
+        VariableDeclarationList {
+            kind: VariableKind::Let,
             declarations: vec![VariableDeclaration {
                 name,
                 initializer: initializer.into(),

@@ -67,9 +67,9 @@ out
 | Fix resolving algorithm           | **Done** |
 | Encoding of oneof messages        | **Done** |
 | Importing well-known types        | **Done** |
-| Decoding of basic types           | Open     |
-| Decoding of enums                 | Open     |
-| Decoding of user defined messages | Open     |
+| Decoding of basic types           | **Done** |
+| Decoding of enums                 | **Done** |
+| Decoding of user defined messages | **Done** |
 | Full Coverage Tests               | Open     |
 | Reach CLI experience              | Open     |
 

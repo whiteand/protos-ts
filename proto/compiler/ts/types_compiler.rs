@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
     compiler::ts::ast::{self, Type},
@@ -91,11 +91,10 @@ fn insert_decode_result_interface(
         match entry {
             Field(f) => {
                 let property_type =
-                    import_decode_result_type(&root, &message_scope, types_file, &f.field_type)?
-                        .or(&Type::Null);
+                    import_decode_result_type(&root, &message_scope, types_file, &f.field_type)?;
                 interface
                     .members
-                    .push(ast::PropertySignature::new_optional(f.json_name(), property_type).into())
+                    .push(ast::PropertySignature::new(f.json_name(), property_type).into())
             }
             OneOf(one_of) => {
                 for option in &one_of.options {
@@ -146,7 +145,7 @@ fn import_encoding_input_type(
             return Ok(Type::array(element_type));
         }
         package::Type::Map(key, value) => {
-            let key_type = import_encoding_input_type(root, message_scope, types_file, key)?;
+            let key_type = resolve_key_type(key);
             let value_type = import_encoding_input_type(root, message_scope, types_file, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
@@ -177,6 +176,16 @@ fn import_encoding_input_type(
         package::Type::Sint32 => Ok(Type::Number),
         package::Type::String => Ok(Type::String),
         package::Type::Uint32 => Ok(Type::Number),
+    }
+}
+
+fn resolve_key_type(key: &Rc<package::Type>) -> Type {
+    match key.deref() {
+        package::Type::Message(_) => unreachable!(),
+        package::Type::Repeated(_) => unreachable!(),
+        package::Type::Map(_, _) => unreachable!(),
+        package::Type::Bytes => unreachable!(),
+        _ => ast::Type::String,
     }
 }
 
@@ -226,7 +235,7 @@ fn import_decode_result_type(
             return Ok(Type::array(element_type));
         }
         package::Type::Map(key, value) => {
-            let key_type = import_decode_result_type(root, message_scope, types_file, key)?;
+            let key_type = resolve_key_type(key);
             let value_type = import_decode_result_type(root, message_scope, types_file, value)?;
             return Ok(Type::Record(Box::new(key_type), Box::new(value_type)));
         }
