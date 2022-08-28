@@ -2,12 +2,14 @@ use std::rc::Rc;
 
 use crate::proto::{
     error::ProtoError,
-    proto_scope::{root_scope::RootScope, ProtoScope},
+    package,
+    proto_scope::{message::MessageScope, root_scope::RootScope, ProtoScope},
 };
 
 use super::{
     ast::{
         self, BinaryOperator, DefaultClause, MethodCall, ObjectLiteralMember, Prop, StatementList,
+        StatementPlacer,
     },
     constants::PROTOBUF_MODULE,
 };
@@ -126,51 +128,86 @@ pub(super) fn compile_decode(
         .into(),
     ));
 
-    let mut while_loop = ast::WhileStatement::new(
-        BinaryOperator::LessThan
-            .apply(
-                reader_var_expr.prop("pos").into(),
-                Rc::new(end_var_id.into()),
+    {
+        let mut while_loop = decode_function_declaration.place(ast::WhileStatement::new(
+            BinaryOperator::LessThan
+                .apply(
+                    reader_var_expr.prop("pos").into(),
+                    Rc::new(end_var_id.into()),
+                )
+                .into(),
+        ));
+
+        while_loop.push_statement(
+            ast::VariableDeclarationList::declare_const(
+                Rc::clone(&tag_var_id),
+                reader_var_expr.method_call("uint32", vec![]),
             )
             .into(),
-    );
+        );
 
-    while_loop.push_statement(
-        ast::VariableDeclarationList::declare_const(
-            Rc::clone(&tag_var_id),
-            reader_var_expr.method_call("uint32", vec![]),
-        )
-        .into(),
-    );
+        let tag_var_expr = Rc::new(tag_var_id.into());
 
-    let tag_var_expr = Rc::new(tag_var_id.into());
+        {
+            let mut switch_stmt = while_loop.place(ast::SwitchStatement::new(
+                BinaryOperator::UnsignedRightShift
+                    .apply(Rc::clone(&tag_var_expr), Rc::new(3.into()))
+                    .into(),
+                vec![
+                    reader_var_expr
+                        .method_call(
+                            "skipType",
+                            vec![BinaryOperator::BinaryAnd
+                                .apply(Rc::clone(&tag_var_expr), Rc::new(7.into()))
+                                .into()],
+                        )
+                        .into(),
+                    ast::Statement::Break,
+                ]
+                .into(),
+            ));
+            let fields = message_scope
+                .get_message_declaration()
+                .map(|d| d.get_fields())
+                .unwrap_or_else(Vec::new);
+            for field in fields {
+                let name = field.json_name();
+                let id = field.tag;
+                let field_type = match &field.field_type {
+                    package::Type::Enum(_) => &package::Type::Int32,
+                    t => t,
+                };
+                let field_value_ref: Rc<ast::Expression> =
+                    ast::Expression::from(Rc::clone(&message_var_id))
+                        .into_prop(&name)
+                        .into();
+                let mut case_clause = ast::CaseClause::new(Rc::new(id.into()));
 
-    let mut default_clause = DefaultClause::new();
+                //  TODO: Add decoding
 
-    default_clause.push_statement(
-        reader_var_expr
-            .method_call(
-                "skipType",
-                vec![BinaryOperator::BinaryAnd
-                    .apply(Rc::clone(&tag_var_expr), Rc::new(7.into()))
-                    .into()],
-            )
-            .into(),
-    );
-    default_clause.push_statement(ast::Statement::Break);
+                match field_type {
+                    package::Type::Enum(_) => unreachable!(),
+                    package::Type::Message(_) => todo!(),
+                    package::Type::Repeated(_) => todo!(),
+                    package::Type::Map(_, _) => todo!(),
+                    basic => case_clause.push_statement(
+                        ast::BinaryOperator::Assign
+                            .apply(
+                                Rc::clone(&field_value_ref),
+                                Rc::new(
+                                    reader_var_expr.method_call(&basic.to_string(), vec![]),
+                                ),
+                            )
+                            .into(),
+                    ),
+                }
 
-    let switch_stmt = ast::SwitchStatement::new(
-        BinaryOperator::UnsignedRightShift
-            .apply(Rc::clone(&tag_var_expr), Rc::new(3.into()))
-            .into(),
-        default_clause,
-    );
+                case_clause.push_statement(ast::Statement::Break);
 
-    // TODO: Add all cases
-
-    while_loop.push_statement(switch_stmt.into());
-
-    decode_function_declaration.push_statement(while_loop.into());
+                switch_stmt.add_case(case_clause);
+            }
+        }
+    }
 
     decode_function_declaration
         .push_statement(ast::Expression::from(message_var_id).into_return_statement());
@@ -179,7 +216,7 @@ pub(super) fn compile_decode(
         decode_function_declaration.into(),
     ));
 
-    message_folder.entries.push(file.into());
+    message_folder.push_file(file);
     Ok(())
 }
 

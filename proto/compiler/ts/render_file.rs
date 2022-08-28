@@ -608,8 +608,17 @@ impl From<&ForStatement> for String {
     }
 }
 impl From<&CaseClause> for String {
-    fn from(_: &CaseClause) -> Self {
-        todo!()
+    fn from(c: &CaseClause) -> Self {
+        let mut res = String::new();
+        res.push_str("case ");
+        let expr_str: String = c.expression.deref().into();
+        res.push_str(&expr_str);
+        res.push_str(": {\n");
+        for s in &c.statements {
+            tab_lines(&mut res, s.into());
+        }
+        res.push('}');
+        res
     }
 }
 impl From<&DefaultClause> for String {

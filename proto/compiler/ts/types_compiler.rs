@@ -26,7 +26,7 @@ pub(super) fn insert_message_types(
     insert_encoded_input_interface(&root, &mut file, &message_scope)?;
     insert_decode_result_interface(&root, &mut file, &message_scope)?;
 
-    message_folder.entries.push(file.into());
+    message_folder.push_file(file);
 
     Ok(())
 }

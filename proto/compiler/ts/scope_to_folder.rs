@@ -16,7 +16,7 @@ fn scope_to_folder(root: &RootScope, scope: &ProtoScope) -> Result<Folder, Proto
             ProtoScope::Enum(_) => unreachable!(),
             ProtoScope::Message(_) => unreachable!(),
         };
-        folder.entries.push(child_folder.into());
+        folder.push_folder(child_folder);
     }
     Ok(folder)
 }
@@ -34,7 +34,7 @@ pub(crate) fn root_scope_to_folder(
             ProtoScope::Enum(_) => todo!(),
             ProtoScope::Message(_) => todo!(),
         };
-        folder.entries.push(child_folder.into());
+        folder.push_folder(child_folder);
     }
     Ok(folder)
 }

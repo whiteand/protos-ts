@@ -1,4 +1,8 @@
-use std::{mem, ops::Deref, rc::Rc};
+use std::{
+    mem,
+    ops::{Deref, DerefMut},
+    rc::Rc,
+};
 
 pub(crate) trait StatementList {
     fn push_statement(&mut self, stmt: Statement);
@@ -431,6 +435,7 @@ pub(crate) enum BinaryOperator {
     StrictEqual,
     Plus,
     UnsignedRightShift,
+    Assign,
 }
 
 impl BinaryOperator {
@@ -456,6 +461,7 @@ impl From<&BinaryOperator> for &str {
             BinaryOperator::StrictEqual => "===",
             BinaryOperator::UnsignedRightShift => ">>>",
             BinaryOperator::BinaryAnd => "&",
+            BinaryOperator::Assign => "=",
         }
     }
 }
@@ -753,6 +759,11 @@ impl From<i32> for Expression {
         Self::NumericLiteral(int_value as f64)
     }
 }
+impl From<i64> for Expression {
+    fn from(int_value: i64) -> Self {
+        Self::NumericLiteral(int_value as f64)
+    }
+}
 impl From<usize> for Expression {
     fn from(u: usize) -> Self {
         Self::NumericLiteral(u as f64)
@@ -976,7 +987,7 @@ pub(crate) struct CaseClause {
     pub statements: Vec<Statement>,
 }
 impl CaseClause {
-    fn new(expr: Rc<Expression>) -> Self {
+    pub fn new(expr: Rc<Expression>) -> Self {
         Self {
             expression: expr,
             statements: vec![],
@@ -997,6 +1008,15 @@ impl DefaultClause {
         Self { statements: vec![] }
     }
 }
+
+impl From<Vec<Statement>> for DefaultClause {
+    fn from(statements: Vec<Statement>) -> Self {
+        Self {
+            statements,
+        }
+    }
+}
+
 impl StatementList for DefaultClause {
     fn push_statement(&mut self, stmt: Statement) {
         self.statements.push(stmt);
@@ -1171,6 +1191,73 @@ impl Folder {
         Self {
             name,
             entries: Vec::new(),
+        }
+    }
+    pub fn push_file(&mut self, file: File) {
+        self.entries.push(file.into())
+    }
+    pub fn push_folder(&mut self, folder: Folder) {
+        self.entries.push(folder.into());
+    }
+}
+
+pub(crate) struct StatementPlaceholder<'parent, P, C>
+where
+    P: StatementList,
+    C: Into<Statement>,
+{
+    statement: Option<C>,
+    parent: &'parent mut P,
+}
+
+impl<'p, P, C> Deref for StatementPlaceholder<'p, P, C>
+where
+    P: StatementList,
+    C: Into<Statement>,
+{
+    type Target = C;
+
+    fn deref(&self) -> &Self::Target {
+        match &self.statement {
+            Some(s) => s,
+            None => unreachable!(),
+        }
+    }
+}
+impl<'p, P, C> DerefMut for StatementPlaceholder<'p, P, C>
+where
+    P: StatementList,
+    C: Into<Statement>,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match &mut self.statement {
+            Some(s) => s,
+            None => unreachable!(),
+        }
+    }
+}
+
+impl<'p, P, C> Drop for StatementPlaceholder<'p, P, C>
+where
+    P: StatementList,
+    C: Into<Statement>,
+{
+    fn drop(&mut self) {
+        let maybe_stmt = mem::take(&mut self.statement);
+        let stmt: Statement = maybe_stmt.unwrap().into();
+        self.parent.push_statement(stmt);
+    }
+}
+
+pub(crate) trait StatementPlacer: StatementList + Sized {
+    fn place<'a, C: Into<Statement>>(&'a mut self, child: C) -> StatementPlaceholder<'a, Self, C>;
+}
+
+impl<T: StatementList + Sized> StatementPlacer for T {
+    fn place<'a, C: Into<Statement>>(&'a mut self, child: C) -> StatementPlaceholder<'a, Self, C> {
+        StatementPlaceholder {
+            statement: Some(child),
+            parent: self,
         }
     }
 }

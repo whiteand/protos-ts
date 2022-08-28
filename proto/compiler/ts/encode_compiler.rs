@@ -247,7 +247,7 @@ pub(super) fn compile_encode(
 
     file.push_statement(encode_func.into());
 
-    message_folder.entries.push(file.into());
+    message_folder.push_file(file);
 
     Ok(())
 }
