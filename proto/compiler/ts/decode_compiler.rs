@@ -241,7 +241,6 @@ pub(super) fn compile_decode(
 
                         match element_type.packed_wire_type() {
                             Some(packed_wire_type) => {
-                                
                                 let parse_element_expr = Rc::new(field_value_ref.method_call(
                                     "push",
                                     vec![reader_var_expr
@@ -311,7 +310,23 @@ pub(super) fn compile_decode(
                                 package::Type::Enum(_) => unreachable!(),
                                 package::Type::Repeated(_) => unreachable!(),
                                 package::Type::Map(_, _) => unreachable!(),
-                                package::Type::Message(_) => todo!("Repeated message"),
+                                package::Type::Message(m) => {
+                                    let decode_func =
+                                        import_decode_func(&root, &message_scope, &mut file, *m);
+                                    case_clause.push_statement(ast::Statement::from(
+                                        field_value_ref.method_call(
+                                            "push",
+                                            vec![decode_func
+                                                .into_call(vec![
+                                                    Rc::clone(&reader_var_expr),
+                                                    reader_var_expr
+                                                        .method_call("uint32", vec![])
+                                                        .into(),
+                                                ])
+                                                .into()],
+                                        ),
+                                    ))
+                                }
                                 basic => todo!("repeated {basic:#?}"),
                             },
                         }
