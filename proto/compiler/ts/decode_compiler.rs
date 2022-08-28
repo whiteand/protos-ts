@@ -606,7 +606,7 @@ fn get_default_message_value(message_scope: &ProtoScope) -> ast::Expression {
             .map(|f| {
                 let n = f.json_name();
                 let default_value = f.field_type.default_expression();
-                ObjectLiteralMember::PropertyAssignment((Rc::new(n.into())), default_value.into())
+                ObjectLiteralMember::PropertyAssignment(Rc::new(n.into()), default_value.into())
                     .into()
             })
             .collect(),

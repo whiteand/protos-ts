@@ -533,7 +533,6 @@ impl PropertyAccessExpression {
             Expression::PrefixUnaryExpression(_) => true,
             Expression::ConditionalExpression(_) => true,
             Expression::Typeof(_) => true,
-            
         }
     }
 }
@@ -684,16 +683,9 @@ impl Expression {
             operand: self.into(),
         })
     }
-    pub fn into_typeof(self) -> Expression {
-        Expression::Typeof(self.into())
-    }
 
     pub fn into_parentheses(self) -> Expression {
         Expression::ParenthesizedExpression(self.into())
-    }
-
-    pub fn and(self, another: Expression) -> Expression {
-        BinaryOperator::LogicalAnd.apply(self.into(), another.into())
     }
 }
 
@@ -762,7 +754,6 @@ impl ElementAccess for Rc<Expression> {
 }
 
 impl ExpressionChain for Rc<Expression> {
-    
     fn and(&self, other: Rc<Expression>) -> Expression {
         BinaryOperator::LogicalAnd.apply(Rc::clone(&self), other)
     }
@@ -1075,11 +1066,6 @@ impl StatementList for CaseClause {
 #[derive(Debug)]
 pub(crate) struct DefaultClause {
     pub statements: Vec<Statement>,
-}
-impl DefaultClause {
-    pub fn new() -> Self {
-        Self { statements: vec![] }
-    }
 }
 
 impl From<Vec<Statement>> for DefaultClause {

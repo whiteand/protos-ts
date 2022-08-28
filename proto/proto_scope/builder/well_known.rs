@@ -7,11 +7,11 @@ use super::ScopeBuilder;
 mod any;
 mod duration;
 mod empty;
+mod field_mask;
 mod struct_file;
 mod time_type;
 mod timestamp;
 mod wrappers;
-mod field_mask;
 
 pub(super) fn create_well_known_file(
     id_gen: &mut IdGenerator,
@@ -45,14 +45,13 @@ pub(crate) fn is_well_known_import(imp: &ImportPath) -> bool {
 }
 fn is_valid_well_known_import_file_name(imp: &str) -> bool {
     match imp {
-        "any.proto" => true,
-        "duration.proto" => true,
-        "empty.proto" => true,
-        "field_mask.proto" => true,
-        "struct.proto" => true,
-        "timestamp.proto" => true,
-        "field_mask.proto" => true,
-        "wrappers.proto" => true,
+        "any.proto"
+        | "duration.proto"
+        | "empty.proto"
+        | "field_mask.proto"
+        | "struct.proto"
+        | "timestamp.proto"
+        | "wrappers.proto" => true,
         _ => false,
     }
 }
