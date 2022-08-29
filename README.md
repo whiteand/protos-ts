@@ -50,25 +50,26 @@ out
 
 ## TODOs
 
-| Development Task                  | Progress |
-| :-------------------------------- | :------- |
-| Lexical Analyzer                  | **Done** |
-| Syntactical Analyzer              | **Done** |
-| Proto Packages -> Package Tree    | **Done** |
-| Create name resolution mechanism  | **Done** |
-| Generation of interfaces          | **Done** |
-| Encoding of basic types           | **Done** |
-| Encoding of repeated basic types  | **Done** |
-| Encoding of enums                 | **Done** |
-| Encoding of user defined messages | **Done** |
-| Fix resolving algorithm           | **Done** |
-| Encoding of oneof messages        | **Done** |
-| Importing well-known types        | **Done** |
-| Decoding of basic types           | **Done** |
-| Decoding of enums                 | **Done** |
-| Decoding of user defined messages | **Done** |
-| Full Coverage Tests               | Open     |
-| Reach CLI experience              | Open     |
+| Development Task                  | Progress      |
+| :-------------------------------- | :------------ |
+| Lexical Analyzer                  | **Done**      |
+| Syntactical Analyzer              | **Done**      |
+| Proto Packages -> Package Tree    | **Done**      |
+| Create name resolution mechanism  | **Done**      |
+| Generation of interfaces          | **Done**      |
+| Encoding of basic types           | **Done**      |
+| Encoding of repeated basic types  | **Done**      |
+| Encoding of enums                 | **Done**      |
+| Encoding of user defined messages | **Done**      |
+| Fix resolving algorithm           | **Done**      |
+| Encoding of oneof messages        | **Done**      |
+| Importing well-known types        | **Done**      |
+| Decoding of basic types           | **Done**      |
+| Decoding of enums                 | **Done**      |
+| Decoding of user defined messages | **Done**      |
+| Compile to WASM                   | *In Progress* |
+| Full Coverage Tests               | Open          |
+| Reach CLI experience              | Open          |
 
 ## Links 
 
