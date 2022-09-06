@@ -28,7 +28,11 @@ pub(crate) fn read_proto_folder(folder_path: PathBuf) -> io::Result<ProtoFolder>
             let path = entry.path();
             if path.is_dir() {
                 folders.push(path);
-            } else if path.extension().unwrap() == "proto" {
+            } else if path.is_file()
+                && path.file_name().unwrap() != ".DS_Store"
+                && path.extension() != None
+                && path.extension().unwrap() == "proto"
+            {
                 all_proto_file_paths.push(path);
             }
         }
