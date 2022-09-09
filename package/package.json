@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/whiteand/protobufts.git"
+    "url": "git+https://github.com/whiteand/proto-ts.git"
   },
   "keywords": [
     "protocol",
@@ -20,7 +20,7 @@
   "author": "whiteand",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/whiteand/protobufts/issues"
+    "url": "https://github.com/whiteand/proto-ts/issues"
   },
-  "homepage": "https://github.com/whiteand/protobufts#readme"
+  "homepage": "https://github.com/whiteand/proto-ts#readme"
 }
