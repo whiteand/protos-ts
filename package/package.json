@@ -1,7 +1,7 @@
 {
   "name": "protos-ts",
   "bin": "index.js",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CLI compiler of protocol buffer schemas to typescript es modules",
   "main": "index.js",
   "scripts": {
@@ -19,7 +19,7 @@
     "js"
   ],
   "peerDependencies": {
-    "protobufjs": "*"
+    "protobufjs": ">=7"
   },
   "author": "whiteand",
   "license": "ISC",
