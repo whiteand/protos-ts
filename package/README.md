@@ -72,6 +72,8 @@ out
     | types.ts
 ```
 
+These typescript files use `protobufjs/minimal` to decode and encode protocol buffers types. So in order to use them after compilation you need `protobufjs` to be installed.
+
 ## Performance
 
 I didn't do it properly. But on my computer I've compared this implementation with official [compiler](https://github.com/protobufjs);
