@@ -1,6 +1,7 @@
 {
   "name": "protos-ts",
-  "version": "0.0.1",
+  "bin": "index.js",
+  "version": "0.0.2",
   "description": "CLI compiler of protocol buffer schemas to typescript es modules",
   "main": "index.js",
   "scripts": {
@@ -8,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/whiteand/proto-ts.git"
+    "url": "git+https://github.com/whiteand/protos-ts.git"
   },
   "keywords": [
     "protocol",
@@ -20,7 +21,7 @@
   "author": "whiteand",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/whiteand/proto-ts/issues"
+    "url": "https://github.com/whiteand/protos-ts/issues"
   },
-  "homepage": "https://github.com/whiteand/proto-ts#readme"
+  "homepage": "https://github.com/whiteand/protos-ts#readme"
 }

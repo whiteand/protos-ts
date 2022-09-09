@@ -1,4 +1,4 @@
-# proto-ts [Alpha Version]
+# protos-ts [Alpha Version]
 
 This a CLI tool for transforming of .proto files into typescript modules.
 
@@ -21,7 +21,7 @@ Also `protobufjs` uses JS to read, parse and compile `.proto` schemas to javascr
 ## Usage
 
 ```
-proto-ts ./proto --out ./out
+protos-ts ./proto --out ./out
 ```
 
 `./proto`

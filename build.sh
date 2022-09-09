@@ -2,4 +2,5 @@
 
 cargo b --release
 
-cp ./target/release/proto-ts ./package/bin/proto-ts-linux
+mkdir ./package/bin
+cp -r ./target/release/protos-ts ./package/bin/protos-ts-linux

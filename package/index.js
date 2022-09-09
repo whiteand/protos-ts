@@ -1,12 +1,46 @@
 #!/usr/bin/env node
 
-const util = require('node:util');
-const spawn = util.promisify(require('node:child_process').spawn);
+const path = require("path");
+const process = require("process");
+const { spawn } = require("child_process");
 
-async function main() {
-    console.log('here')
-    console.log('in', process.cwd())
+async function main(parameters) {
+  const cliPath = getCliPath();
+  const cliProcess = spawn(cliPath, parameters, {
+    cwd: process.cwd(),
+  });
+  const code = await new Promise(resolve => cliProcess.on('close', resolve))
+  process.exit(code)
 }
 
+function getCliPath() {
+  const currentOs = process.platform;
 
-main()
+  if (currentOs === "linux") {
+    return path.resolve(__dirname, "./bin/protos-ts-linux");
+  }
+
+  // TODO: add support for 'aix'
+  // TODO: add support for 'darwin'
+  // TODO: add support for 'freebsd'
+  // TODO: add support for 'linux'
+  // TODO: add support for 'openbsd'
+  // TODO: add support for 'sunos'
+  // TODO: add support for 'win32'
+  failWithBugReport(`Sorry, unsupported OS: "${process.platform}"`);
+}
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+function failWithBugReport(message) {
+  fail(`${message}\nPlease open the issue in ${require("./package.json").bugs.url}`);
+}
+
+const parameters = process.argv.slice(2);
+
+main(parameters).catch((error) => {
+    failWithBugReport(`Unexpacted error: ${error.message}`);
+});
