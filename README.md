@@ -1,4 +1,4 @@
-# protos-ts [Alpha Version]
+# protos-ts
 
 This a CLI tool for transforming of .proto files into typescript modules.
 
