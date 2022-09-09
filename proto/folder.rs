@@ -28,7 +28,7 @@ pub(crate) fn read_proto_folder(folder_path: PathBuf) -> io::Result<ProtoFolder>
             let path = entry.path();
             if path.is_dir() {
                 folders.push(path);
-            } else if path.extension().unwrap() == "proto" {
+            } else if path.extension().map(|ext| ext == "proto").unwrap_or(false) {
                 all_proto_file_paths.push(path);
             }
         }
