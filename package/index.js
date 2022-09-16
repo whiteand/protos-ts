@@ -29,7 +29,6 @@ function getCliPath() {
   }
   // TODO: add support for 'aix'
   // TODO: add support for 'freebsd'
-  // TODO: add support for 'linux'
   // TODO: add support for 'openbsd'
   // TODO: add support for 'sunos'
   failWithBugReport(`Sorry, unsupported OS: "${process.platform}"`);
