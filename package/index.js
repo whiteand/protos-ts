@@ -19,11 +19,15 @@ function getCliPath() {
   if (currentOs === "linux") {
     return path.resolve(__dirname, "./bin/protos-ts-linux");
   }
+  if (currentOs === "darwin") {
+    // TODO: add compilation for 'darwin'
+    console.warn("Running linux executable from macos")
+    return path.resolve(__dirname, "./bin/protos-ts-linux");
+  }
   if (currentOs === "win32") {
     return path.resolve(__dirname, "./bin/protos-ts-win.exe");
   }
   // TODO: add support for 'aix'
-  // TODO: add support for 'darwin'
   // TODO: add support for 'freebsd'
   // TODO: add support for 'linux'
   // TODO: add support for 'openbsd'
