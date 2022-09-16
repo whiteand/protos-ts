@@ -19,14 +19,15 @@ function getCliPath() {
   if (currentOs === "linux") {
     return path.resolve(__dirname, "./bin/protos-ts-linux");
   }
-
+  if (currentOs === "win32") {
+    return path.resolve(__dirname, "./bin/protos-ts-win.exe");
+  }
   // TODO: add support for 'aix'
   // TODO: add support for 'darwin'
   // TODO: add support for 'freebsd'
   // TODO: add support for 'linux'
   // TODO: add support for 'openbsd'
   // TODO: add support for 'sunos'
-  // TODO: add support for 'win32'
   failWithBugReport(`Sorry, unsupported OS: "${process.platform}"`);
 }
 
