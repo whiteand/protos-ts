@@ -305,8 +305,20 @@ impl From<Rc<Identifier>> for Type {
 }
 
 impl Type {
-    pub fn array(t: Type) -> Type {
-        Type::ArrayType(Box::new(t))
+    pub fn array(self) -> Self {
+        Type::ArrayType(Box::new(self))
+    }
+    pub fn nullable(self) -> Self {
+        match self {
+            Type::Null => self,
+            Type::UnionType(mut union_type) => {
+                union_type.push(Type::Null);
+                Self::UnionType(union_type)
+            }
+            t => Type::UnionType(UnionType {
+                types: vec![Type::Null, t],
+            }),
+        }
     }
 }
 

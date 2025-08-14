@@ -24,6 +24,7 @@ enum Task {
     ParseEnumEntries,
     ParseEnumEntry,
     WrapRepeated,
+    WrapOptional,
     ParseFieldDeclaration,
     ParseMessageStatement,
     ExpectLexem(Lexem),
@@ -58,6 +59,7 @@ enum Task {
     ParseId,
 }
 use Task::*;
+use tracing::instrument;
 
 #[derive(Debug, Clone)]
 enum StackItem {
@@ -110,6 +112,7 @@ impl From<FieldTypeReference> for StackItem {
     }
 }
 
+#[instrument(skip_all, fields(file_name = res.name.to_string()))]
 pub(super) fn parse_package(
     id_gen: &mut IdGenerator,
     located_lexems: &[LocatedLexem],
@@ -119,6 +122,7 @@ pub(super) fn parse_package(
     let mut tasks: Vec<Task> = vec![ParseStatements];
     let mut stack: Vec<StackItem> = Vec::new();
     while let Some(task) = tasks.pop() {
+        tracing::trace!(?task, lexem = ?&located_lexems[ind].lexem, ?stack, "do");
         match task {
             ParseStatements => {
                 let located_lexem = &located_lexems[ind];
@@ -160,7 +164,12 @@ pub(super) fn parse_package(
                         continue;
                     }
                     Lexem::Id(id) if id.deref() == "option" => {
+                        tracing::error!("option statement is not supported");
                         todo!("option statement is not supported yet");
+                    }
+                    Lexem::Id(id) if id.deref() == "extend" => {
+                        tracing::error!("extend statement is not supported");
+                        todo!("extend statement is not supported yet");
                     }
                     Lexem::Id(id) => {
                         return Err(syntax_error(
@@ -697,6 +706,12 @@ pub(super) fn parse_package(
                         ind += 1;
                         continue;
                     }
+                    if id.deref() == "optional" {
+                        tasks.push(WrapOptional);
+                        tasks.push(ParseFieldType);
+                        ind += 1;
+                        continue;
+                    }
                     if id.deref() == "map" {
                         tasks.push(WrapMapType);
                         tasks.push(ExpectLexem(Lexem::Greater));
@@ -761,6 +776,19 @@ pub(super) fn parse_package(
                     _ => {
                         print_state(stack, tasks, task, &located_lexems[ind..]);
                         todo!("Cannot handle repeated field type")
+                    }
+                }
+            }
+            WrapOptional => {
+                let item = stack.pop();
+                match item {
+                    Some(StackItem::FieldType(field_type)) => {
+                        stack.push(FieldTypeReference::optional(field_type).into());
+                        continue;
+                    }
+                    _ => {
+                        print_state(stack, tasks, task, &located_lexems[ind..]);
+                        todo!("Cannot handle optional field type")
                     }
                 }
             }

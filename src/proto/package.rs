@@ -90,6 +90,7 @@ pub(crate) enum Type {
     Enum(usize),
     Message(usize),
     Repeated(Rc<Type>),
+    Optional(Rc<Type>),
     Map(Rc<Type>, Rc<Type>),
     Bool,     // bool
     Bytes,    // bytes
@@ -138,6 +139,7 @@ impl Type {
             Type::Map(_, _) => ast::Expression::from("util").into_prop("emptyObject"),
             Type::Bool => ast::Expression::False,
             Type::Bytes => ast::Expression::Null,
+            Type::Optional(t) => t.default_expression(),
             Type::Double => 0f64.into(),
             Type::Fixed32 => 0f64.into(),
             Type::Fixed64 => 0f64.into(),
@@ -182,7 +184,13 @@ impl Type {
             Self::String => "string".to_string(),
             Self::Uint32 => "uint32".to_string(),
             Self::Uint64 => "uint64".to_string(),
-            _ => todo!(),
+            Self::Optional(t) => format!("optional {}", t.to_string()),
+            Self::Repeated(t) => format!("repeated {}", t.to_string()),
+            Self::Enum(t) => format!("enum({})", t),
+            t => {
+                tracing::error!(?t, "Type::to_string not implemented");
+                todo!()
+            }
         }
     }
 
@@ -206,6 +214,7 @@ impl Type {
             Self::Message(_) => unreachable!(),
             Self::Enum(_) => unreachable!(),
             Self::Repeated(_) => unreachable!(),
+            Self::Optional(_) => unreachable!(),
             Self::Map(_, _) => unreachable!(),
         }
     }
@@ -254,6 +263,7 @@ impl Clone for Type {
             Self::Enum(enum_id) => Self::Enum(*enum_id),
             Self::Message(message_id) => Self::Message(*message_id),
             Self::Repeated(rc_type) => Self::Repeated(Rc::clone(rc_type)),
+            Self::Optional(rc_type) => Self::Optional(Rc::clone(rc_type)),
             Self::Map(rc_key, rc_value) => Self::Map(Rc::clone(rc_key), Rc::clone(rc_value)),
             Self::Bool => Self::Bool,
             Self::Bytes => Self::Bytes,
@@ -278,6 +288,7 @@ impl Clone for Type {
 pub(crate) enum FieldTypeReference {
     IdPath(Vec<Rc<str>>),
     Repeated(Box<FieldTypeReference>),
+    Optional(Box<FieldTypeReference>),
     Map(Box<FieldTypeReference>, Box<FieldTypeReference>),
     Bool,     // bool
     Bytes,    // bytes
@@ -306,6 +317,9 @@ impl FieldTypeReference {
             FieldTypeReference::Repeated(t) => {
                 t.trivial_resolve().map(|t| Type::Repeated(t.into()))
             }
+            FieldTypeReference::Optional(t) => {
+                t.trivial_resolve().map(|t| Type::Optional(t.into()))
+            }
             FieldTypeReference::Map(k, v) => k.trivial_resolve().and_then(|resolved_k| {
                 v.trivial_resolve()
                     .map(|resolved_v| Type::Map(resolved_k.into(), resolved_v.into()))
@@ -329,6 +343,9 @@ impl FieldTypeReference {
     }
     pub fn repeated(t: Self) -> Self {
         FieldTypeReference::Repeated(Box::new(t))
+    }
+    pub fn optional(t: Self) -> Self {
+        FieldTypeReference::Optional(Box::new(t))
     }
 
     pub fn map_key_wire_type(&self) -> Option<u32> {
@@ -400,6 +417,7 @@ impl std::fmt::Display for FieldTypeReference {
         match self {
             IdPath(path) => write!(f, "{}", path.join(".")),
             Repeated(field_type) => write!(f, "repeated {}", field_type),
+            Optional(field_type) => write!(f, "optional {}", field_type),
             Map(key_type, value_type) => write!(f, "map<{}, {}>", key_type, value_type),
             Bool => write!(f, "bool"),
             Bytes => write!(f, "bytes"),

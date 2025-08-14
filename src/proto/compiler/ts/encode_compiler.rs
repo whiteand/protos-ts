@@ -2,16 +2,18 @@ use std::{ops::Deref, rc::Rc};
 
 use crate::proto::{
     compiler::ts::{
+        ast::{Expression, FunctionDeclaration},
         encode_basic_repeated_type_field::encode_basic_repeated_type_field,
-        encode_call::encode_call, encode_message_expr::encode_message_expr,
+        encode_call::encode_call,
+        encode_message_expr::encode_message_expr,
     },
     error::ProtoError,
-    package::{self},
-    proto_scope::{root_scope::RootScope, ProtoScope},
+    package::{self, Field},
+    proto_scope::{ProtoScope, root_scope::RootScope},
 };
 
 use super::{
-    ast::{self, ElementAccess, Folder, MethodCall, Prop, Type, StatementList},
+    ast::{self, ElementAccess, Folder, MethodCall, Prop, StatementList, Type},
     constants::{ENCODE_FUNCTION_NAME, PROTOBUF_MODULE},
     encode_basic_type_field::encode_basic_type_field,
     encode_enum_field::encode_enum_field,
@@ -68,7 +70,6 @@ pub(super) fn compile_encode(
     encode_func.returns(Type::reference(Rc::clone(&writer_type_id)).into());
 
     let writer_var = Rc::new(ast::Identifier { text: "w".into() });
-    let writer_var_expr = Rc::new(ast::Expression::Identifier(Rc::clone(&writer_var)));
 
     encode_func.push_statement(
         ast::Statement::from(ast::VariableDeclarationList::declare_const(
@@ -93,150 +94,15 @@ pub(super) fn compile_encode(
     let fields = message_declaration.get_fields();
 
     for field in fields {
-        let js_name = field.json_name();
-        let js_name_id: Rc<ast::Identifier> = ast::Identifier::new(&js_name).into();
-        let message_expr: Rc<ast::Expression> = Rc::new(Rc::clone(&message_parameter_id).into());
-        let field_value = Rc::new(message_expr.prop(&js_name));
-        match &field.field_type {
-            package::Type::Enum(_) => {
-                encode_func.push_statement(
-                    encode_enum_field(
-                        &message_parameter_id,
-                        &writer_var,
-                        &js_name_id,
-                        field_value,
-                        field.tag,
-                    )
-                    .into(),
-                );
-            }
-            package::Type::Message(m_id) => {
-                let message_id = *m_id;
-
-                let field_exists_expression = ast::BinaryOperator::LogicalAnd
-                    .apply(
-                        ast::BinaryOperator::WeakNotEqual
-                            .apply(Rc::clone(&field_value), ast::Expression::Null.into())
-                            .into(),
-                        has_property(
-                            ast::Expression::Identifier(Rc::clone(&message_parameter_id)).into(),
-                            Rc::clone(&js_name_id),
-                        )
-                        .into(),
-                    )
-                    .into();
-                let message_encode_expr =
-                    encode_message_expr(&root, &message_scope, &mut file, message_id);
-                let expr = encode_call(
-                    message_encode_expr,
-                    Rc::clone(&writer_var_expr),
-                    field.tag,
-                    field_value,
-                );
-
-                encode_func.push_statement(ast::Statement::IfStatement(ast::IfStatement {
-                    expression: field_exists_expression,
-                    then_statement: ast::Statement::Block(ast::Block {
-                        statements: vec![ast::Statement::Expression(expr.into()).into()],
-                    })
-                    .into(),
-                    else_statement: None,
-                }));
-            }
-            package::Type::Repeated(element_type) => match element_type.deref() {
-                package::Type::Message(m_id) => {
-                    let message_id = *m_id;
-                    let message_encode_expr =
-                        encode_message_expr(&root, &message_scope, &mut file, message_id);
-
-                    let array_is_not_empty = ast::BinaryOperator::LogicalAnd
-                        .apply(
-                            ast::BinaryOperator::WeakNotEqual
-                                .apply(Rc::clone(&field_value), ast::Expression::Null.into())
-                                .into(),
-                            field_value.prop("length").into(),
-                        )
-                        .into();
-
-                    let i_id = ast::Identifier::from("i").into();
-                    let i_id_expr = ast::Expression::from(Rc::clone(&i_id));
-
-                    let mut for_stmt =
-                        ast::ForStatement::for_each(Rc::clone(&i_id), Rc::clone(&field_value));
-
-                    let expr = encode_call(
-                        message_encode_expr,
-                        Rc::clone(&writer_var_expr),
-                        field.tag,
-                        field_value.element(i_id_expr.into()).into(),
-                    );
-
-                    for_stmt.push_statement(ast::Statement::from(expr));
-
-                    encode_func.push_statement(ast::Statement::IfStatement(ast::IfStatement {
-                        expression: array_is_not_empty,
-                        then_statement: ast::Statement::from(for_stmt).into(),
-                        else_statement: None,
-                    }));
-                }
-                package::Type::Repeated(_) => unreachable!(),
-                package::Type::Map(_, _) => unreachable!(),
-                package::Type::Enum(_) => {
-                    encode_func.push_statement(
-                        encode_basic_repeated_type_field(
-                            &field_value,
-                            &package::Type::Int32,
-                            field.tag,
-                            &writer_var,
-                        )
-                        .into(),
-                    );
-                }
-                basic => {
-                    assert!(basic.is_basic());
-
-                    encode_func.push_statement(
-                        encode_basic_repeated_type_field(
-                            &field_value,
-                            basic,
-                            field.tag,
-                            &writer_var,
-                        )
-                        .into(),
-                    )
-                }
-            },
-            package::Type::Map(kt, vt) => encode_func.push_statement(
-                encode_map_field(
-                    &root,
-                    &message_scope,
-                    &mut file,
-                    &message_parameter_id,
-                    &writer_var,
-                    &js_name_id,
-                    &field_value,
-                    field.tag,
-                    kt,
-                    vt,
-                )?
-                .into(),
-            ),
-            t => {
-                assert!(t.is_basic());
-
-                encode_func.push_statement(
-                    encode_basic_type_field(
-                        &field_value,
-                        &message_parameter_id,
-                        &js_name_id,
-                        &writer_var,
-                        t,
-                        field.tag,
-                    )
-                    .into(),
-                );
-            }
-        }
+        compile_encode_field(
+            root,
+            message_scope,
+            &mut file,
+            &message_parameter_id,
+            &writer_var,
+            field,
+            &mut encode_func,
+        )?;
     }
 
     encode_func.push_statement(
@@ -249,5 +115,196 @@ pub(super) fn compile_encode(
 
     message_folder.push_file(file);
 
+    Ok(())
+}
+
+fn compile_encode_field(
+    root: &RootScope,
+    message_scope: &ProtoScope,
+    file: &mut super::ast::File,
+    message_parameter_id: &Rc<ast::Identifier>,
+    writer_var: &Rc<ast::Identifier>,
+    field: &Field,
+    encode_func: &mut FunctionDeclaration,
+) -> Result<(), ProtoError> {
+    let js_name = field.json_name();
+    let js_name_id: Rc<ast::Identifier> = ast::Identifier::new(&js_name).into();
+    let message_expr: Rc<ast::Expression> = Rc::new(Rc::clone(message_parameter_id).into());
+    let field_value = Rc::new(message_expr.prop(&js_name));
+
+    compile_encode_field_value(
+        root,
+        message_scope,
+        file,
+        message_parameter_id,
+        writer_var,
+        js_name_id,
+        &field.field_type,
+        field_value,
+        field.tag,
+        encode_func,
+    )
+}
+
+fn compile_encode_field_value(
+    root: &RootScope,
+    message_scope: &ProtoScope,
+    file: &mut super::ast::File,
+    message_parameter_id: &Rc<ast::Identifier>,
+    writer_var: &Rc<ast::Identifier>,
+    js_name_id: Rc<ast::Identifier>,
+    field_type: &package::Type,
+    field_value: Rc<Expression>,
+    field_tag: i64,
+    encode_func: &mut FunctionDeclaration,
+) -> Result<(), ProtoError> {
+    match field_type {
+        package::Type::Enum(_) => {
+            encode_func.push_statement(
+                encode_enum_field(
+                    &message_parameter_id,
+                    writer_var,
+                    &js_name_id,
+                    field_value,
+                    field_tag,
+                )
+                .into(),
+            );
+        }
+        package::Type::Message(m_id) => {
+            let message_id = *m_id;
+
+            let field_exists_expression = ast::BinaryOperator::LogicalAnd
+                .apply(
+                    ast::BinaryOperator::WeakNotEqual
+                        .apply(Rc::clone(&field_value), ast::Expression::Null.into())
+                        .into(),
+                    has_property(
+                        ast::Expression::Identifier(Rc::clone(&message_parameter_id)).into(),
+                        Rc::clone(&js_name_id),
+                    )
+                    .into(),
+                )
+                .into();
+            let message_encode_expr = encode_message_expr(&root, &message_scope, file, message_id);
+            let writer_var_expr = Rc::new(ast::Expression::Identifier(Rc::clone(&writer_var)));
+            let expr = encode_call(
+                message_encode_expr,
+                Rc::clone(&writer_var_expr),
+                field_tag,
+                field_value,
+            );
+
+            encode_func.push_statement(ast::Statement::IfStatement(ast::IfStatement {
+                expression: field_exists_expression,
+                then_statement: ast::Statement::Block(ast::Block {
+                    statements: vec![ast::Statement::Expression(expr.into()).into()],
+                })
+                .into(),
+                else_statement: None,
+            }));
+        }
+        package::Type::Optional(element_type) => compile_encode_field_value(
+            root,
+            message_scope,
+            file,
+            message_parameter_id,
+            writer_var,
+            js_name_id,
+            element_type,
+            field_value,
+            field_tag,
+            encode_func,
+        )?,
+        package::Type::Repeated(element_type) => match element_type.deref() {
+            package::Type::Message(m_id) => {
+                let message_id = *m_id;
+                let message_encode_expr =
+                    encode_message_expr(&root, &message_scope, file, message_id);
+
+                let array_is_not_empty = ast::BinaryOperator::LogicalAnd
+                    .apply(
+                        ast::BinaryOperator::WeakNotEqual
+                            .apply(Rc::clone(&field_value), ast::Expression::Null.into())
+                            .into(),
+                        field_value.prop("length").into(),
+                    )
+                    .into();
+
+                let i_id = ast::Identifier::from("i").into();
+                let i_id_expr = ast::Expression::from(Rc::clone(&i_id));
+
+                let mut for_stmt =
+                    ast::ForStatement::for_each(Rc::clone(&i_id), Rc::clone(&field_value));
+
+                let writer_var_expr = Rc::new(ast::Expression::Identifier(Rc::clone(&writer_var)));
+                let expr = encode_call(
+                    message_encode_expr,
+                    Rc::clone(&writer_var_expr),
+                    field_tag,
+                    field_value.element(i_id_expr.into()).into(),
+                );
+
+                for_stmt.push_statement(ast::Statement::from(expr));
+
+                encode_func.push_statement(ast::Statement::IfStatement(ast::IfStatement {
+                    expression: array_is_not_empty,
+                    then_statement: ast::Statement::from(for_stmt).into(),
+                    else_statement: None,
+                }));
+            }
+            package::Type::Repeated(_) => unreachable!(),
+            package::Type::Map(_, _) => unreachable!(),
+            package::Type::Enum(_) => {
+                encode_func.push_statement(
+                    encode_basic_repeated_type_field(
+                        &field_value,
+                        &package::Type::Int32,
+                        field_tag,
+                        &writer_var,
+                    )
+                    .into(),
+                );
+            }
+            basic => {
+                assert!(basic.is_basic());
+
+                encode_func.push_statement(
+                    encode_basic_repeated_type_field(&field_value, basic, field_tag, &writer_var)
+                        .into(),
+                )
+            }
+        },
+        package::Type::Map(kt, vt) => encode_func.push_statement(
+            encode_map_field(
+                &root,
+                &message_scope,
+                file,
+                &message_parameter_id,
+                &writer_var,
+                &js_name_id,
+                &field_value,
+                field_tag,
+                kt,
+                vt,
+            )?
+            .into(),
+        ),
+        t => {
+            assert!(t.is_basic());
+
+            encode_func.push_statement(
+                encode_basic_type_field(
+                    &field_value,
+                    &message_parameter_id,
+                    &js_name_id,
+                    &writer_var,
+                    t,
+                    field_tag,
+                )
+                .into(),
+            );
+        }
+    }
     Ok(())
 }

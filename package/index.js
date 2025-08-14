@@ -20,9 +20,7 @@ function getCliPath() {
     return path.resolve(__dirname, "./bin/protos-ts-linux");
   }
   if (currentOs === "darwin") {
-    // TODO: add compilation for 'darwin'
-    console.warn("Running linux executable from macos")
-    return path.resolve(__dirname, "./bin/protos-ts-linux");
+    return path.resolve(__dirname, "./bin/protos-ts-macos");
   }
   if (currentOs === "win32") {
     return path.resolve(__dirname, "./bin/protos-ts-win.exe");

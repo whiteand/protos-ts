@@ -20,8 +20,8 @@ use crate::proto::{
 use self::well_known::create_well_known_file;
 
 use super::{
-    enum_scope::EnumScope, file::FileScope, message::MessageScope, package::PackageScope,
-    root_scope::RootScope, ProtoScope,
+    ProtoScope, enum_scope::EnumScope, file::FileScope, message::MessageScope,
+    package::PackageScope, root_scope::RootScope,
 };
 
 #[derive(Debug)]
@@ -602,12 +602,19 @@ fn resolve_type(
             let value_type = resolve_type(builder, v)?;
             return Ok(Type::Repeated(Rc::new(value_type)));
         }
+        FieldTypeReference::Optional(v) => {
+            let value_type = resolve_type(builder, v)?;
+            return Ok(Type::Optional(Rc::new(value_type)));
+        }
         FieldTypeReference::Map(k, v) => {
             let key_type = resolve_type(builder, k)?;
             let value_type = resolve_type(builder, v)?;
             return Ok(Type::Map(Rc::new(key_type), Rc::new(value_type)));
         }
-        _ => unreachable!(),
+        t => {
+            tracing::error!(?t, "Faield to resolve type");
+            unreachable!();
+        }
     }
 }
 

@@ -4,7 +4,7 @@ use crate::proto::{
     compiler::ts::ast::{self, Type},
     error::ProtoError,
     package::{self, MessageEntry},
-    proto_scope::{root_scope::RootScope, ProtoScope},
+    proto_scope::{ProtoScope, root_scope::RootScope},
 };
 
 use super::{
@@ -144,6 +144,11 @@ fn import_encoding_input_type(
                 import_encoding_input_type(root, message_scope, types_file, field_type)?;
             return Ok(Type::array(element_type));
         }
+        package::Type::Optional(field_type) => {
+            let element_type =
+                import_encoding_input_type(root, message_scope, types_file, field_type)?;
+            return Ok(element_type.nullable());
+        }
         package::Type::Map(key, value) => {
             let key_type = resolve_key_type(key);
             let value_type = import_encoding_input_type(root, message_scope, types_file, value)?;
@@ -232,7 +237,12 @@ fn import_decode_result_type(
         package::Type::Repeated(field_type) => {
             let element_type =
                 import_decode_result_type(root, message_scope, types_file, field_type)?;
-            return Ok(Type::array(element_type));
+            return Ok(element_type.array());
+        }
+        package::Type::Optional(field_type) => {
+            let element_type =
+                import_decode_result_type(root, message_scope, types_file, field_type)?;
+            return Ok(element_type.nullable());
         }
         package::Type::Map(key, value) => {
             let key_type = resolve_key_type(key);
