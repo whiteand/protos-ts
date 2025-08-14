@@ -1,5 +1,7 @@
 use std::{io, path::PathBuf};
 
+use tracing::instrument;
+
 #[derive(Debug)]
 pub(crate) struct ProtoFolder {
     pub files: Vec<PathBuf>,
@@ -17,6 +19,7 @@ impl std::fmt::Display for ProtoFolder {
 }
 
 /// Recursively goes through the folder and collects all .proto files
+#[instrument(ret)]
 pub(crate) fn read_proto_folder(folder_path: PathBuf) -> io::Result<ProtoFolder> {
     let mut folders = vec![folder_path.clone()];
 

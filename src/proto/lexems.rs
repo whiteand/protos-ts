@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, path::Path, rc::Rc};
 
 use super::error::ProtoError;
 
@@ -12,6 +12,9 @@ pub(super) enum Lexem {
     IntLiteral(i64),
     OpenCurly,
     CloseCurly,
+    OpenParens,
+    CloseParens,
+    Colon,
     Comma,
     OpenBracket,
     CloseBracket,
@@ -36,12 +39,15 @@ impl Display for Lexem {
             Lexem::Less => write!(f, "<"),
             Lexem::Greater => write!(f, ">"),
             Lexem::EOF => write!(f, "EOF"),
+            Lexem::CloseParens => write!(f, ")"),
+            Lexem::OpenParens => write!(f, "("),
+            Lexem::Colon => write!(f, ":"),
         }
     }
 }
 
 pub(super) struct Position<'file_path> {
-    pub(super) file_path: &'file_path str,
+    pub(super) file_path: &'file_path Path,
     pub(super) line: usize,
     pub(super) column: usize,
 }
@@ -60,7 +66,13 @@ impl Copy for Position<'_> {}
 
 impl std::fmt::Debug for Position<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", self.file_path, self.line, self.column)
+        write!(
+            f,
+            "{}:{}:{}",
+            self.file_path.to_string_lossy(),
+            self.line,
+            self.column
+        )
     }
 }
 
@@ -103,7 +115,7 @@ fn is_id_char(char: char) -> bool {
 }
 
 pub(super) fn read_lexems<'file_path>(
-    file_path: &'file_path str,
+    file_path: &'file_path Path,
     content: &str,
 ) -> Result<Vec<LocatedLexem<'file_path>>, ProtoError> {
     let located_chars = read_chars(file_path, content);
@@ -142,11 +154,11 @@ pub(super) fn read_lexems<'file_path>(
                 }
                 _ => {
                     return Err(ProtoError::UnknownCharacter {
-                        file_path: position.file_path.to_string(),
+                        file_path: position.file_path.to_path_buf(),
                         line: position.line,
                         column: position.column,
                         char: char,
-                    })
+                    });
                 }
             }
             continue;
@@ -163,6 +175,9 @@ pub(super) fn read_lexems<'file_path>(
             '}' => Some(Lexem::CloseCurly),
             '[' => Some(Lexem::OpenBracket),
             ']' => Some(Lexem::CloseBracket),
+            '(' => Some(Lexem::OpenParens),
+            ')' => Some(Lexem::CloseParens),
+            ':' => Some(Lexem::Colon),
             _ => None,
         };
         if let Some(lexem) = single_char_lexem {
@@ -177,7 +192,7 @@ pub(super) fn read_lexems<'file_path>(
             continue;
         }
         return Err(ProtoError::UnknownCharacter {
-            file_path: position.file_path.to_string(),
+            file_path: position.file_path.to_path_buf(),
             line: position.line,
             column: position.column,
             char: char,
@@ -264,11 +279,11 @@ fn try_read_int<'file_path>(
         Err(_) => {
             return Err(ProtoError::InvalidIntLiteral {
                 literal: digits,
-                file_path: start.file_path.to_string(),
+                file_path: start.file_path.to_path_buf(),
                 line: start.line,
                 start_column: start.column,
                 end_column: end.column,
-            })
+            });
         }
     }
 }
@@ -346,7 +361,7 @@ fn try_read_string_literal<'file_path>(
 }
 
 fn read_chars<'file_path>(
-    file_path: &'file_path str,
+    file_path: &'file_path Path,
     content: &str,
 ) -> Vec<LocatedChar<'file_path>> {
     let mut located_chars = Vec::new();

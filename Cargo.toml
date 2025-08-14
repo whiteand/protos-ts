@@ -5,7 +5,10 @@ edition = "2024"
 authors = ["Andrii Biletskyi <andrewbeletskiy@gmail.com>"]
 
 [dependencies]
+clap = { version = "4.5.45", features = ["derive"] }
 path-clean = "1.0.1"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 [[bin]]
 name = "protos-ts"

@@ -1,6 +1,7 @@
 use std::{
     fmt::{Display, Formatter},
     io,
+    path::PathBuf,
 };
 
 use super::lexems::{self};
@@ -11,20 +12,20 @@ pub(crate) enum ProtoError {
     CannotOpenFile(io::Error),
     IOError(io::Error),
     UnknownCharacter {
-        file_path: String,
+        file_path: PathBuf,
         line: usize,
         column: usize,
         char: char,
     },
     InvalidIntLiteral {
         literal: String,
-        file_path: String,
+        file_path: PathBuf,
         line: usize,
         start_column: usize,
         end_column: usize,
     },
     SyntaxError {
-        file_path: String,
+        file_path: PathBuf,
         line: usize,
         column: usize,
         message: String,
@@ -52,7 +53,10 @@ impl Display for ProtoError {
             } => write!(
                 f,
                 "Unknown character at {}:{}:{}: {}",
-                file_path, line, column, char
+                file_path.to_string_lossy(),
+                line,
+                column,
+                char
             ),
             SyntaxError {
                 file_path,
@@ -62,7 +66,10 @@ impl Display for ProtoError {
             } => write!(
                 f,
                 "{}:{}:{}: SyntaxError: {}",
-                file_path, line, column, message
+                file_path.to_string_lossy(),
+                line,
+                column,
+                message
             ),
             InvalidIntLiteral {
                 file_path,
@@ -75,7 +82,10 @@ impl Display for ProtoError {
                 write!(
                     f,
                     " at {}:{}:{} to {}",
-                    file_path, line, start_column, end_column
+                    file_path.to_string_lossy(),
+                    line,
+                    start_column,
+                    end_column
                 )
             }
         }
@@ -93,7 +103,7 @@ pub(super) fn syntax_error<T: Into<String>>(
     lexem: &lexems::LocatedLexem,
 ) -> ProtoError {
     ProtoError::SyntaxError {
-        file_path: lexem.range.start.file_path.to_string(),
+        file_path: lexem.range.start.file_path.to_path_buf(),
         line: lexem.range.start.line,
         column: lexem.range.start.column,
         message: format!("{}, but {} occurred", message.into(), lexem.lexem).into(),

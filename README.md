@@ -67,9 +67,10 @@ out
 | Decoding of basic types           | **Done**      |
 | Decoding of enums                 | **Done**      |
 | Decoding of user defined messages | **Done**      |
-| Compile to WASM                   | *In Progress* |
+| Reach CLI experience              | **Done**      |
+| Support option statements         | *In Progress* |
+| Compile to WASM                   | Open          |
 | Full Coverage Tests               | Open          |
-| Reach CLI experience              | Open          |
 
 ## Links 
 

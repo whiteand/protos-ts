@@ -159,6 +159,9 @@ pub(super) fn parse_package(
                         tasks.push(ParseEnumDeclaration);
                         continue;
                     }
+                    Lexem::Id(id) if id.deref() == "option" => {
+                        todo!("option statement is not supported yet");
+                    }
                     Lexem::Id(id) => {
                         return Err(syntax_error(
                             format!("Unexpected identifier: {}", id),

@@ -4,14 +4,21 @@ use super::{
     id_generator::{IdGenerator, UniqueId},
     lexems,
     proto_scope::{
-        builder::{well_known::is_well_known_import, ScopeBuilder, ScopeBuilderTrait},
+        builder::{ScopeBuilder, ScopeBuilderTrait, well_known::is_well_known_import},
         root_scope::RootScope,
     },
     syntax,
 };
 use lexems::read_lexems;
-use std::{fmt::Display, io::Read, ops::Deref, path::PathBuf, rc::Rc};
+use std::{
+    fmt::Display,
+    io::Read,
+    ops::Deref,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 use syntax::parse_package;
+use tracing::instrument;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProtoVersion {
@@ -651,6 +658,7 @@ impl std::fmt::Display for ProtoFile {
     }
 }
 
+#[instrument]
 pub(crate) fn read_root_scope(files: &[PathBuf]) -> Result<RootScope, ProtoError> {
     let builder = ScopeBuilder::new_ref();
     let mut id_generator = IdGenerator::new();
@@ -668,15 +676,21 @@ pub(crate) fn read_root_scope(files: &[PathBuf]) -> Result<RootScope, ProtoError
     builder.finish()
 }
 
+#[instrument(skip(id_generator), ret)]
 fn read_proto_file(
     id_generator: &mut IdGenerator,
-    file_path: &PathBuf,
+    file_path: &Path,
 ) -> Result<ProtoFile, ProtoError> {
     let content = read_file_content(file_path)?;
 
-    let relative_file_path = get_relative_path(file_path);
+    let relative_file_path = get_relative_path(file_path).ok_or_else(|| {
+        ProtoError::Default(format!(
+            "Cannot get relative path to file: {}",
+            file_path.to_string_lossy()
+        ))
+    })?;
 
-    let lexems = read_lexems(&*relative_file_path, content.as_str())?;
+    let lexems = read_lexems(&relative_file_path, content.as_str())?;
 
     let file_name = file_path.file_name().unwrap().to_str().unwrap().to_string();
 
@@ -693,13 +707,12 @@ fn read_proto_file(
     Ok(res)
 }
 
-fn get_relative_path(file_path: &PathBuf) -> String {
+fn get_relative_path(file_path: &Path) -> Option<PathBuf> {
     let cur_dir = std::env::current_dir().unwrap();
-    let relative_file_path = relative_file_path(&cur_dir, file_path);
-    relative_file_path
+    path_relative_from(file_path, &cur_dir)
 }
 
-fn read_file_content(file_path: &PathBuf) -> Result<String, ProtoError> {
+fn read_file_content(file_path: &Path) -> Result<String, ProtoError> {
     let mut content = String::new();
     let mut file = std::fs::File::open(file_path).map_err(ProtoError::CannotOpenFile)?;
 
@@ -709,37 +722,43 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, ProtoError> {
     Ok(content)
 }
 
-fn relative_file_path(cur_dir: &PathBuf, file_path: &PathBuf) -> String {
-    let cur_dir_cannonical = cur_dir.canonicalize().unwrap();
-    let mut cur_dir_comps = cur_dir_cannonical.components();
-    let file_path_canonical = file_path.canonicalize().unwrap();
-    let mut file_path_components = file_path_canonical.components();
-    let mut res = String::new();
-    res.push_str(".");
-    loop {
-        let left = cur_dir_comps.next();
-        let right = file_path_components.next();
-        if right.is_none() {
-            break;
+// This function is taken from: https://github.com/rust-lang/rust/blob/e1d0de82cc40b666b88d4a6d2c9dcbc81d7ed27f/src/librustc_back/rpath.rs#L116-L158
+fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
+    use std::path::Component;
+
+    if path.is_absolute() != base.is_absolute() {
+        if path.is_absolute() {
+            Some(PathBuf::from(path))
+        } else {
+            None
         }
-        if left.is_none() {
-            if let std::path::Component::Normal(x) = right.unwrap() {
-                res.push_str("/");
-                res.push_str(x.to_str().unwrap());
-            } else {
-                todo!();
+    } else {
+        let mut ita = path.components();
+        let mut itb = base.components();
+        let mut comps: Vec<Component> = vec![];
+        loop {
+            match (ita.next(), itb.next()) {
+                (None, None) => break,
+                (Some(a), None) => {
+                    comps.push(a);
+                    comps.extend(ita.by_ref());
+                    break;
+                }
+                (None, _) => comps.push(Component::ParentDir),
+                (Some(a), Some(b)) if comps.is_empty() && a == b => (),
+                (Some(a), Some(b)) if b == Component::CurDir => comps.push(a),
+                (Some(_), Some(b)) if b == Component::ParentDir => return None,
+                (Some(a), Some(_)) => {
+                    comps.push(Component::ParentDir);
+                    for _ in itb {
+                        comps.push(Component::ParentDir);
+                    }
+                    comps.push(a);
+                    comps.extend(ita.by_ref());
+                    break;
+                }
             }
-            break;
         }
-        if left != right {
-            todo!();
-        }
+        Some(comps.iter().map(|c| c.as_os_str()).collect())
     }
-
-    while let Some(std::path::Component::Normal(x)) = file_path_components.next() {
-        res.push_str("/");
-        res.push_str(x.to_str().unwrap());
-    }
-
-    res
 }
