@@ -18,7 +18,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*" # Adjust for the version your project needs
-          registry-url: "https://npm.pkg.github.com/"
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
