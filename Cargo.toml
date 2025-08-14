@@ -4,18 +4,9 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Andrii Biletskyi <andrewbeletskiy@gmail.com>"]
 
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-# cargo watch -x 'run -- ./test-folder --out ./out'
-# RUSTFLAGS=-Awarnings cargo watch -x 'run -- ./test-folder --out ./out'
-# RUST_BACKTRACE=1 RUSTFLAGS=-Awarnings cargo watch -x 'run -- ./test-folder --out ./out'
-# ./target/release/protos-ts.exe ./test-folder --out out
-# time ./target/release/protos-ts.exe ./test-real --out out
-
-
 [dependencies]
 path-clean = "1.0.1"
 
 [[bin]]
 name = "protos-ts"
-path = "main.rs"
+path = "./src/main.rs"

@@ -3,8 +3,8 @@ mod proto;
 
 use std::process;
 
-use args::get_proto_folder_path;
 use args::CliArguments;
+use args::get_proto_folder_path;
 use proto::compiler::ts::ast::Folder;
 use proto::compiler::ts::commit_folder::commit_folder;
 use proto::compiler::ts::scope_to_folder::root_scope_to_folder;
