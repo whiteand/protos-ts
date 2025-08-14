@@ -26,14 +26,12 @@ jobs:
           override: true
       - name: Install cross
         run: cargo install cross --git https://github.com/cross-rs/cross
-      - name: Building for aarch64-apple-darwin
-        run: cross build --release --target aarch64-apple-darwin
       - name: Building for x86_64-unknown-linux-gnu
         run: cross build --release --target x86_64-unknown-linux-gnu
       - name: Building for x86_64-pc-windows-gnu
         run: cross build --release --target x86_64-pc-windows-gnu
       - name: Copying into the bin folder
-        run: rm -rf ./package/bin && mkdir ./package/bin && cp -r ./target/x86_64-pc-windows-gnu/release/protos-ts.exe ./package/bin/protos-ts-win.exe && cp -r ./target/aarch64-apple-darwin/release/protos-ts ./package/bin/protos-ts-macos && cp -r ./target/x86_64-unknown-linux-gnu/release/protos-ts ./package/bin/protos-ts-linux
+        run: rm -rf ./package/bin && mkdir ./package/bin && cp -r ./target/x86_64-pc-windows-gnu/release/protos-ts.exe ./package/bin/protos-ts-win.exe && cp -r ./target/x86_64-unknown-linux-gnu/release/protos-ts ./package/bin/protos-ts-linux
       - name: Publish to GitHub Packages Registry
         run: npm publish
         working-directory: ./package

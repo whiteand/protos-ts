@@ -23,3 +23,18 @@ cd ./package && npm version patch
 ```sh
 cd ./package && npm publish
 ```
+
+# How to publish
+
+## Build macos binary
+
+
+```sh
+cross build --release --target aarch64-apple-darwin && cp -r ./target/aarch64-apple-darwin/release/protos-ts ./package/bin/protos-ts-macos
+```
+
+## Increment version
+
+## Add tag starting with v
+
+## Push
