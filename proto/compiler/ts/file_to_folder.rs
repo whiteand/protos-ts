@@ -7,7 +7,7 @@ use super::{
 };
 use crate::proto::{
     error::ProtoError,
-    proto_scope::{root_scope::RootScope, traits::ChildrenScopes, ProtoScope},
+    proto_scope::{ProtoScope, root_scope::RootScope, traits::ChildrenScopes},
 };
 
 pub(super) fn file_to_folder(
@@ -57,7 +57,7 @@ fn insert_children(
     message_folder: &mut Folder,
     message_scope: &ProtoScope,
 ) -> Result<(), ProtoError> {
-    let message_declaration = match message_scope.deref() {
+    let message_declaration = match message_scope {
         ProtoScope::Message(m) => m,
         _ => unreachable!(),
     };

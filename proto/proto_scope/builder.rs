@@ -62,12 +62,8 @@ struct MessageData {
 impl UniqueId for MessageData {
     type Args = (Rc<str>, Vec<FieldOrOneOf>);
 
-    fn create_with_id(id: usize, args: Self::Args) -> Self {
-        MessageData {
-            id,
-            name: args.0,
-            fields: args.1,
-        }
+    fn create_with_id(id: usize, (name, fields): Self::Args) -> Self {
+        MessageData { id, name, fields }
     }
 }
 
@@ -391,11 +387,13 @@ impl ScopeBuilderTrait for Rc<RefCell<ScopeBuilder>> {
         }
         let protobuf_package = ensure_well_known_package(self);
         {
-            let present = protobuf_package.borrow().children.iter().any(
-                |c| c.borrow().is_file_with_name(imp)
-            );
+            let present = protobuf_package
+                .borrow()
+                .children
+                .iter()
+                .any(|c| c.borrow().is_file_with_name(imp));
             if present {
-                return
+                return;
             }
         }
         let child_ref = {

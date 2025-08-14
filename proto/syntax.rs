@@ -3,7 +3,7 @@ use std::{ops::Deref, rc::Rc};
 use crate::proto::package::FieldDeclaration;
 
 use super::{
-    error::{syntax_error, ProtoError},
+    error::{ProtoError, syntax_error},
     id_generator::IdGenerator,
     lexems::{Lexem, LocatedLexem},
     package::{
@@ -267,7 +267,7 @@ pub(super) fn parse_package(
                         continue;
                     }
                     (Lexem::Id(_), Lexem::StringLiteral(_), _) => {
-                        return Err(syntax_error("expected semicolon", &located_lexems[ind + 2]))
+                        return Err(syntax_error("expected semicolon", &located_lexems[ind + 2]));
                     }
                     _ => {
                         return Err(syntax_error(
@@ -474,7 +474,10 @@ pub(super) fn parse_package(
                                 stack.push(enum_declaration.into());
                             }
                             (a, b) => {
-                                println!("Invalid stack items for enum declaration finishing: {:?} and {:?}", a, b);
+                                println!(
+                                    "Invalid stack items for enum declaration finishing: {:?} and {:?}",
+                                    a, b
+                                );
                                 print_state(stack, tasks, task, &located_lexems[ind..]);
                                 todo!("Cannot handle separator {:?}", separator);
                             }
@@ -552,10 +555,8 @@ pub(super) fn parse_package(
                     Some(StackItem::String(name)) => name,
                     _ => unreachable!(),
                 };
-                let message_declaration: MessageDeclaration = id_gen.create((
-                    message_name,
-                    entries
-                ));
+                let message_declaration: MessageDeclaration =
+                    id_gen.create((message_name, entries));
                 stack.push(message_declaration.into());
                 continue;
             }
@@ -830,7 +831,7 @@ fn parse_import_path(s: &str) -> ImportPath {
         .take(parts.len() - 1)
         .map(|&s| Rc::from(s))
         .collect::<Vec<_>>();
-    let file_name = Rc::from(parts.last().unwrap().deref());
+    let file_name = Rc::from(*parts.last().unwrap());
     return ImportPath {
         packages,
         file_name,

@@ -702,10 +702,13 @@ pub(crate) trait Prop {
 pub(crate) trait ExpressionChain {
     fn type_of(&self) -> Expression;
     fn and(&self, other: Rc<Expression>) -> Expression;
+    #[allow(dead_code)]
     fn or(&self, other: Rc<Expression>) -> Expression;
+    #[allow(dead_code)]
     fn not(&self) -> Expression;
 }
 
+#[allow(dead_code)]
 pub(crate) trait WrapableExpr {
     fn into_parentheses(&self) -> Expression;
 }

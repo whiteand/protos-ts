@@ -435,7 +435,7 @@ impl From<&Expression> for String {
             Expression::False => "false".to_string(),
             Expression::True => "true".to_string(),
             Expression::BinaryExpression(expr) => expr.into(),
-            Expression::CallExpression(call_exrp) => call_exrp.deref().into(),
+            Expression::CallExpression(call_exrp) => call_exrp.into(),
             Expression::PropertyAccessExpression(proeprty_access_expr) => {
                 proeprty_access_expr.into()
             }
@@ -443,29 +443,24 @@ impl From<&Expression> for String {
                 let expr_str: String = expr.deref().into();
                 format!("({})", expr_str)
             }
-            Expression::ArrayLiteralExpression(exprs) => {
-                match exprs[..] {
-                    [] => "[]".into(),
-                    _ => unreachable!()
-                }
+            Expression::ArrayLiteralExpression(exprs) => match exprs[..] {
+                [] => "[]".into(),
+                _ => unreachable!(),
             },
             Expression::ObjectLiteralExpression(props) => object_literal_to_string(props),
             Expression::NewExpression(_) => todo!(),
             Expression::NumericLiteral(f64) => f64.to_string(),
             Expression::StringLiteral(str) => to_js_string(str),
-            Expression::ElementAccessExpression(element_access_expr) => {
-                element_access_expr.deref().into()
-            }
-            Expression::PrefixUnaryExpression(unary_expr) => unary_expr.deref().into(),
-            Expression::ConditionalExpression(cond) => cond.deref().into(),
+            Expression::ElementAccessExpression(element_access_expr) => element_access_expr.into(),
+            Expression::PrefixUnaryExpression(unary_expr) => unary_expr.into(),
+            Expression::ConditionalExpression(cond) => cond.into(),
             Expression::Typeof(expr) => {
                 let mut res = String::new();
                 res.push_str("typeof ");
                 let inner_str: String = expr.deref().into();
                 res.push_str(&inner_str);
                 res
-            },
-            
+            }
         }
     }
 }
@@ -690,8 +685,8 @@ impl From<&Statement> for String {
             }
             &Statement::ReturnStatement(None) => "return".to_string(),
             Statement::VariableStatement(var_decl) => var_decl.deref().into(),
-            Statement::IfStatement(if_stmt) => if_stmt.deref().into(),
-            Statement::Block(block) => block.deref().into(),
+            Statement::IfStatement(if_stmt) => if_stmt.into(),
+            Statement::Block(block) => block.into(),
             Statement::Expression(expr) => expr.deref().into(),
             Statement::Empty => ";".into(),
             Statement::For(for_stmt) => for_stmt.deref().into(),

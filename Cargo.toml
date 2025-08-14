@@ -1,7 +1,7 @@
 [package]
 name = "protos-ts"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Andrii Biletskyi <andrewbeletskiy@gmail.com>"]
 
 
@@ -14,7 +14,7 @@ authors = ["Andrii Biletskyi <andrewbeletskiy@gmail.com>"]
 
 
 [dependencies]
-path-clean = "0.1.0"
+path-clean = "1.0.1"
 
 [[bin]]
 name = "protos-ts"
