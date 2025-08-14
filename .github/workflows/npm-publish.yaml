@@ -6,10 +6,19 @@ on:
       - "v*"
 
 jobs:
-  build-binaries:
+  publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*" # Adjust for the version your project needs
+          registry-url: "https://npm.pkg.github.com/"
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -19,22 +28,6 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross
       - name: Run build.sh
         run: bash build.sh
-  publish:
-    needs: build-binaries
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*" # Adjust for the version your project needs
-          registry-url: "https://npm.pkg.github.com/"
-
       - name: Publish to GitHub Packages Registry
         run: npm publish
         working-directory: ./package
