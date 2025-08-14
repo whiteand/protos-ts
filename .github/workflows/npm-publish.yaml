@@ -17,6 +17,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
+          registry-url: "https://registry.npmjs.org/"
           node-version: "lts/*" # Adjust for the version your project needs
       - name: Install Rust
         uses: actions-rs/toolchain@v1
